@@ -2,7 +2,6 @@
 @using CareSphere.Models
 @inject CareSphere.Services.IPatientService PatientService
 @inject NavigationManager NavigationManager
-@rendermode InteractiveServer
 
 <PageTitle>Register Patient - CareSphere</PageTitle>
 
@@ -11,30 +10,37 @@
 
 <div class="row">
     <div class="col-md-8">
-        <EditForm Model="@patient" OnValidSubmit="HandleValidSubmit">
+        <EditForm Model="@patient" FormName="registerPatient" OnValidSubmit="ProcessValidSubmit">
             <DataAnnotationsValidator />
-            
+            <ValidationSummary class="alert alert-danger" />
+            <InputText type="hidden" @bind-Value="patient.Mrn" />
+
+            <!-- Basic Information -->
             <div class="card mb-4">
                 <div class="card-header bg-light">
                     <h5 class="mb-0">Basic Information</h5>
                 </div>
                 <div class="card-body">
                     <div class="row g-3">
+
                         <div class="col-md-6">
                             <label class="form-label">First Name *</label>
                             <InputText class="form-control" @bind-Value="patient.FirstName" />
-                            <ValidationMessage For="@(() => patient.FirstName)" class="text-danger" />
+                            <ValidationMessage For="@(() => patient.FirstName)" />
                         </div>
+
                         <div class="col-md-6">
                             <label class="form-label">Last Name *</label>
                             <InputText class="form-control" @bind-Value="patient.LastName" />
-                            <ValidationMessage For="@(() => patient.LastName)" class="text-danger" />
+                            <ValidationMessage For="@(() => patient.LastName)" />
                         </div>
+
                         <div class="col-md-6">
                             <label class="form-label">Date of Birth *</label>
                             <InputDate class="form-control" @bind-Value="patient.DateOfBirth" />
-                            <ValidationMessage For="@(() => patient.DateOfBirth)" class="text-danger" />
+                            <ValidationMessage For="@(() => patient.DateOfBirth)" />
                         </div>
+
                         <div class="col-md-6">
                             <label class="form-label">Gender *</label>
                             <InputSelect class="form-select" @bind-Value="patient.Gender">
@@ -43,8 +49,9 @@
                                 <option value="Female">Female</option>
                                 <option value="Other">Other</option>
                             </InputSelect>
-                            <ValidationMessage For="@(() => patient.Gender)" class="text-danger" />
+                            <ValidationMessage For="@(() => patient.Gender)" />
                         </div>
+
                         <div class="col-md-6">
                             <label class="form-label">Blood Group</label>
                             <InputSelect class="form-select" @bind-Value="patient.BloodGroup">
@@ -58,81 +65,105 @@
                                 <option value="O+">O+</option>
                                 <option value="O-">O-</option>
                             </InputSelect>
-                            <ValidationMessage For="@(() => patient.BloodGroup)" class="text-danger" />
+                            <ValidationMessage For="@(() => patient.BloodGroup)" />
                         </div>
+
                     </div>
                 </div>
             </div>
 
+            <!-- Contact & Identifiers -->
             <div class="card mb-4">
                 <div class="card-header bg-light">
                     <h5 class="mb-0">Contact & Identifiers</h5>
                 </div>
                 <div class="card-body">
                     <div class="row g-3">
+
                         <div class="col-md-6">
                             <label class="form-label">Phone Number *</label>
                             <InputText class="form-control" @bind-Value="patient.Phone" />
-                            <ValidationMessage For="@(() => patient.Phone)" class="text-danger" />
+                            <ValidationMessage For="@(() => patient.Phone)" />
                         </div>
+
                         <div class="col-md-6">
                             <label class="form-label">Email (Optional)</label>
                             <InputText class="form-control" type="email" @bind-Value="patient.Email" />
-                            <ValidationMessage For="@(() => patient.Email)" class="text-danger" />
+                            <ValidationMessage For="@(() => patient.Email)" />
                         </div>
+
                         <div class="col-12">
                             <label class="form-label">Address</label>
                             <InputTextArea class="form-control" @bind-Value="patient.Address" rows="3" />
-                            <ValidationMessage For="@(() => patient.Address)" class="text-danger" />
+                            <ValidationMessage For="@(() => patient.Address)" />
                         </div>
+
                         <div class="col-md-12">
                             <label class="form-label">ABHA ID (Optional)</label>
-                            <InputText class="form-control" @bind-Value="patient.AbhaId" placeholder="e.g. 91-XXXX-XXXX-XXXX" />
-                            <ValidationMessage For="@(() => patient.AbhaId)" class="text-danger" />
-                            <small class="text-muted">ABHA API integration is coming in a future update.</small>
+                            <InputText class="form-control" @bind-Value="patient.AbhaId"
+                                       placeholder="e.g. 91-XXXX-XXXX-XXXX" />
+                            <ValidationMessage For="@(() => patient.AbhaId)" />
+                            <small class="text-muted">
+                                ABHA API integration is coming in a future update.
+                            </small>
                         </div>
+
                     </div>
                 </div>
             </div>
 
+            <!-- Buttons -->
             <div class="d-flex gap-2">
                 <button type="submit" class="btn btn-primary" disabled="@isSubmitting">
-                    @if (isSubmitting) { <span class="spinner-border spinner-border-sm me-1" role="status" aria-hidden="true"></span> }
+                    @if (isSubmitting)
+                    {
+                        <span class="spinner-border spinner-border-sm me-1"></span>
+                    }
                     Register Patient
                 </button>
+
                 <a href="/patients" class="btn btn-secondary">Cancel</a>
             </div>
-            
+
             @if (!string.IsNullOrEmpty(errorMessage))
             {
                 <div class="alert alert-danger mt-3">@errorMessage</div>
             }
+
         </EditForm>
     </div>
 </div>
 
 @code {
-    private Patient patient = new Patient { DateOfBirth = DateTime.Today.AddYears(-30) }; // Default DOB
+    [SupplyParameterFromForm]
+    public Patient patient { get; set; } = new()
+    {
+        DateOfBirth = DateTime.Today.AddYears(-30),
+        Mrn = "TBD"
+    };
+
     private bool isSubmitting = false;
     private string errorMessage = string.Empty;
 
-    private async Task HandleValidSubmit()
+    private async Task ProcessValidSubmit()
     {
         try
         {
             isSubmitting = true;
             errorMessage = string.Empty;
-            // MRN is auto-generated by the service
-            patient.Mrn = "TBD"; // Satisfy required validation on client before service sets it. Note: EditForm checks [Required].
+
             await PatientService.CreatePatientAsync(patient);
+
             NavigationManager.NavigateTo("/patients");
+        }
+        catch (Microsoft.AspNetCore.Components.NavigationException)
+        {
+            // Expected exception thrown by NavigationManager.NavigateTo during static SSR
+            throw;
         }
         catch (Exception ex)
         {
             errorMessage = $"Error registering patient: {ex.Message}";
-        }
-        finally
-        {
             isSubmitting = false;
         }
     }

@@ -166,3 +166,4 @@ E:\CareSphere\obj\Debug\net9.0\refint\CareSphere.dll
 E:\CareSphere\obj\Debug\net9.0\CareSphere.pdb
 E:\CareSphere\obj\Debug\net9.0\CareSphere.genruntimeconfig.cache
 E:\CareSphere\obj\Debug\net9.0\ref\CareSphere.dll
+E:\CareSphere\obj\Debug\net9.0\CareSphere.sourcelink.json

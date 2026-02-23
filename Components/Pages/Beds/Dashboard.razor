@@ -1,0 +1,109 @@
+@page "/beds/dashboard"
+@inject CareSphere.Services.IBedService BedService
+
+<PageTitle>Bed Dashboard - CareSphere</PageTitle>
+
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <h2>Bed Dashboard</h2>
+    <div>
+        <a href="/allotments/create" class="btn btn-success"><i class="bi bi-box-arrow-in-right"></i> Admit Patient</a>
+        <a href="/wards" class="btn btn-outline-primary ms-2">Manage Wards</a>
+        <a href="/beds" class="btn btn-outline-primary ms-2">Manage Beds</a>
+    </div>
+</div>
+
+@if (stats == null)
+{
+    <p><em>Loading dashboard...</em></p>
+}
+else
+{
+    <!-- Top KPI Cards -->
+    <div class="row g-4 mb-4">
+        <div class="col-md-3">
+            <div class="card bg-primary text-white h-100">
+                <div class="card-body text-center">
+                    <h1 class="display-4 fw-bold">@stats.TotalBeds</h1>
+                    <h5 class="card-title">Total Beds</h5>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card bg-success text-white h-100">
+                <div class="card-body text-center">
+                    <h1 class="display-4 fw-bold">@stats.Available</h1>
+                    <h5 class="card-title">Available</h5>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card bg-danger text-white h-100">
+                <div class="card-body text-center">
+                    <h1 class="display-4 fw-bold">@stats.Occupied</h1>
+                    <h5 class="card-title">Occupied</h5>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card bg-warning text-dark h-100">
+                <div class="card-body text-center">
+                    <h1 class="display-4 fw-bold">@stats.Maintenance</h1>
+                    <h5 class="card-title">Under Maintenance</h5>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Ward Breakdown -->
+    <div class="card mb-4">
+        <div class="card-header bg-light">
+            <h5 class="mb-0">Ward Occupancy Breakdown</h5>
+        </div>
+        <div class="card-body">
+            @if (!stats.WardBreakdown.Any())
+            {
+                <p class="text-muted">No wards configured yet.</p>
+            }
+            else
+            {
+                <div class="row g-4">
+                    @foreach (var ward in stats.WardBreakdown)
+                    {
+                        var occupancyPercent = ward.Total > 0 ? (int)Math.Round((double)ward.Occupied / ward.Total * 100) : 0;
+                        var progressBarColor = occupancyPercent > 90 ? "bg-danger" : (occupancyPercent > 75 ? "bg-warning" : "bg-success");
+                        
+                        <div class="col-md-6 col-lg-4">
+                            <div class="border rounded p-3">
+                                <div class="d-flex justify-content-between align-items-center mb-2">
+                                    <h6 class="mb-0 fw-bold">@ward.WardName</h6>
+                                    <span class="badge bg-secondary">@ward.WardType</span>
+                                </div>
+                                
+                                <div class="d-flex justify-content-between small text-muted mb-1">
+                                    <span>Occupied: @ward.Occupied / @ward.Total</span>
+                                    <span>@occupancyPercent%</span>
+                                </div>
+                                <div class="progress mb-2" style="height: 10px;">
+                                    <div class="progress-bar @progressBarColor" role="progressbar" style="width: @occupancyPercent%;" aria-valuenow="@occupancyPercent" aria-valuemin="0" aria-valuemax="100"></div>
+                                </div>
+                                
+                                <div class="small text-muted mt-2">
+                                    Available: <strong>@ward.Available</strong>
+                                </div>
+                            </div>
+                        </div>
+                    }
+                </div>
+            }
+        </div>
+    </div>
+}
+
+@code {
+    private CareSphere.Models.BedDashboardStats? stats;
+
+    protected override async Task OnInitializedAsync()
+    {
+        stats = await BedService.GetDashboardStatsAsync();
+    }
+}

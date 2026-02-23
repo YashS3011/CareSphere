@@ -32,6 +32,34 @@ build_property.EnableCodeStyleSeverity =
 build_metadata.AdditionalFiles.TargetPath = Q29tcG9uZW50c1xBcHAucmF6b3I=
 build_metadata.AdditionalFiles.CssScope = 
 
+[E:/CareSphere/Components/Pages/Allotments/Create.razor]
+build_metadata.AdditionalFiles.TargetPath = Q29tcG9uZW50c1xQYWdlc1xBbGxvdG1lbnRzXENyZWF0ZS5yYXpvcg==
+build_metadata.AdditionalFiles.CssScope = 
+
+[E:/CareSphere/Components/Pages/Allotments/List.razor]
+build_metadata.AdditionalFiles.TargetPath = Q29tcG9uZW50c1xQYWdlc1xBbGxvdG1lbnRzXExpc3QucmF6b3I=
+build_metadata.AdditionalFiles.CssScope = 
+
+[E:/CareSphere/Components/Pages/Allotments/Transfer.razor]
+build_metadata.AdditionalFiles.TargetPath = Q29tcG9uZW50c1xQYWdlc1xBbGxvdG1lbnRzXFRyYW5zZmVyLnJhem9y
+build_metadata.AdditionalFiles.CssScope = 
+
+[E:/CareSphere/Components/Pages/Beds/Create.razor]
+build_metadata.AdditionalFiles.TargetPath = Q29tcG9uZW50c1xQYWdlc1xCZWRzXENyZWF0ZS5yYXpvcg==
+build_metadata.AdditionalFiles.CssScope = 
+
+[E:/CareSphere/Components/Pages/Beds/Dashboard.razor]
+build_metadata.AdditionalFiles.TargetPath = Q29tcG9uZW50c1xQYWdlc1xCZWRzXERhc2hib2FyZC5yYXpvcg==
+build_metadata.AdditionalFiles.CssScope = 
+
+[E:/CareSphere/Components/Pages/Beds/Edit.razor]
+build_metadata.AdditionalFiles.TargetPath = Q29tcG9uZW50c1xQYWdlc1xCZWRzXEVkaXQucmF6b3I=
+build_metadata.AdditionalFiles.CssScope = 
+
+[E:/CareSphere/Components/Pages/Beds/List.razor]
+build_metadata.AdditionalFiles.TargetPath = Q29tcG9uZW50c1xQYWdlc1xCZWRzXExpc3QucmF6b3I=
+build_metadata.AdditionalFiles.CssScope = 
+
 [E:/CareSphere/Components/Pages/Counter.razor]
 build_metadata.AdditionalFiles.TargetPath = Q29tcG9uZW50c1xQYWdlc1xDb3VudGVyLnJhem9y
 build_metadata.AdditionalFiles.CssScope = 
@@ -58,6 +86,18 @@ build_metadata.AdditionalFiles.CssScope =
 
 [E:/CareSphere/Components/Pages/Patients/View.razor]
 build_metadata.AdditionalFiles.TargetPath = Q29tcG9uZW50c1xQYWdlc1xQYXRpZW50c1xWaWV3LnJhem9y
+build_metadata.AdditionalFiles.CssScope = 
+
+[E:/CareSphere/Components/Pages/Wards/Create.razor]
+build_metadata.AdditionalFiles.TargetPath = Q29tcG9uZW50c1xQYWdlc1xXYXJkc1xDcmVhdGUucmF6b3I=
+build_metadata.AdditionalFiles.CssScope = 
+
+[E:/CareSphere/Components/Pages/Wards/Edit.razor]
+build_metadata.AdditionalFiles.TargetPath = Q29tcG9uZW50c1xQYWdlc1xXYXJkc1xFZGl0LnJhem9y
+build_metadata.AdditionalFiles.CssScope = 
+
+[E:/CareSphere/Components/Pages/Wards/List.razor]
+build_metadata.AdditionalFiles.TargetPath = Q29tcG9uZW50c1xQYWdlc1xXYXJkc1xMaXN0LnJhem9y
 build_metadata.AdditionalFiles.CssScope = 
 
 [E:/CareSphere/Components/Pages/Weather.razor]

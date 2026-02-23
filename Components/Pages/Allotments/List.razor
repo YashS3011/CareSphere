@@ -1,0 +1,192 @@
+@page "/allotments"
+@inject CareSphere.Services.IBedService BedService
+@inject CareSphere.Services.IPatientService PatientService
+@inject CareSphere.Data.ApplicationDbContext DbContext
+@inject NavigationManager NavigationManager
+@using Microsoft.EntityFrameworkCore
+
+<PageTitle>Allotment History - CareSphere</PageTitle>
+
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <h2>Allotments & Discharges</h2>
+    <a href="/allotments/create" class="btn btn-success"><i class="bi bi-box-arrow-in-right"></i> Admit Patient</a>
+</div>
+
+@if (allotments == null)
+{
+    <p><em>Loading...</em></p>
+}
+else if (!allotments.Any())
+{
+    <div class="alert alert-info">No allotments found.</div>
+}
+else
+{
+    <div class="table-responsive">
+        <table class="table table-striped table-hover">
+            <thead>
+                <tr>
+                    <th>Date</th>
+                    <th>Patient</th>
+                    <th>Bed</th>
+                    <th>Type</th>
+                    <th>Status</th>
+                    <th>Actions</th>
+                </tr>
+            </thead>
+            <tbody>
+                @foreach (var alt in allotments)
+                {
+                    <tr>
+                        <td>@alt.AdmissionDate.ToLocalTime().ToString("dd MMM yyyy")</td>
+                        <td>@(alt.Patient?.FirstName) @(alt.Patient?.LastName) <br/><small class="text-muted">@alt.Patient?.Mrn</small></td>
+                        <td><strong>@alt.Bed?.BedNumber</strong> <br/><small class="text-muted">@alt.Bed?.Ward?.Name</small></td>
+                        <td>@alt.AdmissionType</td>
+                        <td>
+                            @switch (alt.Status)
+                            {
+                                case "Active":
+                                    <span class="badge bg-success">Active</span>
+                                    break;
+                                case "Discharged":
+                                    <span class="badge bg-secondary">Discharged</span>
+                                    break;
+                                case "Transferred":
+                                    <span class="badge bg-warning text-dark">Transferred</span>
+                                    break;
+                                default:
+                                    <span class="badge bg-secondary">@alt.Status</span>
+                                    break;
+                            }
+                        </td>
+                        <td>
+                            @if (alt.Status == "Active")
+                            {
+                                <div class="btn-group btn-group-sm">
+                                    <a href="/allotments/transfer/@alt.Id" class="btn btn-warning" title="Transfer"><i class="bi bi-arrow-left-right"></i> Transfer</a>
+                                    <button class="btn btn-danger" @onclick="() => ConfirmDischarge(alt.Id)" title="Discharge"><i class="bi bi-box-arrow-right"></i> Discharge</button>
+                                </div>
+                            }
+                        </td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+    </div>
+}
+
+@if (showDischargeConfirm)
+{
+    <div class="modal fade show" style="display: block; background: rgba(0,0,0,0.5);" tabindex="-1">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">Discharge Patient</h5>
+                    <button type="button" class="btn-close" @onclick="CancelDischarge"></button>
+                </div>
+                <!-- Need to use a form for static SSR or a simple direct method if JS interop works. Because we rely on SSR, forms are better. -->
+                <form method="post" @onsubmit="DischargePatient" @formname="dischargeForm">
+                    <div class="modal-body">
+                        <p>Are you sure you want to discharge this patient from the current bed?</p>
+                        <div class="mb-3">
+                            <label class="form-label">Discharge Notes</label>
+                            <textarea class="form-control" @bind="dischargeNotes" name="dischargeNotes" rows="3"></textarea>
+                        </div>
+                        <input type="hidden" name="allotmentIdToDischarge" value="@allotmentIdToDischarge" />
+                        <AntiforgeryToken />
+                        @if (dischargeError != null)
+                        {
+                            <div class="alert alert-danger mt-2">@dischargeError</div>
+                        }
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-secondary" @onclick="CancelDischarge">Cancel</button>
+                        <button type="submit" class="btn btn-danger">Confirm Discharge</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+}
+
+@code {
+    private List<CareSphere.Models.BedAllotment>? allotments;
+    
+    private bool showDischargeConfirm = false;
+    private Guid allotmentIdToDischarge = Guid.Empty;
+    
+    [SupplyParameterFromForm]
+    public string? dischargeNotes { get; set; }
+    
+    [SupplyParameterFromForm]
+    public string? allotmentIdToDischargeStr { get; set; }
+    
+    private string? dischargeError;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadAllotments();
+        
+        // Handle postback from the discharge form
+        if (!string.IsNullOrEmpty(allotmentIdToDischargeStr) && Guid.TryParse(allotmentIdToDischargeStr, out var postedId))
+        {
+            await ProcessDischarge(postedId, dischargeNotes ?? "");
+        }
+    }
+
+    private async Task LoadAllotments()
+    {
+        // Load all allotments (recent first) using DbContext directly since service doesn't have GetAllAllotmentsAsync
+        allotments = await DbContext.BedAllotments
+            .Include(a => a.Patient)
+            .Include(a => a.Bed).ThenInclude(b => b.Ward)
+            .OrderByDescending(a => a.AdmissionDate)
+            .Take(100)
+            .ToListAsync();
+    }
+
+    private void ConfirmDischarge(Guid id)
+    {
+        allotmentIdToDischarge = id;
+        showDischargeConfirm = true;
+        dischargeError = null;
+        dischargeNotes = "";
+    }
+
+    private void CancelDischarge()
+    {
+        showDischargeConfirm = false;
+        allotmentIdToDischarge = Guid.Empty;
+        dischargeError = null;
+    }
+
+    private void DischargePatient()
+    {
+        // For static SSR, the @onsubmit triggers a full postback which is handled in OnInitializedAsync via [SupplyParameterFromForm]
+        // But we actually need to manually trigger Navigation or handle it in OnInitializedAsync.
+        // A better approach for SSR Modal is creating a separate Discharge page, but we'll try this workaround first.
+    }
+    
+    private async Task ProcessDischarge(Guid id, string notes)
+    {
+        try
+        {
+            await BedService.DischargePatientAsync(id, notes, DateTime.UtcNow);
+            await LoadAllotments();
+            showDischargeConfirm = false;
+            // Clear the form data to prevent re-submission on refresh
+            allotmentIdToDischargeStr = null;
+            dischargeNotes = null;
+            NavigationManager.NavigateTo("/allotments");
+        }
+        catch (Microsoft.AspNetCore.Components.NavigationException)
+        {
+            throw; // Expected redirect
+        }
+        catch (Exception ex)
+        {
+            dischargeError = ex.Message;
+            showDischargeConfirm = true; // Keep modal open to show error
+        }
+    }
+}

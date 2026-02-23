@@ -1,0 +1,159 @@
+@page "/wards/edit/{Id:guid}"
+@using CareSphere.Models
+@inject CareSphere.Services.IBedService BedService
+@inject NavigationManager NavigationManager
+
+<PageTitle>Edit Ward - CareSphere</PageTitle>
+
+<h2>Edit Ward</h2>
+<hr />
+
+@if (ward == null && !isNotFound)
+{
+    <p><em>Loading...</em></p>
+}
+else if (isNotFound)
+{
+    <div class="alert alert-danger">Ward not found.</div>
+    <a href="/wards" class="btn btn-primary">Back to List</a>
+}
+else if (ward != null)
+{
+    <div class="row">
+        <div class="col-md-6">
+            <EditForm Model="@ward" FormName="editWard" OnValidSubmit="ProcessValidSubmit">
+                <DataAnnotationsValidator />
+                <ValidationSummary class="alert alert-danger" />
+                
+                <InputText type="hidden" @bind-Value="ward.IdAsString" />
+
+                <div class="card mb-4">
+                    <div class="card-body">
+                        <div class="mb-3">
+                            <label class="form-label">Ward Name *</label>
+                            <InputText class="form-control" @bind-Value="ward.Name" />
+                            <ValidationMessage For="@(() => ward.Name)" />
+                        </div>
+                        
+                        <div class="mb-3">
+                            <label class="form-label">Ward Type *</label>
+                            <InputSelect class="form-select" @bind-Value="ward.WardType">
+                                <option value="">Select Ward Type</option>
+                                <option value="General">General</option>
+                                <option value="ICU">ICU</option>
+                                <option value="Emergency">Emergency</option>
+                                <option value="Private">Private</option>
+                                <option value="Semi-Private">Semi-Private</option>
+                            </InputSelect>
+                            <ValidationMessage For="@(() => ward.WardType)" />
+                        </div>
+
+                        <div class="mb-3">
+                            <label class="form-label">Building / Block</label>
+                            <InputText class="form-control" @bind-Value="ward.Building" />
+                            <ValidationMessage For="@(() => ward.Building)" />
+                        </div>
+
+                        <div class="mb-3">
+                            <label class="form-label">Floor</label>
+                            <InputText class="form-control" @bind-Value="ward.Floor" />
+                            <ValidationMessage For="@(() => ward.Floor)" />
+                        </div>
+                    </div>
+                </div>
+
+                <div class="d-flex gap-2">
+                    <button type="submit" class="btn btn-warning" disabled="@isSubmitting">
+                        @if (isSubmitting)
+                        {
+                            <span class="spinner-border spinner-border-sm me-1"></span>
+                        }
+                        Update Ward
+                    </button>
+                    <a href="/wards" class="btn btn-secondary">Cancel</a>
+                </div>
+
+                @if (!string.IsNullOrEmpty(errorMessage))
+                {
+                    <div class="alert alert-danger mt-3">@errorMessage</div>
+                }
+            </EditForm>
+        </div>
+    </div>
+}
+
+@code {
+    [Parameter]
+    public Guid Id { get; set; }
+
+    [SupplyParameterFromForm]
+    public WardFormModel? ward { get; set; }
+
+    // Use a viewmodel for the form to handle the Guid Id properly with SSR
+    public class WardFormModel
+    {
+        public string IdAsString { get; set; } = string.Empty;
+        public string Name { get; set; } = string.Empty;
+        public string WardType { get; set; } = string.Empty;
+        public string? Building { get; set; }
+        public string? Floor { get; set; }
+    }
+
+    private bool isNotFound = false;
+    private bool isSubmitting = false;
+    private string errorMessage = string.Empty;
+
+    protected override async Task OnInitializedAsync()
+    {
+        if (ward == null) // Not a postback
+        {
+            var dbWard = await BedService.GetWardByIdAsync(Id);
+            if (dbWard == null)
+            {
+                isNotFound = true;
+            }
+            else
+            {
+                ward = new WardFormModel
+                {
+                    IdAsString = dbWard.Id.ToString(),
+                    Name = dbWard.Name,
+                    WardType = dbWard.WardType,
+                    Building = dbWard.Building,
+                    Floor = dbWard.Floor
+                };
+            }
+        }
+    }
+
+    private async Task ProcessValidSubmit()
+    {
+        if (ward == null) return;
+        
+        try
+        {
+            isSubmitting = true;
+            errorMessage = string.Empty;
+
+            var dbWard = await BedService.GetWardByIdAsync(Guid.Parse(ward.IdAsString));
+            if (dbWard != null)
+            {
+                dbWard.Name = ward.Name;
+                dbWard.WardType = ward.WardType;
+                dbWard.Building = ward.Building;
+                dbWard.Floor = ward.Floor;
+                await BedService.UpdateWardAsync(dbWard);
+                NavigationManager.NavigateTo("/wards");
+            }
+        }
+        catch (Microsoft.AspNetCore.Components.NavigationException)
+        {
+            throw; // Expected redirect
+        }
+        catch (Exception ex)
+        {
+            errorMessage = $"Error updating ward: {ex.Message}";
+            isSubmitting = false;
+        }
+    }
+}

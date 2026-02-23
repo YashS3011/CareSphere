@@ -1,0 +1,134 @@
+@page "/wards"
+@inject CareSphere.Services.IBedService BedService
+@inject NavigationManager NavigationManager
+
+<PageTitle>Wards - CareSphere</PageTitle>
+
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <h2>Ward Management</h2>
+    <a href="/wards/create" class="btn btn-primary"><i class="bi bi-plus-circle"></i> Add New Ward</a>
+</div>
+
+@if (wards == null)
+{
+    <p><em>Loading...</em></p>
+}
+else if (!wards.Any())
+{
+    <div class="alert alert-info">No wards found.</div>
+}
+else
+{
+    <div class="table-responsive">
+        <table class="table table-striped table-hover">
+            <thead>
+                <tr>
+                    <th>Name</th>
+                    <th>Type</th>
+                    <th>Floor</th>
+                    <th>Building</th>
+                    <th>Total Beds</th>
+                    <th>Actions</th>
+                </tr>
+            </thead>
+            <tbody>
+                @foreach (var ward in wards)
+                {
+                    <tr>
+                        <td><strong>@ward.Name</strong></td>
+                        <td><span class="badge bg-secondary">@ward.WardType</span></td>
+                        <td>@ward.Floor</td>
+                        <td>@ward.Building</td>
+                        <td>@ward.TotalBeds</td>
+                        <td>
+                            <div class="btn-group btn-group-sm">
+                                <a href="/wards/edit/@ward.Id" class="btn btn-warning" title="Edit"><i class="bi bi-pencil"></i> Edit</a>
+                                <button class="btn btn-danger" @onclick="() => ConfirmDelete(ward.Id, ward.TotalBeds)" title="Delete"><i class="bi bi-trash"></i> Delete</button>
+                            </div>
+                        </td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+    </div>
+}
+
+@if (showDeleteConfirm)
+{
+    <div class="modal fade show" style="display: block; background: rgba(0,0,0,0.5);" tabindex="-1">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title text-danger">Confirm Delete</h5>
+                    <button type="button" class="btn-close" @onclick="CancelDelete"></button>
+                </div>
+                <div class="modal-body">
+                    <p>Are you sure you want to delete this ward?</p>
+                    @if (deleteError != null)
+                    {
+                        <div class="alert alert-danger">@deleteError</div>
+                    }
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" @onclick="CancelDelete">Cancel</button>
+                    <button type="button" class="btn btn-danger" @onclick="DeleteWard">Delete</button>
+                </div>
+            </div>
+        </div>
+    </div>
+}
+
+@code {
+    private List<CareSphere.Models.Ward>? wards;
+    private bool showDeleteConfirm = false;
+    private Guid wardIdToDelete = Guid.Empty;
+    private string? deleteError;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadWards();
+    }
+
+    private async Task LoadWards()
+    {
+        wards = await BedService.GetAllWardsAsync();
+    }
+
+    private void ConfirmDelete(Guid id, int totalBeds)
+    {
+        if (totalBeds > 0)
+        {
+            deleteError = "Cannot delete a ward that contains beds.";
+        }
+        else
+        {
+            deleteError = null;
+        }
+        wardIdToDelete = id;
+        showDeleteConfirm = true;
+    }
+
+    private void CancelDelete()
+    {
+        showDeleteConfirm = false;
+        wardIdToDelete = Guid.Empty;
+        deleteError = null;
+    }
+
+    private async Task DeleteWard()
+    {
+        if (wardIdToDelete != Guid.Empty && deleteError == null)
+        {
+            try
+            {
+                await BedService.DeleteWardAsync(wardIdToDelete);
+                await LoadWards();
+                showDeleteConfirm = false;
+            }
+            catch (Exception ex)
+            {
+                deleteError = ex.Message;
+            }
+        }
+    }
+}

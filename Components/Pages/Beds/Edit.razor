@@ -1,0 +1,195 @@
+@page "/beds/edit/{Id:guid}"
+@using CareSphere.Models
+@inject CareSphere.Services.IBedService BedService
+@inject NavigationManager NavigationManager
+
+<PageTitle>Edit Bed - CareSphere</PageTitle>
+
+<h2>Edit Bed</h2>
+<hr />
+
+@if (bed == null && !isNotFound)
+{
+    <p><em>Loading...</em></p>
+}
+else if (isNotFound)
+{
+    <div class="alert alert-danger">Bed not found.</div>
+    <a href="/beds" class="btn btn-primary">Back to List</a>
+}
+else if (bed != null)
+{
+    <div class="row">
+        <div class="col-md-6">
+            <EditForm Model="@bed" FormName="editBed" OnValidSubmit="ProcessValidSubmit">
+                <DataAnnotationsValidator />
+                <ValidationSummary class="alert alert-danger" />
+                
+                <InputText type="hidden" @bind-Value="bed.IdAsString" />
+
+                <div class="card mb-4">
+                    <div class="card-body">
+                        <div class="mb-3">
+                            <label class="form-label">Bed Number *</label>
+                            <InputText class="form-control" @bind-Value="bed.BedNumber" />
+                            <ValidationMessage For="@(() => bed.BedNumber)" />
+                        </div>
+
+                        <div class="mb-3">
+                            <label class="form-label">Ward *</label>
+                            <InputSelect class="form-select" @bind-Value="bed.WardIdAsString">
+                                <option value="">Select Ward</option>
+                                @if (wards != null)
+                                {
+                                    @foreach (var w in wards)
+                                    {
+                                        <option value="@w.Id">@w.Name (@w.WardType)</option>
+                                    }
+                                }
+                            </InputSelect>
+                            <ValidationMessage For="@(() => bed.WardIdAsString)" />
+                        </div>
+                        
+                        <div class="mb-3">
+                            <label class="form-label">Bed Type *</label>
+                            <InputSelect class="form-select" @bind-Value="bed.BedType">
+                                <option value="">Select Bed Type</option>
+                                <option value="Standard">Standard</option>
+                                <option value="ICU">ICU</option>
+                                <option value="Isolation">Isolation</option>
+                                <option value="Pediatric">Pediatric</option>
+                                <option value="Maternity">Maternity</option>
+                            </InputSelect>
+                            <ValidationMessage For="@(() => bed.BedType)" />
+                        </div>
+
+                        <div class="mb-3">
+                            <label class="form-label">Status</label>
+                            <InputSelect class="form-select" @bind-Value="bed.Status">
+                                <option value="Available">Available</option>
+                                <option value="Occupied">Occupied</option>
+                                <option value="Maintenance">Maintenance</option>
+                                <option value="Reserved">Reserved</option>
+                            </InputSelect>
+                            <ValidationMessage For="@(() => bed.Status)" />
+                        </div>
+
+                        <div class="mb-3 form-check">
+                            <InputCheckbox class="form-check-input" @bind-Value="bed.IsActive" id="isActiveCheck" />
+                            <label class="form-check-label" for="isActiveCheck">
+                                Is Active
+                            </label>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="d-flex gap-2">
+                    <button type="submit" class="btn btn-warning" disabled="@isSubmitting">
+                        @if (isSubmitting)
+                        {
+                            <span class="spinner-border spinner-border-sm me-1"></span>
+                        }
+                        Update Bed
+                    </button>
+                    <a href="/beds" class="btn btn-secondary">Cancel</a>
+                </div>
+
+                @if (!string.IsNullOrEmpty(errorMessage))
+                {
+                    <div class="alert alert-danger mt-3">@errorMessage</div>
+                }
+            </EditForm>
+        </div>
+    </div>
+}
+
+@code {
+    [Parameter]
+    public Guid Id { get; set; }
+
+    [SupplyParameterFromForm]
+    public BedFormModel? bed { get; set; }
+
+    public class BedFormModel
+    {
+        public string IdAsString { get; set; } = string.Empty;
+        
+        [System.ComponentModel.DataAnnotations.Required]
+        public string BedNumber { get; set; } = string.Empty;
+        
+        [System.ComponentModel.DataAnnotations.Required]
+        public string WardIdAsString { get; set; } = string.Empty;
+        
+        [System.ComponentModel.DataAnnotations.Required]
+        public string BedType { get; set; } = string.Empty;
+        
+        [System.ComponentModel.DataAnnotations.Required]
+        public string Status { get; set; } = "Available";
+        
+        public bool IsActive { get; set; } = true;
+    }
+
+    private List<CareSphere.Models.Ward>? wards;
+    private bool isNotFound = false;
+    private bool isSubmitting = false;
+    private string errorMessage = string.Empty;
+
+    protected override async Task OnInitializedAsync()
+    {
+        wards = await BedService.GetAllWardsAsync();
+
+        if (bed == null) // Not a postback
+        {
+            var dbBed = await BedService.GetBedByIdAsync(Id);
+            if (dbBed == null)
+            {
+                isNotFound = true;
+            }
+            else
+            {
+                bed = new BedFormModel
+                {
+                    IdAsString = dbBed.Id.ToString(),
+                    BedNumber = dbBed.BedNumber,
+                    WardIdAsString = dbBed.WardId.ToString(),
+                    BedType = dbBed.BedType,
+                    Status = dbBed.Status,
+                    IsActive = dbBed.IsActive
+                };
+            }
+        }
+    }
+
+    private async Task ProcessValidSubmit()
+    {
+        if (bed == null) return;
+        
+        try
+        {
+            isSubmitting = true;
+            errorMessage = string.Empty;
+
+            var dbBed = await BedService.GetBedByIdAsync(Guid.Parse(bed.IdAsString));
+            if (dbBed != null)
+            {
+                dbBed.BedNumber = bed.BedNumber;
+                dbBed.WardId = Guid.Parse(bed.WardIdAsString);
+                dbBed.BedType = bed.BedType;
+                dbBed.Status = bed.Status;
+                dbBed.IsActive = bed.IsActive;
+
+                await BedService.UpdateBedAsync(dbBed);
+                NavigationManager.NavigateTo("/beds");
+            }
+        }
+        catch (Microsoft.AspNetCore.Components.NavigationException)
+        {
+            throw; // Expected redirect
+        }
+        catch (Exception ex)
+        {
+            errorMessage = $"Error updating bed: {ex.Message}";
+            isSubmitting = false;
+        }
+    }
+}
