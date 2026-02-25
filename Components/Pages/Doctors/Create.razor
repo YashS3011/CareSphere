@@ -1,0 +1,153 @@
+@page "/doctors/create"
+@using CareSphere.Models
+@inject CareSphere.Services.IDoctorService DoctorService
+@inject NavigationManager NavigationManager
+
+<PageTitle>Add Doctor - CareSphere</PageTitle>
+
+<h2>Add New Doctor</h2>
+<hr />
+
+<div class="row">
+    <div class="col-md-8">
+        <EditForm Model="@doctor" FormName="createDoctor" OnValidSubmit="ProcessValidSubmit">
+            <DataAnnotationsValidator />
+            <ValidationSummary class="alert alert-danger" />
+
+            <div class="card mb-4">
+                <div class="card-body">
+                    <div class="row g-3">
+                        <div class="col-md-12">
+                            <label class="form-label">Full Name *</label>
+                            <InputText class="form-control" @bind-Value="doctor.FullName" placeholder="Dr. John Doe" />
+                            <ValidationMessage For="@(() => doctor.FullName)" />
+                        </div>
+
+                        <div class="col-md-6">
+                            <label class="form-label">Registration Number *</label>
+                            <InputText class="form-control" @bind-Value="doctor.RegistrationNumber" />
+                            <ValidationMessage For="@(() => doctor.RegistrationNumber)" />
+                        </div>
+                        
+                        <div class="col-md-6">
+                            <label class="form-label">Specialization *</label>
+                            <InputText class="form-control" @bind-Value="doctor.Specialization" placeholder="e.g. Cardiologist" />
+                            <ValidationMessage For="@(() => doctor.Specialization)" />
+                        </div>
+
+                        <div class="col-md-6">
+                            <label class="form-label">Department *</label>
+                            <InputSelect class="form-select" @bind-Value="doctor.Department">
+                                <option value="">Select Department</option>
+                                <option value="General Medicine">General Medicine</option>
+                                <option value="Cardiology">Cardiology</option>
+                                <option value="Orthopedics">Orthopedics</option>
+                                <option value="Pediatrics">Pediatrics</option>
+                                <option value="Neurology">Neurology</option>
+                                <option value="Emergency">Emergency</option>
+                            </InputSelect>
+                            <ValidationMessage For="@(() => doctor.Department)" />
+                        </div>
+
+                        <div class="col-md-6">
+                            <label class="form-label">Phone *</label>
+                            <InputText class="form-control" @bind-Value="doctor.Phone" />
+                            <ValidationMessage For="@(() => doctor.Phone)" />
+                        </div>
+                        
+                        <div class="col-md-12">
+                            <label class="form-label">Email *</label>
+                            <InputText class="form-control" type="email" @bind-Value="doctor.Email" />
+                            <ValidationMessage For="@(() => doctor.Email)" />
+                        </div>
+
+                        <div class="col-md-12 mt-4">
+                            <div class="form-check form-switch">
+                                <InputCheckbox class="form-check-input" @bind-Value="doctor.IsActive" id="isActiveSwitch" />
+                                <label class="form-check-label" for="isActiveSwitch">Doctor is active and available for scheduling</label>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="d-flex gap-2">
+                <button type="submit" class="btn btn-primary" disabled="@isSubmitting">
+                    @if (isSubmitting)
+                    {
+                        <span class="spinner-border spinner-border-sm me-1"></span>
+                    }
+                    Save Doctor
+                </button>
+                <a href="/doctors" class="btn btn-secondary">Cancel</a>
+            </div>
+
+            @if (!string.IsNullOrEmpty(errorMessage))
+            {
+                <div class="alert alert-danger mt-3">@errorMessage</div>
+            }
+        </EditForm>
+    </div>
+</div>
+
+@code {
+    [SupplyParameterFromForm]
+    public DoctorFormModel doctor { get; set; } = new();
+
+    public class DoctorFormModel
+    {
+        [System.ComponentModel.DataAnnotations.Required(ErrorMessage = "Full Name is required")]
+        public string FullName { get; set; } = string.Empty;
+
+        [System.ComponentModel.DataAnnotations.Required(ErrorMessage = "Registration Number is required")]
+        public string RegistrationNumber { get; set; } = string.Empty;
+
+        [System.ComponentModel.DataAnnotations.Required(ErrorMessage = "Specialization is required")]
+        public string Specialization { get; set; } = string.Empty;
+
+        [System.ComponentModel.DataAnnotations.Required(ErrorMessage = "Department is required")]
+        public string Department { get; set; } = string.Empty;
+
+        [System.ComponentModel.DataAnnotations.Required(ErrorMessage = "Phone is required")]
+        [System.ComponentModel.DataAnnotations.RegularExpression(@"^\d{10}$", ErrorMessage = "Phone must be 10 digits")]
+        public string Phone { get; set; } = string.Empty;
+
+        [System.ComponentModel.DataAnnotations.Required(ErrorMessage = "Email is required")]
+        [System.ComponentModel.DataAnnotations.EmailAddress(ErrorMessage = "Invalid Email")]
+        public string Email { get; set; } = string.Empty;
+
+        public bool IsActive { get; set; } = true;
+    }
+
+    private bool isSubmitting = false;
+    private string errorMessage = string.Empty;
+
+    private async Task ProcessValidSubmit()
+    {
+        try
+        {
+            isSubmitting = true;
+            errorMessage = string.Empty;
+
+            var newDoctor = new Doctor
+            {
+                FullName = doctor.FullName,
+                RegistrationNumber = doctor.RegistrationNumber,
+                Specialization = doctor.Specialization,
+                Department = doctor.Department,
+                Phone = doctor.Phone,
+                Email = doctor.Email,
+                IsActive = doctor.IsActive
+            };
+
+            await DoctorService.CreateDoctorAsync(newDoctor);
+
+            NavigationManager.NavigateTo("/doctors");
+        }
+        catch (Exception ex) when (ex is not Microsoft.AspNetCore.Components.NavigationException)
+        {
+            errorMessage = $"Error saving doctor: {ex.InnerException?.Message ?? ex.Message}";
+            isSubmitting = false;
+        }
+    }
+}

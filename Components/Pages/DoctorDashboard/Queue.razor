@@ -1,0 +1,359 @@
+@page "/doctor-dashboard/queue/{DoctorId:guid}/{DateString}"
+@rendermode InteractiveServer
+@using CareSphere.Models
+@inject CareSphere.Services.IEncounterService EncounterService
+@inject CareSphere.Services.IDoctorService DoctorService
+@inject CareSphere.Services.IPatientService PatientService
+@inject NavigationManager NavigationManager
+
+<PageTitle>OPD Queue - CareSphere</PageTitle>
+
+@if (doctor != null)
+{
+    <div class="d-flex justify-content-between align-items-center mb-3">
+        <h2>OPD Queue: Dr. @doctor.FullName</h2>
+        <div>
+            <span class="badge bg-secondary fs-5 me-3">@parsedDate.ToShortDateString()</span>
+            <button class="btn btn-primary" @onclick="() => showAddModal = true">
+                <i class="bi bi-person-plus-fill me-1"></i> Add to Queue
+            </button>
+        </div>
+    </div>
+    <hr />
+
+    @if (isLoading)
+    {
+        <div class="d-flex justify-content-center">
+            <div class="spinner-border text-primary" role="status">
+                <span class="visually-hidden">Loading...</span>
+            </div>
+        </div>
+    }
+    else if (queueItems == null || !queueItems.Any())
+    {
+        <div class="alert alert-info">No patients in queue for this date.</div>
+    }
+    else
+    {
+        <div class="table-responsive shadow-sm">
+            <table class="table table-hover align-middle">
+                <thead class="table-light">
+                    <tr>
+                        <th class="text-center">Token</th>
+                        <th>Patient Name</th>
+                        <th>MRN</th>
+                        <th>Visit Type</th>
+                        <th>Est. Wait Time</th>
+                        <th>Status</th>
+                        <th class="text-center">Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @{
+                        int waitPosition = 0;
+                    }
+                    @foreach (var item in queueItems)
+                    {
+                        @if (item.Status == "Waiting") waitPosition++;
+                        
+                        // Estimated wait calculated as position x 10 minutes for waiting patients
+                        string waitTimeStr = item.Status == "Waiting" ? $"{waitPosition * 10} mins" : "-";
+
+                        <tr class="@GetRowClass(item.Status)">
+                            <td class="text-center fw-bold fs-5">#@item.TokenNumber</td>
+                            <td>
+                                <strong>@item.Patient?.FirstName @item.Patient?.LastName</strong>
+                            </td>
+                            <td><small class="text-muted">@item.Patient?.Mrn</small></td>
+                            <td>@item.VisitType</td>
+                            <td>
+                                @if (item.Status == "Waiting")
+                                {
+                                    <span class="text-warning fw-bold"><i class="bi bi-clock me-1"></i> @waitTimeStr</span>
+                                }
+                                else
+                                {
+                                    <span>-</span>
+                                }
+                            </td>
+                            <td>
+                                <span class="badge @GetBadgeClass(item.Status) p-2 fs-6">@item.Status</span>
+                            </td>
+                            <td class="text-center">
+                                @if (item.Status == "Waiting")
+                                {
+                                    <button class="btn btn-sm btn-success me-1" @onclick="() => CallNext(item)" title="Call Next">
+                                        <i class="bi bi-megaphone-fill"></i> Call
+                                    </button>
+                                }
+                                else if (item.Status == "InConsultation")
+                                {
+                                    <a href="/encounters/start/@item.Id" class="btn btn-sm btn-primary">
+                                        <i class="bi bi-heart-pulse"></i> Start Encounter
+                                    </a>
+                                }
+                                else if (item.Status == "Waiting" || item.Status == "InConsultation")
+                                {
+                                   <button class="btn btn-sm btn-outline-danger ms-1" title="Mark No-Show" @onclick="() => MarkNoShow(item)">
+                                        <i class="bi bi-x-circle"></i> No Show
+                                    </button>
+                                }
+                                
+                                <button class="btn btn-sm btn-outline-secondary ms-1" @onclick="() => ViewDetails(item)">
+                                    <i class="bi bi-info-circle"></i>
+                                </button>
+                            </td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+    }
+
+    <!-- Add to Queue Modal -->
+    @if (showAddModal)
+    {
+        <div class="modal fade show d-block" tabindex="-1" style="background-color: rgba(0,0,0,0.5);">
+            <div class="modal-dialog">
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <h5 class="modal-title">Add Patient to Queue</h5>
+                        <button type="button" class="btn-close" @onclick="CloseAddModal"></button>
+                    </div>
+                    <div class="modal-body">
+                        <EditForm Model="newQueueItem" OnValidSubmit="SaveQueueItem">
+                            <DataAnnotationsValidator />
+                            
+                            <div class="mb-3">
+                                <label class="form-label">Select Patient *</label>
+                                <InputSelect class="form-select" @bind-Value="newQueueItem.PatientIdAsString">
+                                    <option value="">-- Select Patient --</option>
+                                    @if(allPatients != null)
+                                    {
+                                        @foreach(var p in allPatients)
+                                        {
+                                            <option value="@p.Id">@p.FirstName @p.LastName (MRN: @p.Mrn)</option>
+                                        }
+                                    }
+                                </InputSelect>
+                                <ValidationMessage For="@(() => newQueueItem.PatientIdAsString)" />
+                            </div>
+
+                            <div class="mb-3">
+                                <label class="form-label">Visit Type *</label>
+                                <InputSelect class="form-select" @bind-Value="newQueueItem.VisitType">
+                                    <option value="OPD">OPD</option>
+                                    <option value="Follow-Up">Follow-Up</option>
+                                    <option value="Emergency">Emergency</option>
+                                </InputSelect>
+                                <ValidationMessage For="@(() => newQueueItem.VisitType)" />
+                            </div>
+
+                            <div class="mb-3">
+                                <label class="form-label">Scheduled Time *</label>
+                                <InputText class="form-control" type="time" @bind-Value="newQueueItem.ScheduledTimeStr" />
+                                <ValidationMessage For="@(() => newQueueItem.ScheduledTimeStr)" />
+                            </div>
+
+                            <div class="mb-3">
+                                <label class="form-label">Notes (Optional)</label>
+                                <InputTextArea class="form-control" @bind-Value="newQueueItem.Notes" rows="2" />
+                            </div>
+
+                            @if (!string.IsNullOrEmpty(addErrorMessage))
+                            {
+                                <div class="alert alert-danger mt-2">@addErrorMessage</div>
+                            }
+
+                            <div class="mt-4 text-end">
+                                <button type="button" class="btn btn-secondary me-2" @onclick="CloseAddModal">Cancel</button>
+                                <button type="submit" class="btn btn-primary" disabled="@isSaving">
+                                    @if(isSaving){ <span class="spinner-border spinner-border-sm me-1"></span> }
+                                    Add to Queue
+                                </button>
+                            </div>
+                        </EditForm>
+                    </div>
+                </div>
+            </div>
+        </div>
+    }
+}
+else
+{
+    // Invalid doctor/date loading state
+    <div class="d-flex justify-content-center mt-5">
+        <div class="spinner-border text-primary" role="status">
+            <span class="visually-hidden">Loading...</span>
+        </div>
+    </div>
+}
+
+@code {
+    [Parameter]
+    public Guid DoctorId { get; set; }
+
+    [Parameter]
+    public string DateString { get; set; } = string.Empty;
+
+    private Doctor? doctor;
+    private DateOnly parsedDate;
+    private List<OpdQueue>? queueItems;
+    private bool isLoading = true;
+    
+    // Add Modal State
+    private bool showAddModal = false;
+    private bool isSaving = false;
+    private string addErrorMessage = string.Empty;
+    private List<Patient>? allPatients;
+
+    public class QueueFormModel
+    {
+        [System.ComponentModel.DataAnnotations.Required(ErrorMessage = "Please select a patient")]
+        public string PatientIdAsString { get; set; } = string.Empty;
+
+        [System.ComponentModel.DataAnnotations.Required(ErrorMessage = "Please select visit type")]
+        public string VisitType { get; set; } = "OPD";
+
+        [System.ComponentModel.DataAnnotations.Required(ErrorMessage = "Time is required")]
+        public string ScheduledTimeStr { get; set; } = DateTime.Now.ToString("HH:mm");
+
+        public string? Notes { get; set; }
+    }
+
+    private QueueFormModel newQueueItem = new();
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadData();
+        allPatients = await PatientService.GetPatientsAsync();
+    }
+
+    private async Task LoadData()
+    {
+        try
+        {
+            isLoading = true;
+            if (DateOnly.TryParse(DateString, out parsedDate))
+            {
+                doctor = await DoctorService.GetDoctorByIdAsync(DoctorId);
+                if (doctor != null)
+                {
+                    queueItems = await EncounterService.GetQueueByDoctorAndDateAsync(DoctorId, parsedDate);
+                }
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error loading queue: {ex.Message}");
+        }
+        finally
+        {
+            isLoading = false;
+        }
+    }
+
+    private async Task CallNext(OpdQueue item)
+    {
+        try
+        {
+            await EncounterService.UpdateQueueStatusAsync(item.Id, "InConsultation");
+            await LoadData(); // Reload to reflect changes
+        }
+        catch (Exception ex)
+        {
+             Console.WriteLine($"Error calling: {ex.Message}");
+             // Could show a toast here
+        }
+    }
+
+    private async Task MarkNoShow(OpdQueue item)
+    {
+        try
+        {
+            await EncounterService.UpdateQueueStatusAsync(item.Id, "NoShow");
+            await LoadData();
+        }
+         catch (Exception ex)
+        {
+             Console.WriteLine($"Error marking no show: {ex.Message}");
+        }
+    }
+
+    private void ViewDetails(OpdQueue item)
+    {
+        // For now, no specific details view, could pass state or expand row
+    }
+
+    private void CloseAddModal()
+    {
+        showAddModal = false;
+        newQueueItem = new QueueFormModel();
+        addErrorMessage = string.Empty;
+    }
+
+    private async Task SaveQueueItem()
+    {
+        try
+        {
+            isSaving = true;
+            addErrorMessage = string.Empty;
+
+            if (TimeSpan.TryParse(newQueueItem.ScheduledTimeStr, out TimeSpan scheduledTime))
+            {
+                int token = await EncounterService.GetNextTokenNumberAsync(DoctorId, parsedDate);
+
+                var entry = new OpdQueue
+                {
+                    PatientId = Guid.Parse(newQueueItem.PatientIdAsString),
+                    DoctorId = DoctorId,
+                    QueueDate = parsedDate,
+                    ScheduledTime = scheduledTime,
+                    TokenNumber = token,
+                    VisitType = newQueueItem.VisitType,
+                    Status = "Waiting",
+                    Notes = newQueueItem.Notes
+                };
+
+                await EncounterService.AddToQueueAsync(entry);
+                await LoadData();
+                CloseAddModal();
+            }
+            else
+            {
+                addErrorMessage = "Invalid time format.";
+            }
+        }
+        catch(Exception ex)
+        {
+            addErrorMessage = $"Error: {ex.Message}";
+        }
+        finally
+        {
+            isSaving = false;
+        }
+    }
+
+    private string GetBadgeClass(string status)
+    {
+        return status switch
+        {
+            "Waiting" => "bg-warning text-dark border border-warning",
+            "InConsultation" => "bg-primary text-white border border-primary",
+            "Completed" => "bg-success text-white border border-success",
+            "NoShow" => "bg-secondary text-white border border-secondary",
+            _ => "bg-light text-dark"
+        };
+    }
+
+    private string GetRowClass(string status)
+    {
+        return status switch
+        {
+            "InConsultation" => "table-primary",
+            "Completed" => "table-light text-muted opacity-75",
+            "NoShow" => "table-light text-muted opacity-50",
+            _ => ""
+        };
+    }
+}

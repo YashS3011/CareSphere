@@ -1,0 +1,203 @@
+@page "/doctors/edit/{Id:guid}"
+@using CareSphere.Models
+@inject CareSphere.Services.IDoctorService DoctorService
+@inject NavigationManager NavigationManager
+
+<PageTitle>Edit Doctor - CareSphere</PageTitle>
+
+<h2>Edit Doctor</h2>
+<hr />
+
+@if (isLoading)
+{
+    <div class="d-flex justify-content-center">
+        <div class="spinner-border text-primary" role="status">
+            <span class="visually-hidden">Loading...</span>
+        </div>
+    </div>
+}
+else if (doctorModel == null)
+{
+    <div class="alert alert-danger">Doctor not found.</div>
+    <a href="/doctors" class="btn btn-secondary">Back to List</a>
+}
+else
+{
+    <div class="row">
+        <div class="col-md-8">
+            <EditForm Model="@doctorModel" FormName="editDoctor" OnValidSubmit="ProcessValidSubmit">
+                <DataAnnotationsValidator />
+                <ValidationSummary class="alert alert-danger" />
+
+                <div class="card mb-4">
+                    <div class="card-body">
+                        <div class="row g-3">
+                            <div class="col-md-12">
+                                <label class="form-label">Full Name *</label>
+                                <InputText class="form-control" @bind-Value="doctorModel.FullName" />
+                                <ValidationMessage For="@(() => doctorModel.FullName)" />
+                            </div>
+
+                            <div class="col-md-6">
+                                <label class="form-label">Registration Number *</label>
+                                <InputText class="form-control" @bind-Value="doctorModel.RegistrationNumber" />
+                                <ValidationMessage For="@(() => doctorModel.RegistrationNumber)" />
+                            </div>
+                            
+                            <div class="col-md-6">
+                                <label class="form-label">Specialization *</label>
+                                <InputText class="form-control" @bind-Value="doctorModel.Specialization" />
+                                <ValidationMessage For="@(() => doctorModel.Specialization)" />
+                            </div>
+
+                            <div class="col-md-6">
+                                <label class="form-label">Department *</label>
+                                <InputSelect class="form-select" @bind-Value="doctorModel.Department">
+                                    <option value="">Select Department</option>
+                                    <option value="General Medicine">General Medicine</option>
+                                    <option value="Cardiology">Cardiology</option>
+                                    <option value="Orthopedics">Orthopedics</option>
+                                    <option value="Pediatrics">Pediatrics</option>
+                                    <option value="Neurology">Neurology</option>
+                                    <option value="Emergency">Emergency</option>
+                                </InputSelect>
+                                <ValidationMessage For="@(() => doctorModel.Department)" />
+                            </div>
+
+                            <div class="col-md-6">
+                                <label class="form-label">Phone *</label>
+                                <InputText class="form-control" @bind-Value="doctorModel.Phone" />
+                                <ValidationMessage For="@(() => doctorModel.Phone)" />
+                            </div>
+                            
+                            <div class="col-md-12">
+                                <label class="form-label">Email *</label>
+                                <InputText class="form-control" type="email" @bind-Value="doctorModel.Email" />
+                                <ValidationMessage For="@(() => doctorModel.Email)" />
+                            </div>
+
+                            <div class="col-md-12 mt-4">
+                                <div class="form-check form-switch">
+                                    <InputCheckbox class="form-check-input" @bind-Value="doctorModel.IsActive" id="isActiveSwitch" />
+                                    <label class="form-check-label" for="isActiveSwitch">Doctor is active and available for scheduling</label>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="d-flex gap-2">
+                    <button type="submit" class="btn btn-primary" disabled="@isSubmitting">
+                        @if (isSubmitting)
+                        {
+                            <span class="spinner-border spinner-border-sm me-1"></span>
+                        }
+                        Update Doctor
+                    </button>
+                    <a href="/doctors" class="btn btn-secondary">Cancel</a>
+                </div>
+
+                @if (!string.IsNullOrEmpty(errorMessage))
+                {
+                    <div class="alert alert-danger mt-3">@errorMessage</div>
+                }
+            </EditForm>
+        </div>
+    </div>
+}
+
+@code {
+    [Parameter]
+    public Guid Id { get; set; }
+
+    [SupplyParameterFromForm]
+    public DoctorFormModel? doctorModel { get; set; }
+
+    public class DoctorFormModel
+    {
+        [System.ComponentModel.DataAnnotations.Required(ErrorMessage = "Full Name is required")]
+        public string FullName { get; set; } = string.Empty;
+
+        [System.ComponentModel.DataAnnotations.Required(ErrorMessage = "Registration Number is required")]
+        public string RegistrationNumber { get; set; } = string.Empty;
+
+        [System.ComponentModel.DataAnnotations.Required(ErrorMessage = "Specialization is required")]
+        public string Specialization { get; set; } = string.Empty;
+
+        [System.ComponentModel.DataAnnotations.Required(ErrorMessage = "Department is required")]
+        public string Department { get; set; } = string.Empty;
+
+        [System.ComponentModel.DataAnnotations.Required(ErrorMessage = "Phone is required")]
+        [System.ComponentModel.DataAnnotations.RegularExpression(@"^\d{10}$", ErrorMessage = "Phone must be 10 digits")]
+        public string Phone { get; set; } = string.Empty;
+
+        [System.ComponentModel.DataAnnotations.Required(ErrorMessage = "Email is required")]
+        [System.ComponentModel.DataAnnotations.EmailAddress(ErrorMessage = "Invalid Email")]
+        public string Email { get; set; } = string.Empty;
+
+        public bool IsActive { get; set; } = true;
+    }
+
+    private Doctor? originalDoctor;
+    private bool isLoading = true;
+    private bool isSubmitting = false;
+    private string errorMessage = string.Empty;
+
+    protected override async Task OnInitializedAsync()
+    {
+        try
+        {
+            originalDoctor = await DoctorService.GetDoctorByIdAsync(Id);
+            
+            if (originalDoctor != null && doctorModel == null)
+            {
+                doctorModel = new DoctorFormModel
+                {
+                    FullName = originalDoctor.FullName,
+                    RegistrationNumber = originalDoctor.RegistrationNumber,
+                    Specialization = originalDoctor.Specialization,
+                    Department = originalDoctor.Department,
+                    Phone = originalDoctor.Phone,
+                    Email = originalDoctor.Email,
+                    IsActive = originalDoctor.IsActive
+                };
+            }
+        }
+        catch (Exception ex)
+        {
+            errorMessage = "Error loading doctor details: " + ex.Message;
+        }
+        finally
+        {
+            isLoading = false;
+        }
+    }
+
+    private async Task ProcessValidSubmit()
+    {
+        if (originalDoctor == null || doctorModel == null) return;
+
+        try
+        {
+            isSubmitting = true;
+            errorMessage = string.Empty;
+
+            originalDoctor.FullName = doctorModel.FullName;
+            originalDoctor.RegistrationNumber = doctorModel.RegistrationNumber;
+            originalDoctor.Specialization = doctorModel.Specialization;
+            originalDoctor.Department = doctorModel.Department;
+            originalDoctor.Phone = doctorModel.Phone;
+            originalDoctor.Email = doctorModel.Email;
+            originalDoctor.IsActive = doctorModel.IsActive;
+
+            await DoctorService.UpdateDoctorAsync(originalDoctor);
+
+            NavigationManager.NavigateTo("/doctors");
+        }
+        catch (Exception ex) when (ex is not Microsoft.AspNetCore.Components.NavigationException)
+        {
+            errorMessage = $"Error updating doctor: {ex.InnerException?.Message ?? ex.Message}";
+            isSubmitting = false;
+        }
+    }
+}

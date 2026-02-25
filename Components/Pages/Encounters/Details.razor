@@ -1,0 +1,723 @@
+@page "/encounters/details/{Id:guid}"
+@rendermode InteractiveServer
+@using CareSphere.Models
+@inject CareSphere.Services.IEncounterService EncounterService
+@inject NavigationManager NavigationManager
+
+<PageTitle>Encounter Details - CareSphere</PageTitle>
+
+@if (isLoading)
+{
+    <div class="d-flex justify-content-center mt-5">
+        <div class="spinner-border text-primary" role="status">
+            <span class="visually-hidden">Loading...</span>
+        </div>
+    </div>
+}
+else if (encounter == null)
+{
+    <div class="alert alert-danger">Encounter not found.</div>
+    <a href="/doctor-dashboard" class="btn btn-secondary">Dashboard</a>
+}
+else
+{
+    <!-- Header -->
+    <div class="d-flex justify-content-between align-items-center mb-3">
+        <h2>
+            Encounter Details 
+            <span class="badge @(encounter.Status == "InProgress" ? "bg-primary" : encounter.Status == "Finished" ? "bg-success" : "bg-warning text-dark") fs-6 ms-2">
+                @encounter.Status
+            </span>
+        </h2>
+        <div>
+            @if (encounter.Status == "InProgress")
+            {
+                <button class="btn btn-success me-2" @onclick="FinishEncounter" disabled="@isFinishing">
+                    @if (isFinishing) { <span class="spinner-border spinner-border-sm me-1"></span> }
+                    <i class="bi bi-check2-circle me-1"></i> Finish Encounter
+                </button>
+            }
+            <a href="javascript:history.back()" class="btn btn-outline-secondary">Back</a>
+        </div>
+    </div>
+
+    <!-- Patient Info Card -->
+    <div class="card shadow-sm mb-4 border-left-primary">
+        <div class="card-body">
+            <div class="row">
+                <div class="col-md-3 border-end">
+                    <h5 class="text-primary mb-1">@encounter.Patient?.FirstName @encounter.Patient?.LastName</h5>
+                    <div class="text-muted small">MRN: @encounter.Patient?.Mrn</div>
+                    <div class="mt-2">
+                        <span class="badge bg-light text-dark border">
+                            <i class="bi bi-gender-ambiguous me-1"></i> @encounter.Patient?.Gender
+                        </span>
+                        <span class="badge bg-light text-dark border ms-1">
+                            <i class="bi bi-calendar3 me-1"></i> @((DateTime.Now.Year - encounter.Patient?.DateOfBirth.Year)) yrs
+                        </span>
+                    </div>
+                </div>
+                <div class="col-md-9 ps-4">
+                    <div class="row">
+                        <div class="col-md-4 mb-2">
+                            <small class="text-muted d-block">Doctor</small>
+                            <strong>Dr. @encounter.Doctor?.FullName</strong>
+                        </div>
+                        <div class="col-md-4 mb-2">
+                            <small class="text-muted d-block">Encounter Type</small>
+                            <strong>@encounter.EncounterType</strong>
+                        </div>
+                        <div class="col-md-4 mb-2">
+                            <small class="text-muted d-block">Start Time</small>
+                            <strong>@encounter.StartDatetime.ToLocalTime().ToString("g")</strong>
+                        </div>
+                        <div class="col-md-12 mt-2">
+                            <small class="text-muted d-block">Chief Complaint</small>
+                            <span class="text-danger fw-bold">@encounter.ChiefComplaint</span>
+                        </div>
+                        @if (!string.IsNullOrEmpty(encounter.Patient?.AllergyNotes))
+                        {
+                            <div class="col-md-12 mt-2">
+                                <div class="alert alert-danger py-1 px-2 mb-0 d-inline-block">
+                                    <i class="bi bi-exclamation-triangle-fill me-1"></i> <strong>Allergies:</strong> @encounter.Patient.AllergyNotes
+                                </div>
+                            </div>
+                        }
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="row">
+        <!-- Left Column: SOAP Notes -->
+        <div class="col-lg-7 mb-4">
+            <div class="card shadow-sm h-100">
+                <div class="card-header bg-light d-flex justify-content-between align-items-center">
+                    <h5 class="mb-0">SOAP Note</h5>
+                    @if (encounter.Status == "InProgress")
+                    {
+                        <button class="btn btn-sm btn-outline-primary" @onclick="ToggleSoapEdit">
+                            <i class="bi @(isEditingSoap ? "bi-eye" : "bi-pencil")"></i> @(isEditingSoap ? "View" : "Edit")
+                        </button>
+                    }
+                </div>
+                <div class="card-body">
+                    @if (isEditingSoap && encounter.Status == "InProgress")
+                    {
+                        <EditForm Model="CurrentSoapNote" OnValidSubmit="SaveSoap">
+                            <div class="mb-3">
+                                <label class="form-label fw-bold text-primary">Subjective</label>
+                                <InputTextArea class="form-control" @bind-Value="CurrentSoapNote.Subjective" rows="3" placeholder="Patient's statements..." />
+                            </div>
+                            
+                            <hr />
+                            <label class="form-label fw-bold text-success">Objective (Vitals)</label>
+                            <div class="row g-2 mb-3">
+                                <div class="col-md-3">
+                                    <div class="input-group input-group-sm">
+                                        <span class="input-group-text">Temp</span>
+                                        <InputNumber class="form-control" @bind-Value="CurrentSoapNote.ObjectiveTemp" />
+                                        <span class="input-group-text">°C</span>
+                                    </div>
+                                </div>
+                                <div class="col-md-3">
+                                    <div class="input-group input-group-sm">
+                                        <span class="input-group-text">BP</span>
+                                        <InputText class="form-control" @bind-Value="CurrentSoapNote.ObjectiveBp" placeholder="120/80" />
+                                    </div>
+                                </div>
+                                <div class="col-md-3">
+                                    <div class="input-group input-group-sm">
+                                        <span class="input-group-text">Pulse</span>
+                                        <InputNumber class="form-control" @bind-Value="CurrentSoapNote.ObjectivePulse" />
+                                    </div>
+                                </div>
+                                <div class="col-md-3">
+                                    <div class="input-group input-group-sm">
+                                        <span class="input-group-text">SpO2</span>
+                                        <InputNumber class="form-control" @bind-Value="CurrentSoapNote.ObjectiveSpo2" />
+                                        <span class="input-group-text">%</span>
+                                    </div>
+                                </div>
+                                <div class="col-md-3">
+                                    <div class="input-group input-group-sm">
+                                        <span class="input-group-text">Weight</span>
+                                        <InputNumber class="form-control" @bind-Value="CurrentSoapNote.ObjectiveWeight" />
+                                        <span class="input-group-text">kg</span>
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <hr />
+                            <div class="mb-3">
+                                <label class="form-label fw-bold text-info">Assessment</label>
+                                <InputTextArea class="form-control" @bind-Value="CurrentSoapNote.Assessment" rows="2" placeholder="Clinical impression..." />
+                            </div>
+
+                            <hr />
+                            <div class="mb-3">
+                                <label class="form-label fw-bold text-warning">Plan</label>
+                                <InputTextArea class="form-control" @bind-Value="CurrentSoapNote.Plan" rows="3" placeholder="Treatment logical plan..." />
+                            </div>
+
+                            <div class="text-end">
+                                <button type="submit" class="btn btn-primary btn-sm">Save SOAP Note</button>
+                            </div>
+                        </EditForm>
+                    }
+                    else
+                    {
+                        <div class="mb-3">
+                            <h6 class="text-primary fw-bold">Subjective</h6>
+                            <p class="text-muted m-0 p-2 bg-light border rounded">@(string.IsNullOrEmpty(CurrentSoapNote.Subjective) ? "No data" : CurrentSoapNote.Subjective)</p>
+                        </div>
+                        
+                        <div class="mb-3">
+                            <h6 class="text-success fw-bold">Objective</h6>
+                            <div class="p-2 border rounded bg-light">
+                                <div class="row text-muted small">
+                                    <div class="col-4"><strong>Temp:</strong> @CurrentSoapNote.ObjectiveTemp °C</div>
+                                    <div class="col-4"><strong>BP:</strong> @CurrentSoapNote.ObjectiveBp</div>
+                                    <div class="col-4"><strong>Pulse:</strong> @CurrentSoapNote.ObjectivePulse bpm</div>
+                                    <div class="col-4"><strong>SpO2:</strong> @CurrentSoapNote.ObjectiveSpo2 %</div>
+                                    <div class="col-4"><strong>Weight:</strong> @CurrentSoapNote.ObjectiveWeight kg</div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="mb-3">
+                            <h6 class="text-info fw-bold">Assessment</h6>
+                            <p class="text-muted m-0 p-2 bg-light border rounded">@(string.IsNullOrEmpty(CurrentSoapNote.Assessment) ? "No data" : CurrentSoapNote.Assessment)</p>
+                        </div>
+
+                        <div class="mb-3">
+                            <h6 class="text-warning fw-bold text-dark">Plan</h6>
+                            <p class="text-muted m-0 p-2 bg-light border rounded">@(string.IsNullOrEmpty(CurrentSoapNote.Plan) ? "No data" : CurrentSoapNote.Plan)</p>
+                        </div>
+                    }
+                </div>
+            </div>
+        </div>
+
+        <!-- Right Column: Diagnoses & Prescriptions -->
+        <div class="col-lg-5 mb-4">
+             <!-- Diagnoses -->
+            <div class="card shadow-sm mb-4">
+                <div class="card-header bg-light d-flex justify-content-between align-items-center">
+                    <h6 class="mb-0">Diagnoses</h6>
+                    @if (encounter.Status == "InProgress")
+                    {
+                        <button class="btn btn-sm btn-outline-primary" @onclick="ToggleAddDiagnosis">
+                            <i class="bi bi-plus-circle"></i> Add
+                        </button>
+                    }
+                </div>
+                <div class="card-body p-0">
+                     @if (showAddDiagnosis && encounter.Status == "InProgress")
+                     {
+                        <div class="p-3 bg-light border-bottom">
+                            <EditForm Model="newDiagnosis" OnValidSubmit="SaveDiagnosis">
+                                <div class="mb-2">
+                                    <InputText class="form-control form-control-sm" @bind-Value="newDiagnosis.DiagnosisName" placeholder="Diagnosis Name *" />
+                                </div>
+                                <div class="row g-2 mb-2">
+                                     <div class="col-6">
+                                        <InputSelect class="form-select form-select-sm" @bind-Value="newDiagnosis.DiagnosisType">
+                                            <option value="Primary">Primary</option>
+                                            <option value="Secondary">Secondary</option>
+                                            <option value="Differential">Differential</option>
+                                        </InputSelect>
+                                    </div>
+                                    <div class="col-6">
+                                        <InputSelect class="form-select form-select-sm" @bind-Value="newDiagnosis.ClinicalStatus">
+                                            <option value="Active">Active</option>
+                                            <option value="Resolved">Resolved</option>
+                                            <option value="Inactive">Inactive</option>
+                                        </InputSelect>
+                                    </div>
+                                </div>
+                                <div class="text-end">
+                                    <button type="button" class="btn btn-sm btn-secondary" @onclick="ToggleAddDiagnosis">Cancel</button>
+                                    <button type="submit" class="btn btn-sm btn-primary">Save</button>
+                                </div>
+                            </EditForm>
+                        </div>
+                     }
+
+                    <ul class="list-group list-group-flush">
+                        @if (diagnoses != null && diagnoses.Any())
+                        {
+                            foreach (var d in diagnoses)
+                            {
+                                <li class="list-group-item d-flex justify-content-between align-items-center">
+                                    <div>
+                                        <strong>@d.DiagnosisName</strong>
+                                        <br/>
+                                        <small class="text-muted">@d.DiagnosisType &middot; @d.ClinicalStatus</small>
+                                    </div>
+                                    @if (encounter.Status == "InProgress")
+                                    {
+                                        <button class="btn btn-sm text-danger" @onclick="() => DeleteDiagnosis(d.Id)">
+                                            <i class="bi bi-trash"></i>
+                                        </button>
+                                    }
+                                </li>
+                            }
+                        }
+                        else
+                        {
+                            <li class="list-group-item text-muted text-center py-3">No diagnoses added.</li>
+                        }
+                    </ul>
+                </div>
+            </div>
+
+             <!-- Prescriptions -->
+            <div class="card shadow-sm">
+                <div class="card-header bg-light d-flex justify-content-between align-items-center">
+                    <h6 class="mb-0">Prescriptions</h6>
+                    @if (encounter.Status == "InProgress")
+                    {
+                        <button class="btn btn-sm btn-outline-primary" @onclick="ToggleAddPrescription">
+                            <i class="bi bi-plus-circle"></i> Add
+                        </button>
+                    }
+                </div>
+                <div class="card-body p-0">
+                     @if (showAddPrescription && encounter.Status == "InProgress")
+                     {
+                        <div class="p-3 bg-light border-bottom">
+                            <EditForm Model="newPrescription" OnValidSubmit="SavePrescription">
+                                <div class="mb-2">
+                                    <InputText class="form-control form-control-sm" @bind-Value="newPrescription.MedicineName" 
+                                        @onblur="CheckAllergy" placeholder="Medicine Name *" />
+                                </div>
+                                
+                                @if (allergyWarning)
+                                {
+                                    <div class="alert alert-danger py-1 px-2 mb-2 small w-100">
+                                        <i class="bi bi-exclamation-triangle-fill"></i> Allergy Warning: Patient may be allergic to this medicine.
+                                    </div>
+                                }
+
+                                <div class="row g-2 mb-2">
+                                     <div class="col-4">
+                                        <InputText class="form-control form-control-sm" @bind-Value="newPrescription.Dosage" placeholder="Dosage (500mg)" />
+                                    </div>
+                                    <div class="col-4">
+                                        <InputSelect class="form-select form-select-sm" @bind-Value="newPrescription.Frequency">
+                                            <option value="OD">OD (Once daily)</option>
+                                            <option value="BD">BD (Twice daily)</option>
+                                            <option value="TDS">TDS (Thrice daily)</option>
+                                            <option value="SOS">SOS (As needed)</option>
+                                        </InputSelect>
+                                    </div>
+                                     <div class="col-4">
+                                        <InputText class="form-control form-control-sm" @bind-Value="newPrescription.Duration" placeholder="Duration (5 days)" />
+                                    </div>
+                                </div>
+                                <div class="text-end">
+                                    <button type="button" class="btn btn-sm btn-secondary" @onclick="ToggleAddPrescription">Cancel</button>
+                                    <button type="submit" class="btn btn-sm btn-primary">Save Rx</button>
+                                </div>
+                            </EditForm>
+                        </div>
+                     }
+
+                    <ul class="list-group list-group-flush">
+                        @if (prescriptions != null && prescriptions.Any())
+                        {
+                            foreach (var p in prescriptions)
+                            {
+                                <li class="list-group-item d-flex justify-content-between align-items-center">
+                                    <div>
+                                        <strong><i class="bi bi-capsule text-primary me-1"></i> @p.MedicineName</strong> @p.Dosage
+                                        <br/>
+                                        <small class="text-muted">@p.Frequency for @p.Duration</small>
+                                    </div>
+                                    @if (encounter.Status == "InProgress")
+                                    {
+                                        <button class="btn btn-sm text-danger" @onclick="() => DeletePrescription(p.Id)">
+                                            <i class="bi bi-trash"></i>
+                                        </button>
+                                    }
+                                </li>
+                            }
+                        }
+                        else
+                        {
+                            <li class="list-group-item text-muted text-center py-3">No prescriptions added.</li>
+                        }
+                    </ul>
+                </div>
+            </div>
+
+            <!-- Procedures -->
+            <div class="card shadow-sm mb-4">
+                <div class="card-header bg-light d-flex justify-content-between align-items-center">
+                    <h6 class="mb-0">Procedures Given</h6>
+                    @if (encounter.Status == "InProgress")
+                    {
+                        <button class="btn btn-sm btn-outline-primary" @onclick="ToggleAddProcedure">
+                            <i class="bi bi-plus-circle"></i> Add
+                        </button>
+                    }
+                </div>
+                <div class="card-body p-0">
+                     @if (showAddProcedure && encounter.Status == "InProgress")
+                     {
+                        <div class="p-3 bg-light border-bottom">
+                            <EditForm Model="newProcedure" OnValidSubmit="SaveProcedure">
+                                <div class="mb-2">
+                                    <InputText class="form-control form-control-sm" @bind-Value="newProcedure.ProcedureName" placeholder="Procedure Name *" />
+                                </div>
+                                <div class="mb-2">
+                                    <InputText class="form-control form-control-sm text-muted" type="datetime-local" @bind-Value="procedureDateStr" />
+                                </div>
+                                <div class="mb-2">
+                                    <InputTextArea class="form-control form-control-sm" @bind-Value="newProcedure.Notes" placeholder="Notes (Optional)" rows="2" />
+                                </div>
+                                <div class="text-end">
+                                    <button type="button" class="btn btn-sm btn-secondary" @onclick="ToggleAddProcedure">Cancel</button>
+                                    <button type="submit" class="btn btn-sm btn-primary">Save Procedure</button>
+                                </div>
+                            </EditForm>
+                        </div>
+                     }
+
+                    <ul class="list-group list-group-flush">
+                        @if (procedures != null && procedures.Any())
+                        {
+                            foreach (var pr in procedures)
+                            {
+                                <li class="list-group-item">
+                                    <div class="d-flex justify-content-between">
+                                        <strong><i class="bi bi-bandaid text-danger me-1"></i> @pr.ProcedureName</strong>
+                                        <small class="text-muted">@pr.PerformedDatetime.ToLocalTime().ToString("g")</small>
+                                    </div>
+                                    @if (!string.IsNullOrEmpty(pr.Notes))
+                                    {
+                                        <div class="small text-muted mt-1">@pr.Notes</div>
+                                    }
+                                </li>
+                            }
+                        }
+                        else
+                        {
+                            <li class="list-group-item text-muted text-center py-3">No procedures recorded.</li>
+                        }
+                    </ul>
+                </div>
+            </div>
+
+            <!-- Discharge Summary (Only for IPD) -->
+            @if (encounter.EncounterType == "IPD")
+            {
+                <div class="card shadow-sm border-info">
+                    <div class="card-header bg-info text-white d-flex justify-content-between align-items-center">
+                        <h6 class="mb-0">Discharge Summary</h6>
+                        <button class="btn btn-sm btn-light text-info" @onclick="ToggleDischargeSummary">
+                            <i class="bi @(isEditingDischarge ? "bi-eye" : "bi-pencil")"></i> @(isEditingDischarge ? "View" : "Edit")
+                        </button>
+                    </div>
+                    <div class="card-body">
+                        @if (isEditingDischarge && encounter.Status == "InProgress")
+                        {
+                            <EditForm Model="dischargeSummary" OnValidSubmit="SaveDischargeSummary">
+                                <div class="row g-2 mb-3">
+                                    <div class="col-md-6">
+                                        <label class="form-label small">Discharge Condition *</label>
+                                        <InputSelect class="form-select form-select-sm" @bind-Value="dischargeSummary.ConditionAtDischarge">
+                                            <option value="">-- Select --</option>
+                                            <option value="Stable">Stable</option>
+                                            <option value="Improved">Improved</option>
+                                            <option value="Critical">Critical</option>
+                                            <option value="LAMA">LAMA</option>
+                                            <option value="Expired">Expired</option>
+                                        </InputSelect>
+                                    </div>
+                                    <div class="col-md-6">
+                                        <label class="form-label small">Discharge Date</label>
+                                        <InputText class="form-control form-control-sm text-muted" type="datetime-local" @bind-Value="dischargeDateStr" />
+                                    </div>
+                                </div>
+
+                                <div class="mb-3">
+                                    <label class="form-label small">Final Diagnosis</label>
+                                    <div class="input-group input-group-sm">
+                                        <InputTextArea class="form-control" @bind-Value="dischargeSummary.FinalDiagnosis" rows="2" />
+                                        <button class="btn btn-outline-secondary" type="button" @onclick="PullDiagnoses" title="Pull from recorded diagnoses">
+                                            <i class="bi bi-box-arrow-in-down"></i>
+                                        </button>
+                                    </div>
+                                </div>
+
+                                <div class="mb-3">
+                                    <label class="form-label small">Treatment Summary</label>
+                                    <InputTextArea class="form-control form-control-sm" @bind-Value="dischargeSummary.TreatmentSummary" rows="3" />
+                                </div>
+
+                                <div class="mb-3">
+                                    <label class="form-label small">Follow-up Instructions</label>
+                                    <InputTextArea class="form-control form-control-sm" @bind-Value="dischargeSummary.FollowupInstructions" rows="2" />
+                                </div>
+
+                                <div class="text-end">
+                                    <button type="submit" class="btn btn-sm btn-info text-white">Save Summary</button>
+                                </div>
+                            </EditForm>
+                        }
+                        else
+                        {
+                            @if (string.IsNullOrEmpty(dischargeSummary.ConditionAtDischarge))
+                            {
+                                <p class="text-muted text-center m-0">No discharge summary available.</p>
+                            }
+                            else
+                            {
+                                <h6>Final Diagnosis</h6>
+                                <p class="small bg-light p-2 rounded">@dischargeSummary.FinalDiagnosis</p>
+                                
+                                <div class="row mb-2">
+                                    <div class="col-6">
+                                        <h6>Condition</h6>
+                                        <span class="badge bg-secondary">@dischargeSummary.ConditionAtDischarge</span>
+                                    </div>
+                                    <div class="col-6">
+                                        <h6>Discharged On</h6>
+                                        <small>@dischargeSummary.DischargeDate.ToLocalTime().ToString("g")</small>
+                                    </div>
+                                </div>
+
+                                <h6>Treatment Summary</h6>
+                                <p class="small bg-light p-2 rounded mb-2">@dischargeSummary.TreatmentSummary</p>
+
+                                <h6>Follow-up</h6>
+                                <p class="small bg-light p-2 rounded text-danger m-0 border-danger">@dischargeSummary.FollowupInstructions</p>
+                            }
+                        }
+                    </div>
+                </div>
+            }
+        </div>
+    </div>
+}
+
+@code {
+    [Parameter]
+    public Guid Id { get; set; }
+
+    private Encounter? encounter;
+    private bool isLoading = true;
+    private bool isFinishing = false;
+
+    // SOAP
+    private SoapNote CurrentSoapNote = new();
+    private bool isEditingSoap = false;
+
+    // Diagnoses
+    private List<Diagnosis>? diagnoses;
+    private bool showAddDiagnosis = false;
+    private Diagnosis newDiagnosis = new() { DiagnosisType = "Primary", ClinicalStatus = "Active" };
+
+    // Prescriptions
+    private List<Prescription>? prescriptions;
+    private bool showAddPrescription = false;
+    private Prescription newPrescription = new() { Frequency = "OD", Route = "Oral" };
+    private bool allergyWarning = false;
+
+    // Procedures
+    private List<Procedure>? procedures;
+    private bool showAddProcedure = false;
+    private Procedure newProcedure = new();
+    private string procedureDateStr = DateTime.Now.ToString("yyyy-MM-ddTHH:mm");
+
+    // Discharge Summary
+    private DischargeSummary dischargeSummary = new();
+    private bool isEditingDischarge = false;
+    private string dischargeDateStr = DateTime.Now.ToString("yyyy-MM-ddTHH:mm");
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadEncounterData();
+    }
+
+    private async Task LoadEncounterData()
+    {
+        try
+        {
+            isLoading = true;
+            encounter = await EncounterService.GetEncounterByIdAsync(Id);
+            
+            if (encounter != null)
+            {
+                var soap = await EncounterService.GetSoapNoteByEncounterAsync(Id);
+                if (soap != null) CurrentSoapNote = soap;
+                else CurrentSoapNote = new SoapNote { EncounterId = Id };
+
+                diagnoses = await EncounterService.GetDiagnosesByEncounterAsync(Id);
+                prescriptions = await EncounterService.GetPrescriptionsByEncounterAsync(Id);
+                procedures = await EncounterService.GetProceduresByEncounterAsync(Id);
+
+                if (encounter.EncounterType == "IPD")
+                {
+                    var summary = await EncounterService.GetDischargeSummaryByEncounterAsync(Id);
+                    if (summary != null)
+                    {
+                        dischargeSummary = summary;
+                        dischargeDateStr = summary.DischargeDate.ToLocalTime().ToString("yyyy-MM-ddTHH:mm");
+                    }
+                    else
+                    {
+                        dischargeSummary = new DischargeSummary { EncounterId = Id, AdmissionDate = encounter.StartDatetime, DischargeDate = DateTime.UtcNow };
+                    }
+                }
+            }
+        }
+        finally
+        {
+            isLoading = false;
+        }
+    }
+
+    // --- Actions ---
+
+    private async Task FinishEncounter()
+    {
+        try
+        {
+            isFinishing = true;
+            await EncounterService.FinishEncounterAsync(Id);
+            await LoadEncounterData();
+        }
+        finally
+        {
+            isFinishing = false;
+        }
+    }
+
+    private void ToggleSoapEdit() => isEditingSoap = !isEditingSoap;
+
+    private async Task SaveSoap()
+    {
+        CurrentSoapNote.EncounterId = Id;
+        await EncounterService.SaveSoapNoteAsync(CurrentSoapNote);
+        isEditingSoap = false;
+        await LoadEncounterData();
+    }
+
+    private void ToggleAddDiagnosis() => showAddDiagnosis = !showAddDiagnosis;
+
+    private async Task SaveDiagnosis()
+    {
+        if (string.IsNullOrWhiteSpace(newDiagnosis.DiagnosisName)) return;
+
+        newDiagnosis.EncounterId = Id;
+        await EncounterService.AddDiagnosisAsync(newDiagnosis);
+        
+        newDiagnosis = new Diagnosis { DiagnosisType = "Primary", ClinicalStatus = "Active" };
+        showAddDiagnosis = false;
+        await LoadEncounterData();
+    }
+
+    private async Task DeleteDiagnosis(Guid id)
+    {
+        await EncounterService.DeleteDiagnosisAsync(id);
+        await LoadEncounterData();
+    }
+
+    private void ToggleAddPrescription()
+    {
+        showAddPrescription = !showAddPrescription;
+        allergyWarning = false;
+    }
+
+    private async Task CheckAllergy()
+    {
+        if (encounter?.PatientId != null && !string.IsNullOrWhiteSpace(newPrescription.MedicineName))
+        {
+            allergyWarning = await EncounterService.CheckAllergyWarningAsync(encounter.PatientId, newPrescription.MedicineName);
+        }
+    }
+
+    private async Task SavePrescription()
+    {
+        if (string.IsNullOrWhiteSpace(newPrescription.MedicineName)) return;
+
+        newPrescription.EncounterId = Id;
+        await EncounterService.AddPrescriptionAsync(newPrescription);
+        
+        newPrescription = new Prescription { Frequency = "OD", Route = "Oral" };
+        showAddPrescription = false;
+        allergyWarning = false;
+        await LoadEncounterData();
+    }
+
+    private async Task DeletePrescription(Guid id)
+    {
+        await EncounterService.DeletePrescriptionAsync(id);
+        await LoadEncounterData();
+    }
+
+    // --- Procedures ---
+    private void ToggleAddProcedure()
+    {
+        showAddProcedure = !showAddProcedure;
+    }
+
+    private async Task SaveProcedure()
+    {
+        if (string.IsNullOrWhiteSpace(newProcedure.ProcedureName)) return;
+
+        if (DateTime.TryParse(procedureDateStr, out DateTime performedAt))
+        {
+            newProcedure.PerformedDatetime = performedAt.ToUniversalTime();
+        }
+        else
+        {
+            newProcedure.PerformedDatetime = DateTime.UtcNow;
+        }
+
+        newProcedure.EncounterId = Id;
+        newProcedure.PerformedByDoctorId = encounter!.DoctorId; // Link to doctor running encounter for simplicity
+
+        await EncounterService.AddProcedureAsync(newProcedure);
+        
+        newProcedure = new Procedure();
+        showAddProcedure = false;
+        await LoadEncounterData();
+    }
+
+    // --- Discharge Summary ---
+    private void ToggleDischargeSummary()
+    {
+        isEditingDischarge = !isEditingDischarge;
+    }
+
+    private void PullDiagnoses()
+    {
+        if (diagnoses != null && diagnoses.Any())
+        {
+            dischargeSummary.FinalDiagnosis = string.Join("\n", diagnoses.Select(d => $"- {d.DiagnosisName} ({d.DiagnosisType})"));
+        }
+    }
+
+    private async Task SaveDischargeSummary()
+    {
+        if (string.IsNullOrWhiteSpace(dischargeSummary.ConditionAtDischarge)) return;
+
+        if (DateTime.TryParse(dischargeDateStr, out DateTime dischargeAt))
+        {
+            dischargeSummary.DischargeDate = dischargeAt.ToUniversalTime();
+        }
+
+        dischargeSummary.EncounterId = Id;
+        dischargeSummary.AuthorizedByDoctorId = encounter!.DoctorId;
+
+        await EncounterService.SaveDischargeSummaryAsync(dischargeSummary);
+        isEditingDischarge = false;
+        await LoadEncounterData();
+    }
+}
+

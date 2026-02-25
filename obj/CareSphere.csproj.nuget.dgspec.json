@@ -1,17 +1,17 @@
 {
   "format": 1,
   "restore": {
-    "E:\\CareSphere\\CareSphere.csproj": {}
+    "e:\\CareSphere\\CareSphere.csproj": {}
   },
   "projects": {
-    "E:\\CareSphere\\CareSphere.csproj": {
+    "e:\\CareSphere\\CareSphere.csproj": {
       "version": "1.0.0",
       "restore": {
-        "projectUniqueName": "E:\\CareSphere\\CareSphere.csproj",
+        "projectUniqueName": "e:\\CareSphere\\CareSphere.csproj",
         "projectName": "CareSphere",
-        "projectPath": "E:\\CareSphere\\CareSphere.csproj",
+        "projectPath": "e:\\CareSphere\\CareSphere.csproj",
         "packagesPath": "C:\\Users\\princ\\.nuget\\packages\\",
-        "outputPath": "E:\\CareSphere\\obj\\",
+        "outputPath": "e:\\CareSphere\\obj\\",
         "projectStyle": "PackageReference",
         "fallbackFolders": [
           "E:\\Apps\\Visual Studio 2022\\Shared\\NuGetPackages"

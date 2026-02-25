@@ -1,0 +1,165 @@
+@page "/doctors"
+@rendermode InteractiveServer
+@using CareSphere.Models
+@inject CareSphere.Services.IDoctorService DoctorService
+
+<PageTitle>Doctor Master - CareSphere</PageTitle>
+
+<div class="d-flex justify-content-between align-items-center mb-3">
+    <h2>Doctor Directory</h2>
+    <a href="/doctors/create" class="btn btn-primary">
+        <i class="bi bi-plus-circle me-1"></i> Add Doctor
+    </a>
+</div>
+
+<hr />
+
+<div class="row mb-3">
+    <div class="col-md-6">
+        <div class="input-group">
+            <input type="text" class="form-control" placeholder="Search by name or specialization..." 
+                   @bind="searchTerm" @bind:event="oninput" @onkeyup="HandleSearch" />
+            <button class="btn btn-outline-secondary" type="button" @onclick="LoadDoctors">Search</button>
+        </div>
+    </div>
+</div>
+
+@if (doctors == null)
+{
+    <div class="d-flex justify-content-center">
+        <div class="spinner-border text-primary" role="status">
+            <span class="visually-hidden">Loading...</span>
+        </div>
+    </div>
+}
+else if (!doctors.Any())
+{
+    <div class="alert alert-info">No doctors found matching your criteria.</div>
+}
+else
+{
+    <div class="table-responsive">
+        <table class="table table-striped table-hover mt-3">
+            <thead class="table-light">
+                <tr>
+                    <th>Reg. No.</th>
+                    <th>Name</th>
+                    <th>Specialization</th>
+                    <th>Department</th>
+                    <th>Phone</th>
+                    <th>Status</th>
+                    <th>Actions</th>
+                </tr>
+            </thead>
+            <tbody>
+                @foreach (var doc in doctors)
+                {
+                    <tr>
+                        <td>@doc.RegistrationNumber</td>
+                        <td><strong>@doc.FullName</strong></td>
+                        <td>@doc.Specialization</td>
+                        <td>@doc.Department</td>
+                        <td>@doc.Phone</td>
+                        <td>
+                            @if (doc.IsActive)
+                            {
+                                <span class="badge bg-success">Active</span>
+                            }
+                            else
+                            {
+                                <span class="badge bg-danger">Inactive</span>
+                            }
+                        </td>
+                        <td>
+                            <a href="/doctors/edit/@doc.Id" class="btn btn-sm btn-outline-primary me-1">Edit</a>
+                            <button class="btn btn-sm btn-outline-danger" @onclick="() => ConfirmDelete(doc.Id, doc.FullName)">Delete</button>
+                        </td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+    </div>
+}
+
+@if (showDeleteModal)
+{
+    <div class="modal fade show d-block" tabindex="-1" style="background-color: rgba(0,0,0,0.5);">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">Confirm Delete</h5>
+                    <button type="button" class="btn-close" @onclick="CancelDelete"></button>
+                </div>
+                <div class="modal-body">
+                    <p>Are you sure you want to delete doctor <strong>@doctorToDeleteName</strong>?</p>
+                    <p class="text-danger small">Note: You cannot delete a doctor with existing patient encounters.</p>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" @onclick="CancelDelete">Cancel</button>
+                    <button type="button" class="btn btn-danger" @onclick="ExecuteDelete">Delete</button>
+                </div>
+                @if (!string.IsNullOrEmpty(deleteErrorMessage))
+                {
+                    <div class="alert alert-danger m-3 mt-0">@deleteErrorMessage</div>
+                }
+            </div>
+        </div>
+    </div>
+}
+
+@code {
+    private List<Doctor>? doctors;
+    private string searchTerm = string.Empty;
+
+    private bool showDeleteModal = false;
+    private Guid doctorToDeleteId;
+    private string doctorToDeleteName = string.Empty;
+    private string deleteErrorMessage = string.Empty;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadDoctors();
+    }
+
+    private async Task HandleSearch(KeyboardEventArgs e)
+    {
+        if (e.Key == "Enter")
+        {
+            await LoadDoctors();
+        }
+    }
+
+    private async Task LoadDoctors()
+    {
+        doctors = await DoctorService.GetAllDoctorsAsync(searchTerm);
+    }
+
+    private void ConfirmDelete(Guid id, string name)
+    {
+        doctorToDeleteId = id;
+        doctorToDeleteName = name;
+        deleteErrorMessage = string.Empty;
+        showDeleteModal = true;
+    }
+
+    private void CancelDelete()
+    {
+        showDeleteModal = false;
+        doctorToDeleteId = Guid.Empty;
+        doctorToDeleteName = string.Empty;
+    }
+
+    private async Task ExecuteDelete()
+    {
+        try
+        {
+            await DoctorService.DeleteDoctorAsync(doctorToDeleteId);
+            await LoadDoctors();
+            showDeleteModal = false;
+        }
+        catch (Exception ex)
+        {
+            deleteErrorMessage = ex.Message;
+        }
+    }
+}

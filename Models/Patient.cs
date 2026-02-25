@@ -59,6 +59,9 @@ namespace CareSphere.Models
         [Column("blood_group")]
         public string? BloodGroup { get; set; }
 
+        [Column("allergy_notes")]
+        public string? AllergyNotes { get; set; }
+
         [Column("tenant_id")]
         public Guid TenantId { get; set; } = Guid.Empty;
 

@@ -3,6 +3,7 @@ using System;
 using CareSphere.Data;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 
@@ -11,9 +12,11 @@ using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 namespace CareSphere.Migrations
 {
     [DbContext(typeof(ApplicationDbContext))]
-    partial class ApplicationDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260225174755_AddDoctorWorkflowAndEMR")]
+    partial class AddDoctorWorkflowAndEMR
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -455,8 +458,7 @@ namespace CareSphere.Migrations
 
                     b.HasIndex("PatientId");
 
-                    b.HasIndex("QueueId")
-                        .IsUnique();
+                    b.HasIndex("QueueId");
 
                     b.ToTable("encounters");
                 });
@@ -478,6 +480,10 @@ namespace CareSphere.Migrations
                     b.Property<Guid>("DoctorId")
                         .HasColumnType("uuid")
                         .HasColumnName("doctor_id");
+
+                    b.Property<Guid?>("EncounterId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("encounter_id");
 
                     b.Property<string>("Notes")
                         .HasColumnType("text")
@@ -518,6 +524,8 @@ namespace CareSphere.Migrations
                     b.HasKey("Id");
 
                     b.HasIndex("DoctorId");
+
+                    b.HasIndex("EncounterId");
 
                     b.HasIndex("PatientId");
 
@@ -991,9 +999,8 @@ namespace CareSphere.Migrations
                         .IsRequired();
 
                     b.HasOne("CareSphere.Models.OpdQueue", "Queue")
-                        .WithOne("Encounter")
-                        .HasForeignKey("CareSphere.Models.Encounter", "QueueId")
-                        .OnDelete(DeleteBehavior.Restrict);
+                        .WithMany()
+                        .HasForeignKey("QueueId");
 
                     b.Navigation("BedAllotment");
 
@@ -1012,6 +1019,10 @@ namespace CareSphere.Migrations
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
 
+                    b.HasOne("CareSphere.Models.Encounter", "Encounter")
+                        .WithMany()
+                        .HasForeignKey("EncounterId");
+
                     b.HasOne("CareSphere.Models.Patient", "Patient")
                         .WithMany()
                         .HasForeignKey("PatientId")
@@ -1019,6 +1030,8 @@ namespace CareSphere.Migrations
                         .IsRequired();
 
                     b.Navigation("Doctor");
+
+                    b.Navigation("Encounter");
 
                     b.Navigation("Patient");
                 });
@@ -1072,11 +1085,6 @@ namespace CareSphere.Migrations
             modelBuilder.Entity("CareSphere.Models.BedAllotment", b =>
                 {
                     b.Navigation("Transfers");
-                });
-
-            modelBuilder.Entity("CareSphere.Models.OpdQueue", b =>
-                {
-                    b.Navigation("Encounter");
                 });
 
             modelBuilder.Entity("CareSphere.Models.Ward", b =>
