@@ -1,0 +1,170 @@
+@page "/allotments/create"
+@using CareSphere.Models
+@inject CareSphere.Services.IBedService BedService
+@inject CareSphere.Services.IPatientService PatientService
+@inject NavigationManager NavigationManager
+
+<PageTitle>Admit Patient (Bed Allotment) - CareSphere</PageTitle>
+
+<h2>Admit Patient (Bed Allotment)</h2>
+<hr />
+
+<div class="row">
+    <div class="col-md-8">
+        <EditForm Model="@allotment" FormName="createAllotment" OnValidSubmit="ProcessValidSubmit">
+            <DataAnnotationsValidator />
+            <ValidationSummary class="alert alert-danger" />
+            
+            <div class="card mb-4">
+                <div class="card-header bg-light">
+                    <h5 class="mb-0">Allotment Details</h5>
+                </div>
+                <div class="card-body">
+                    <div class="row g-3">
+                        <div class="col-md-12">
+                            <label class="form-label">Select Patient *</label>
+                            <InputSelect class="form-select" @bind-Value="allotment.PatientIdAsString">
+                                <option value="">Select a Patient</option>
+                                @if (patients != null)
+                                {
+                                    @foreach (var p in patients)
+                                    {
+                                        <option value="@p.Id">@p.FirstName @p.LastName (MRN: @p.Mrn)</option>
+                                    }
+                                }
+                            </InputSelect>
+                            <ValidationMessage For="@(() => allotment.PatientIdAsString)" />
+                        </div>
+
+                        <div class="col-md-12">
+                            <label class="form-label">Select Available Bed *</label>
+                            <InputSelect class="form-select" @bind-Value="allotment.BedIdAsString">
+                                <option value="">Select a Bed</option>
+                                @if (availableBeds != null)
+                                {
+                                    @foreach (var b in availableBeds)
+                                    {
+                                        <option value="@b.Id">@b.Ward.Name - Bed: @b.BedNumber (@b.BedType)</option>
+                                    }
+                                }
+                            </InputSelect>
+                            <ValidationMessage For="@(() => allotment.BedIdAsString)" />
+                        </div>
+
+                        <div class="col-md-6">
+                            <label class="form-label">Admission Type *</label>
+                            <InputSelect class="form-select" @bind-Value="allotment.AdmissionType">
+                                <option value="">Select Type</option>
+                                <option value="OPD">OPD</option>
+                                <option value="IPD">IPD</option>
+                                <option value="Emergency">Emergency</option>
+                            </InputSelect>
+                            <ValidationMessage For="@(() => allotment.AdmissionType)" />
+                        </div>
+
+                        <div class="col-md-6">
+                            <label class="form-label">Date of Admission *</label>
+                            <InputDate class="form-control" @bind-Value="allotment.AdmissionDate" />
+                            <ValidationMessage For="@(() => allotment.AdmissionDate)" />
+                        </div>
+
+                        <div class="col-md-12">
+                            <label class="form-label">Admitting Doctor</label>
+                            <InputText class="form-control" @bind-Value="allotment.AdmittingDoctor" />
+                            <ValidationMessage For="@(() => allotment.AdmittingDoctor)" />
+                        </div>
+
+                        <div class="col-md-12">
+                            <label class="form-label">Notes</label>
+                            <InputTextArea class="form-control" @bind-Value="allotment.Notes" rows="3" />
+                            <ValidationMessage For="@(() => allotment.Notes)" />
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="d-flex gap-2">
+                <button type="submit" class="btn btn-success" disabled="@isSubmitting">
+                    @if (isSubmitting)
+                    {
+                        <span class="spinner-border spinner-border-sm me-1"></span>
+                    }
+                    Admit Patient
+                </button>
+                <a href="/beds/dashboard" class="btn btn-secondary">Cancel</a>
+            </div>
+
+            @if (!string.IsNullOrEmpty(errorMessage))
+            {
+                <div class="alert alert-danger mt-3">@errorMessage</div>
+            }
+        </EditForm>
+    </div>
+</div>
+
+@code {
+    [SupplyParameterFromForm]
+    public AllotmentFormModel allotment { get; set; } = new() { AdmissionDate = DateTime.Now };
+
+    public class AllotmentFormModel
+    {
+        [System.ComponentModel.DataAnnotations.Required]
+        public string PatientIdAsString { get; set; } = string.Empty;
+        
+        [System.ComponentModel.DataAnnotations.Required]
+        public string BedIdAsString { get; set; } = string.Empty;
+        
+        [System.ComponentModel.DataAnnotations.Required]
+        public string AdmissionType { get; set; } = string.Empty;
+        
+        [System.ComponentModel.DataAnnotations.Required]
+        public DateTime AdmissionDate { get; set; }
+        
+        public string? AdmittingDoctor { get; set; }
+        public string? Notes { get; set; }
+    }
+
+    private List<CareSphere.Models.Patient>? patients;
+    private List<CareSphere.Models.Bed>? availableBeds;
+    
+    private bool isSubmitting = false;
+    private string errorMessage = string.Empty;
+
+    protected override async Task OnInitializedAsync()
+    {
+        patients = await PatientService.GetPatientsAsync();
+        availableBeds = await BedService.GetAvailableBedsAsync();
+    }
+
+    private async Task ProcessValidSubmit()
+    {
+        try
+        {
+            isSubmitting = true;
+            errorMessage = string.Empty;
+
+            var newAllotment = new BedAllotment
+            {
+                PatientId = Guid.Parse(allotment.PatientIdAsString),
+                BedId = Guid.Parse(allotment.BedIdAsString),
+                AdmissionDate = allotment.AdmissionDate.ToUniversalTime(),
+                AdmissionType = allotment.AdmissionType,
+                AdmittingDoctor = allotment.AdmittingDoctor,
+                Notes = allotment.Notes
+            };
+
+            await BedService.AdmitPatientAsync(newAllotment);
+
+            NavigationManager.NavigateTo("/beds/dashboard");
+        }
+        catch (Microsoft.AspNetCore.Components.NavigationException)
+        {
+            throw; // Expected during redirect
+        }
+        catch (Exception ex)
+        {
+            errorMessage = $"Error admitting patient: {ex.Message}";
+            isSubmitting = false;
+        }
+    }
+}

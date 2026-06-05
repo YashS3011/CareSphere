@@ -1,0 +1,99 @@
+@page "/wards/create"
+@using CareSphere.Models
+@inject CareSphere.Services.IBedService BedService
+@inject NavigationManager NavigationManager
+
+<PageTitle>Add New Ward - CareSphere</PageTitle>
+
+<h2>Add New Ward</h2>
+<hr />
+
+<div class="row">
+    <div class="col-md-6">
+        <EditForm Model="@ward" FormName="createWard" OnValidSubmit="ProcessValidSubmit">
+            <DataAnnotationsValidator />
+            <ValidationSummary class="alert alert-danger" />
+            
+            <div class="card mb-4">
+                <div class="card-body">
+                    <div class="mb-3">
+                        <label class="form-label">Ward Name *</label>
+                        <InputText class="form-control" @bind-Value="ward.Name" placeholder="e.g. General Ward A" />
+                        <ValidationMessage For="@(() => ward.Name)" />
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label class="form-label">Ward Type *</label>
+                        <InputSelect class="form-select" @bind-Value="ward.WardType">
+                            <option value="">Select Ward Type</option>
+                            <option value="General">General</option>
+                            <option value="ICU">ICU</option>
+                            <option value="Emergency">Emergency</option>
+                            <option value="Private">Private</option>
+                            <option value="Semi-Private">Semi-Private</option>
+                        </InputSelect>
+                        <ValidationMessage For="@(() => ward.WardType)" />
+                    </div>
+
+                    <div class="mb-3">
+                        <label class="form-label">Building / Block</label>
+                        <InputText class="form-control" @bind-Value="ward.Building" />
+                        <ValidationMessage For="@(() => ward.Building)" />
+                    </div>
+
+                    <div class="mb-3">
+                        <label class="form-label">Floor</label>
+                        <InputText class="form-control" @bind-Value="ward.Floor" />
+                        <ValidationMessage For="@(() => ward.Floor)" />
+                    </div>
+                </div>
+            </div>
+
+            <div class="d-flex gap-2">
+                <button type="submit" class="btn btn-primary" disabled="@isSubmitting">
+                    @if (isSubmitting)
+                    {
+                        <span class="spinner-border spinner-border-sm me-1"></span>
+                    }
+                    Save Ward
+                </button>
+                <a href="/wards" class="btn btn-secondary">Cancel</a>
+            </div>
+
+            @if (!string.IsNullOrEmpty(errorMessage))
+            {
+                <div class="alert alert-danger mt-3">@errorMessage</div>
+            }
+        </EditForm>
+    </div>
+</div>
+
+@code {
+    [SupplyParameterFromForm]
+    public Ward ward { get; set; } = new();
+
+    private bool isSubmitting = false;
+    private string errorMessage = string.Empty;
+
+    private async Task ProcessValidSubmit()
+    {
+        try
+        {
+            isSubmitting = true;
+            errorMessage = string.Empty;
+
+            await BedService.CreateWardAsync(ward);
+
+            NavigationManager.NavigateTo("/wards");
+        }
+        catch (Microsoft.AspNetCore.Components.NavigationException)
+        {
+            throw; // Expected during redirect
+        }
+        catch (Exception ex)
+        {
+            errorMessage = $"Error creating ward: {ex.Message}";
+            isSubmitting = false;
+        }
+    }
+}

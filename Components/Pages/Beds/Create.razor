@@ -1,0 +1,151 @@
+@page "/beds/create"
+@using CareSphere.Models
+@inject CareSphere.Services.IBedService BedService
+@inject NavigationManager NavigationManager
+
+<PageTitle>Add New Bed - CareSphere</PageTitle>
+
+<h2>Add New Bed</h2>
+<hr />
+
+<div class="row">
+    <div class="col-md-6">
+        <EditForm Model="@bed" FormName="createBed" OnValidSubmit="ProcessValidSubmit">
+            <DataAnnotationsValidator />
+            <ValidationSummary class="alert alert-danger" />
+            
+            <div class="card mb-4">
+                <div class="card-body">
+                    <div class="mb-3">
+                        <label class="form-label">Bed Number *</label>
+                        <InputText class="form-control" @bind-Value="bed.BedNumber" placeholder="e.g. ICU-01" />
+                        <ValidationMessage For="@(() => bed.BedNumber)" />
+                    </div>
+
+                    <div class="mb-3">
+                        <label class="form-label">Ward *</label>
+                        <InputSelect class="form-select" @bind-Value="bed.WardIdAsString">
+                            <option value="">Select Ward</option>
+                            @if (wards != null)
+                            {
+                                @foreach (var w in wards)
+                                {
+                                    <option value="@w.Id">@w.Name (@w.WardType)</option>
+                                }
+                            }
+                        </InputSelect>
+                        <ValidationMessage For="@(() => bed.WardIdAsString)" />
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label class="form-label">Bed Type *</label>
+                        <InputSelect class="form-select" @bind-Value="bed.BedType">
+                            <option value="">Select Bed Type</option>
+                            <option value="Standard">Standard</option>
+                            <option value="ICU">ICU</option>
+                            <option value="Isolation">Isolation</option>
+                            <option value="Pediatric">Pediatric</option>
+                            <option value="Maternity">Maternity</option>
+                        </InputSelect>
+                        <ValidationMessage For="@(() => bed.BedType)" />
+                    </div>
+
+                    <div class="mb-3">
+                        <label class="form-label">Initial Status</label>
+                        <InputSelect class="form-select" @bind-Value="bed.Status">
+                            <option value="Available">Available</option>
+                            <option value="Maintenance">Maintenance</option>
+                            <option value="Reserved">Reserved</option>
+                        </InputSelect>
+                        <ValidationMessage For="@(() => bed.Status)" />
+                    </div>
+
+                    <div class="mb-3 form-check">
+                        <InputCheckbox class="form-check-input" @bind-Value="bed.IsActive" id="isActiveCheck" />
+                        <label class="form-check-label" for="isActiveCheck">
+                            Is Active
+                        </label>
+                    </div>
+                </div>
+            </div>
+
+            <div class="d-flex gap-2">
+                <button type="submit" class="btn btn-primary" disabled="@isSubmitting">
+                    @if (isSubmitting)
+                    {
+                        <span class="spinner-border spinner-border-sm me-1"></span>
+                    }
+                    Save Bed
+                </button>
+                <a href="/beds" class="btn btn-secondary">Cancel</a>
+            </div>
+
+            @if (!string.IsNullOrEmpty(errorMessage))
+            {
+                <div class="alert alert-danger mt-3">@errorMessage</div>
+            }
+        </EditForm>
+    </div>
+</div>
+
+@code {
+    [SupplyParameterFromForm]
+    public BedFormModel bed { get; set; } = new();
+
+    public class BedFormModel
+    {
+        [System.ComponentModel.DataAnnotations.Required]
+        public string BedNumber { get; set; } = string.Empty;
+        
+        [System.ComponentModel.DataAnnotations.Required]
+        public string WardIdAsString { get; set; } = string.Empty;
+        
+        [System.ComponentModel.DataAnnotations.Required]
+        public string BedType { get; set; } = string.Empty;
+        
+        [System.ComponentModel.DataAnnotations.Required]
+        public string Status { get; set; } = "Available";
+        
+        public bool IsActive { get; set; } = true;
+    }
+
+    private List<CareSphere.Models.Ward>? wards;
+    private bool isSubmitting = false;
+    private string errorMessage = string.Empty;
+
+    protected override async Task OnInitializedAsync()
+    {
+        wards = await BedService.GetAllWardsAsync();
+    }
+
+    private async Task ProcessValidSubmit()
+    {
+        try
+        {
+            isSubmitting = true;
+            errorMessage = string.Empty;
+
+            var newBed = new Bed
+            {
+                BedNumber = bed.BedNumber,
+                WardId = Guid.Parse(bed.WardIdAsString),
+                BedType = bed.BedType,
+                Status = bed.Status,
+                IsActive = bed.IsActive
+            };
+
+            await BedService.CreateBedAsync(newBed);
+
+            NavigationManager.NavigateTo("/beds");
+        }
+        catch (Microsoft.AspNetCore.Components.NavigationException)
+        {
+            throw; // Expected during redirect
+        }
+        catch (Exception ex)
+        {
+            errorMessage = $"Error creating bed: {ex.Message}";
+            isSubmitting = false;
+        }
+    }
+}

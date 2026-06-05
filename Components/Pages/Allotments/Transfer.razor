@@ -1,0 +1,142 @@
+@page "/allotments/transfer/{Id:guid}"
+@using CareSphere.Models
+@inject CareSphere.Services.IBedService BedService
+@inject CareSphere.Data.ApplicationDbContext DbContext
+@inject NavigationManager NavigationManager
+@using Microsoft.EntityFrameworkCore
+
+<PageTitle>Transfer Patient - CareSphere</PageTitle>
+
+<h2>Transfer Patient</h2>
+<hr />
+
+@if (activeAllotment == null && !string.IsNullOrEmpty(errorMessage) && isNotFound)
+{
+    <div class="alert alert-danger">@errorMessage</div>
+    <a href="/allotments" class="btn btn-primary">Back to Allotments</a>
+}
+else if (activeAllotment == null)
+{
+    <p><em>Loading...</em></p>
+}
+else
+{
+    <div class="alert alert-info">
+        <h5>Current Admission Details:</h5>
+        <strong>Patient:</strong> @activeAllotment.Patient.FirstName @activeAllotment.Patient.LastName (MRN: @activeAllotment.Patient.Mrn)<br />
+        <strong>Current Bed:</strong> @activeAllotment.Bed.BedNumber (@activeAllotment.Bed.Ward.Name)<br />
+        <strong>Admitted On:</strong> @activeAllotment.AdmissionDate.ToString("dd MMM yyyy HH:mm")
+    </div>
+
+    <div class="row">
+        <div class="col-md-6">
+            <EditForm Model="@transfer" FormName="transferPatient" OnValidSubmit="ProcessValidSubmit">
+                <DataAnnotationsValidator />
+                <ValidationSummary class="alert alert-danger" />
+                
+                <div class="card mb-4">
+                    <div class="card-body">
+                        <div class="mb-3">
+                            <label class="form-label">Select New Available Bed *</label>
+                            <InputSelect class="form-select" @bind-Value="transfer.NewBedIdAsString">
+                                <option value="">Select a Bed</option>
+                                @if (availableBeds != null)
+                                {
+                                    @foreach (var b in availableBeds)
+                                    {
+                                        <option value="@b.Id">@b.Ward.Name - Bed: @b.BedNumber (@b.BedType)</option>
+                                    }
+                                }
+                            </InputSelect>
+                            <ValidationMessage For="@(() => transfer.NewBedIdAsString)" />
+                        </div>
+
+                        <div class="mb-3">
+                            <label class="form-label">Transfer Reason *</label>
+                            <InputTextArea class="form-control" @bind-Value="transfer.Reason" rows="3" />
+                            <ValidationMessage For="@(() => transfer.Reason)" />
+                        </div>
+                    </div>
+                </div>
+
+                <div class="d-flex gap-2">
+                    <button type="submit" class="btn btn-primary" disabled="@isSubmitting">
+                        @if (isSubmitting)
+                        {
+                            <span class="spinner-border spinner-border-sm me-1"></span>
+                        }
+                        Confirm Transfer
+                    </button>
+                    <a href="/allotments" class="btn btn-secondary">Cancel</a>
+                </div>
+
+                @if (!string.IsNullOrEmpty(errorMessage) && !isNotFound)
+                {
+                    <div class="alert alert-danger mt-3">@errorMessage</div>
+                }
+            </EditForm>
+        </div>
+    </div>
+}
+
+@code {
+    [Parameter]
+    public Guid Id { get; set; } // This is BedId or AllotmentId? Let's assume it's AllotmentId passed in.
+
+    [SupplyParameterFromForm]
+    public TransferFormModel transfer { get; set; } = new();
+
+    public class TransferFormModel
+    {
+        [System.ComponentModel.DataAnnotations.Required]
+        public string NewBedIdAsString { get; set; } = string.Empty;
+        
+        [System.ComponentModel.DataAnnotations.Required]
+        public string Reason { get; set; } = string.Empty;
+    }
+
+    private BedAllotment? activeAllotment;
+    private List<Bed>? availableBeds;
+    private bool isNotFound = false;
+    private bool isSubmitting = false;
+    private string errorMessage = string.Empty;
+
+    protected override async Task OnInitializedAsync()
+    {
+        activeAllotment = await DbContext.BedAllotments
+            .Include(a => a.Patient)
+            .Include(a => a.Bed).ThenInclude(b => b.Ward)
+            .FirstOrDefaultAsync(a => a.Id == Id && a.Status == "Active");
+
+        if (activeAllotment == null)
+        {
+            isNotFound = true;
+            errorMessage = "Allotment not found or is no longer active.";
+            return;
+        }
+
+        availableBeds = await BedService.GetAvailableBedsAsync();
+    }
+
+    private async Task ProcessValidSubmit()
+    {
+        try
+        {
+            isSubmitting = true;
+            errorMessage = string.Empty;
+
+            await BedService.TransferPatientAsync(Id, Guid.Parse(transfer.NewBedIdAsString), transfer.Reason);
+
+            NavigationManager.NavigateTo("/allotments");
+        }
+        catch (Microsoft.AspNetCore.Components.NavigationException)
+        {
+            throw; // Expected during redirect
+        }
+        catch (Exception ex)
+        {
+            errorMessage = $"Error transferring patient: {ex.Message}";
+            isSubmitting = false;
+        }
+    }
+}

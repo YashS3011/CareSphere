@@ -1,0 +1,86 @@
+﻿@page "/"
+@inject CareSphere.Services.IPatientService PatientService
+@rendermode InteractiveServer
+
+<PageTitle>Dashboard - CareSphere</PageTitle>
+
+<div class="container-fluid py-4">
+    <div class="row mb-4">
+        <div class="col-12">
+            <h1 class="fw-bold text-primary">CareSphere Dashboard</h1>
+            <p class="text-muted">Welcome to the Hospital Management System.</p>
+        </div>
+    </div>
+
+    <div class="row">
+        <div class="col-md-4">
+            <div class="card shadow-sm border-0 border-start border-primary border-4">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <div>
+                            <h6 class="text-uppercase text-muted fw-bold mb-1">Total Patients</h6>
+                            @if (patientCount == null)
+                            {
+                                <div class="spinner-border spinner-border-sm text-primary" role="status"></div>
+                            }
+                            else
+                            {
+                                <h2 class="mb-0 fw-bold">@patientCount</h2>
+                            }
+                        </div>
+                        <div class="bg-primary text-white rounded-circle p-3 d-flex align-items-center justify-content-center" style="width: 50px; height: 50px;">
+                            <i class="bi bi-people-fill fs-4"></i>
+                        </div>
+                    </div>
+                </div>
+                <div class="card-footer bg-white border-0 mt-2">
+                    <a href="/patients" class="text-decoration-none text-primary fw-bold">View all patients <i class="bi bi-arrow-right"></i></a>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Placeholders for other modules -->
+        <div class="col-md-4">
+            <div class="card shadow-sm border-0 border-start border-success border-4 h-100">
+                <div class="card-body opacity-50">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <div>
+                            <h6 class="text-uppercase text-muted fw-bold mb-1">Available Beds</h6>
+                            <h2 class="mb-0 fw-bold">--</h2>
+                        </div>
+                        <div class="bg-success text-white rounded-circle p-3 d-flex align-items-center justify-content-center" style="width: 50px; height: 50px;">
+                            <i class="bi bi-hospital fs-4"></i>
+                        </div>
+                    </div>
+                    <p class="text-muted small mt-2">Bed Management coming soon.</p>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-md-4">
+            <div class="card shadow-sm border-0 border-start border-info border-4 h-100">
+                <div class="card-body opacity-50">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <div>
+                            <h6 class="text-uppercase text-muted fw-bold mb-1">Today's Appointments</h6>
+                            <h2 class="mb-0 fw-bold">--</h2>
+                        </div>
+                        <div class="bg-info text-white rounded-circle p-3 d-flex align-items-center justify-content-center" style="width: 50px; height: 50px;">
+                            <i class="bi bi-calendar-check fs-4"></i>
+                        </div>
+                    </div>
+                    <p class="text-muted small mt-2">Appointment Scheduling coming soon.</p>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+@code {
+    private int? patientCount;
+
+    protected override async Task OnInitializedAsync()
+    {
+        patientCount = await PatientService.GetPatientCountAsync();
+    }
+}
