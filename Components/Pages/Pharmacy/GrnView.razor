@@ -1,0 +1,210 @@
+@page "/pharmacy/grn/{id:guid}"
+@using CareSphere.Models
+@using CareSphere.Services
+@inject IGrnService GrnService
+@inject NavigationManager NavigationManager
+@rendermode InteractiveServer
+
+<PageTitle>View Goods Received Note - CareSphere</PageTitle>
+
+<div class="container py-4">
+    <div class="mb-4">
+        <a href="/pharmacy/grn" class="btn btn-link link-secondary p-0 text-decoration-none mb-2">
+            <i class="bi bi-arrow-left"></i> Back to Receipts
+        </a>
+        
+        @if (grn != null)
+        {
+            <div class="d-flex justify-content-between align-items-start">
+                <div>
+                    <h1 class="h3 mb-1 text-dark fw-bold font-monospace">@grn.GrnNumber</h1>
+                    <p class="text-muted mb-0">Recorded on @grn.CreatedAt.ToString("yyyy-MM-dd HH:mm")</p>
+                </div>
+                <div class="d-flex align-items-center gap-2">
+                    <span class="badge rounded-pill @(grn.Status == "Posted" ? "bg-success-subtle text-success border border-success-subtle" : "bg-light text-dark border") px-3 py-2 fs-7">@grn.Status</span>
+                    @if (grn.Status == "Draft")
+                    {
+                        <button class="btn btn-success d-flex align-items-center gap-1 shadow-sm" @onclick="PostGRN" disabled="@isActionRunning">
+                            @if (isActionRunning)
+                            {
+                                <span class="spinner-border spinner-border-sm me-1"></span>
+                            }
+                            <i class="bi bi-check-circle"></i> Post Receipt
+                        </button>
+                    }
+                </div>
+            </div>
+        }
+    </div>
+
+    @if (grn == null)
+    {
+        <div class="d-flex justify-content-center my-5">
+            <div class="spinner-border text-primary" role="status">
+                <span class="visually-hidden">Loading...</span>
+            </div>
+        </div>
+    }
+    else
+    {
+        @if (!string.IsNullOrEmpty(actionMessage))
+        {
+            <div class="alert alert-info py-2 small mb-3">@actionMessage</div>
+        }
+
+        @if (grn.Status == "Draft")
+        {
+            <div class="alert alert-warning border border-warning-subtle text-warning-emphasis bg-warning-subtle rounded d-flex align-items-center gap-2 mb-4">
+                <i class="bi bi-exclamation-triangle-fill fs-5"></i>
+                <div>
+                    <strong>Irreversible Action:</strong> Posting a GRN is permanent. It will immediately generate active inventory stock batches, update matching Purchase Order received counts, and log transactions in the stock ledger.
+                </div>
+            </div>
+        }
+
+        <div class="row g-4">
+            <div class="col-lg-4">
+                <!-- Supplier and Invoice Info -->
+                <div class="card border-0 shadow-sm rounded-4 mb-4">
+                    <div class="card-body p-4">
+                        <h5 class="fw-bold text-dark mb-3"><i class="bi bi-truck text-muted me-2"></i>Receipt details</h5>
+                        <hr />
+                        <div class="mb-3">
+                            <div class="small text-muted fw-semibold uppercase fs-8 mb-1">Supplier Name</div>
+                            <div class="fw-bold text-dark fs-6">@grn.Supplier.SupplierName</div>
+                        </div>
+                        <div class="mb-3">
+                            <div class="small text-muted fw-semibold uppercase fs-8 mb-1">Invoice Number</div>
+                            <div class="text-dark fw-semibold">@(grn.InvoiceNumber ?? "—")</div>
+                        </div>
+                        <div class="mb-3">
+                            <div class="small text-muted fw-semibold uppercase fs-8 mb-1">Date Received</div>
+                            <div class="text-dark">@grn.ReceivedDate.ToString("yyyy-MM-dd")</div>
+                        </div>
+                        @if (grn.PurchaseOrder != null)
+                        {
+                            <div class="mb-0">
+                                <div class="small text-muted fw-semibold uppercase fs-8 mb-1">Linked Purchase Order</div>
+                                <div class="text-primary font-monospace fw-bold">@grn.PurchaseOrder.PoNumber</div>
+                            </div>
+                        }
+                    </div>
+                </div>
+
+                @if (!string.IsNullOrEmpty(grn.Notes))
+                {
+                    <div class="card border-0 shadow-sm rounded-4">
+                        <div class="card-body p-4">
+                            <h5 class="fw-bold text-dark mb-3"><i class="bi bi-card-text text-muted me-2"></i>Remarks / Notes</h5>
+                            <hr />
+                            <div class="bg-light p-2 rounded small text-dark" style="white-space: pre-wrap;">@grn.Notes</div>
+                        </div>
+                    </div>
+                }
+            </div>
+
+            <div class="col-lg-8">
+                <!-- Items list -->
+                <div class="card border-0 shadow-sm rounded-4 mb-4">
+                    <div class="card-header bg-white py-3 px-4">
+                        <h5 class="fw-bold text-dark mb-0"><i class="bi bi-list-check text-muted me-2"></i>Receipt Item Lines</h5>
+                    </div>
+                    <div class="table-responsive">
+                        <table class="table align-middle mb-0">
+                            <thead class="table-light text-uppercase fs-7 fw-semibold text-muted">
+                                <tr>
+                                    <th class="px-4 py-3">Item Name</th>
+                                    <th class="py-3">Batch Number</th>
+                                    <th class="py-3">Mfg / Exp Dates</th>
+                                    <th class="py-3 text-end">Received Qty</th>
+                                    <th class="py-3 text-end">Free Qty</th>
+                                    <th class="py-3 text-end">Unit Cost</th>
+                                    <th class="px-4 py-3 text-end">Total Cost</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                @foreach (var item in grn.Items)
+                                {
+                                    <tr>
+                                        <td class="px-4 py-3">
+                                            <div class="fw-bold text-dark">@item.Item.ItemName</div>
+                                            <div class="small text-muted">Code: @item.Item.ItemCode | Unit: @item.Item.Unit</div>
+                                        </td>
+                                        <td class="py-3 font-monospace fw-bold text-dark text-uppercase">
+                                            @item.BatchNumber
+                                        </td>
+                                        <td class="py-3 small text-secondary">
+                                            <div><strong>Mfg:</strong> @(item.ManufactureDate?.ToString("yyyy-MM-dd") ?? "—")</div>
+                                            <div><strong>Exp:</strong> @item.ExpiryDate.ToString("yyyy-MM-dd")</div>
+                                        </td>
+                                        <td class="py-3 text-end fw-semibold text-dark">
+                                            @item.ReceivedQuantity
+                                        </td>
+                                        <td class="py-3 text-end text-muted">
+                                            @item.FreeQuantity
+                                        </td>
+                                        <td class="py-3 text-end text-secondary">
+                                            ₹@item.PurchasePrice.ToString("F2")
+                                        </td>
+                                        <td class="px-4 py-3 text-end fw-bold text-dark">
+                                            ₹@item.TotalAmount.ToString("F2")
+                                        </td>
+                                    </tr>
+                                }
+                            </tbody>
+                            <tfoot class="table-light fw-bold fs-6">
+                                <tr>
+                                    <td colspan="6" class="px-4 py-3 text-end">Total Receipt Value:</td>
+                                    <td class="px-4 py-3 text-end text-primary fs-5">₹@grn.TotalAmount.ToString("F2")</td>
+                                </tr>
+                            </tfoot>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+    }
+</div>
+
+@code {
+    [Parameter]
+    public Guid Id { get; set; }
+
+    private GoodsReceivedNote? grn;
+    private bool isActionRunning = false;
+    private string actionMessage = string.Empty;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadGRN();
+    }
+
+    private async Task LoadGRN()
+    {
+        grn = await GrnService.GetGrnByIdAsync(Id);
+        if (grn == null)
+        {
+            actionMessage = "Goods Received Note not found.";
+        }
+    }
+
+    private async Task PostGRN()
+    {
+        try
+        {
+            isActionRunning = true;
+            actionMessage = "Processing receipt and posting to stock ledger...";
+            await GrnService.PostGrnAsync(Id);
+            actionMessage = "GRN has been successfully posted. Inventory updated.";
+            await LoadGRN();
+        }
+        catch (Exception ex)
+        {
+            actionMessage = $"Error posting GRN: {ex.Message}";
+        }
+        finally
+        {
+            isActionRunning = false;
+        }
+    }
+}

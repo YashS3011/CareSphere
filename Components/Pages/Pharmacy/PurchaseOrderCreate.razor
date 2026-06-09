@@ -1,0 +1,228 @@
+@page "/pharmacy/purchase-orders/create"
+@using CareSphere.Models
+@using CareSphere.Services
+@inject IPurchaseOrderService PoService
+@inject ISupplierService SupplierService
+@inject IPharmacyItemService ItemService
+@inject NavigationManager NavigationManager
+@rendermode InteractiveServer
+
+<PageTitle>Create Purchase Order - CareSphere</PageTitle>
+
+<div class="container-fluid py-4">
+    <div class="mb-4">
+        <a href="/pharmacy/purchase-orders" class="btn btn-link link-secondary p-0 text-decoration-none mb-2">
+            <i class="bi bi-arrow-left"></i> Back to Orders
+        </a>
+        <h1 class="h3 mb-1 text-dark fw-bold">Create Purchase Order</h1>
+        <p class="text-muted">Draft a new request to replenish inventory stock</p>
+    </div>
+
+    <div class="card border-0 shadow-sm rounded-4 mb-4">
+        <div class="card-body p-4">
+            <EditForm Model="@po" OnValidSubmit="HandleValidSubmit" FormName="createPO">
+                <DataAnnotationsValidator />
+                <ValidationSummary class="alert alert-danger mb-4 py-2 small" />
+
+                <div class="row g-3 mb-4">
+                    <div class="col-md-6">
+                        <label class="form-label fw-semibold text-muted">Supplier *</label>
+                        <InputSelect class="form-select" @bind-Value="po.SupplierId">
+                            <option value="">Select Supplier</option>
+                            @if (suppliers != null)
+                            {
+                                @foreach (var supplier in suppliers)
+                                {
+                                    <option value="@supplier.Id">@supplier.SupplierName</option>
+                                }
+                            }
+                        </InputSelect>
+                        <ValidationMessage For="@(() => po.SupplierId)" class="text-danger small" />
+                    </div>
+
+                    <div class="col-md-6">
+                        <label class="form-label fw-semibold text-muted">Expected Delivery Date</label>
+                        <InputDate class="form-control" @bind-Value="po.ExpectedDeliveryDate" />
+                        <ValidationMessage For="@(() => po.ExpectedDeliveryDate)" class="text-danger small" />
+                    </div>
+
+                    <div class="col-12">
+                        <label class="form-label fw-semibold text-muted">General Notes / Instructions</label>
+                        <InputTextArea class="form-control" @bind-Value="po.Notes" rows="2" placeholder="e.g. Please deliver between 9 AM and 4 PM..." />
+                        <ValidationMessage For="@(() => po.Notes)" class="text-danger small" />
+                    </div>
+                </div>
+
+                <div class="mb-3 d-flex justify-content-between align-items-center">
+                    <h5 class="fw-bold text-dark mb-0">Line Items</h5>
+                    <button type="button" class="btn btn-sm btn-outline-primary d-flex align-items-center gap-1" @onclick="AddLineItem">
+                        <i class="bi bi-plus"></i> Add Item Row
+                    </button>
+                </div>
+
+                <div class="table-responsive mb-4">
+                    <table class="table align-middle border">
+                        <thead class="table-light text-uppercase fs-7 fw-semibold text-muted">
+                            <tr>
+                                <th style="width: 45%;">Pharmacy Item *</th>
+                                <th class="text-end" style="width: 15%;">Quantity *</th>
+                                <th class="text-end" style="width: 15%;">Unit Price (₹) *</th>
+                                <th class="text-end" style="width: 15%;">Total Price (₹)</th>
+                                <th class="text-center" style="width: 10%;">Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @if (!po.Items.Any())
+                            {
+                                <tr>
+                                    <td colspan="5" class="text-center py-4 text-muted small">
+                                        No items added yet. Click "Add Item Row" to append lines.
+                                    </td>
+                                </tr>
+                            }
+                            else
+                            {
+                                @foreach (var item in po.Items)
+                                {
+                                    var currentItem = item;
+                                    <tr>
+                                        <td>
+                                            <select class="form-select form-select-sm" @bind="currentItem.ItemId">
+                                                <option value="">Select an Item</option>
+                                                @if (pharmacyItems != null)
+                                                {
+                                                    @foreach (var pItem in pharmacyItems)
+                                                    {
+                                                        <option value="@pItem.Id">@pItem.ItemName (@pItem.ItemCode) [@pItem.Unit]</option>
+                                                    }
+                                                }
+                                            </select>
+                                        </td>
+                                        <td>
+                                            <input type="number" class="form-control form-control-sm text-end" min="1" @bind="currentItem.RequestedQuantity" @bind:after="RecalculateTotals" />
+                                        </td>
+                                        <td>
+                                            <input type="number" step="0.01" class="form-control form-control-sm text-end" min="0" @bind="currentItem.UnitPrice" @bind:after="RecalculateTotals" />
+                                        </td>
+                                        <td class="text-end fw-semibold text-dark">
+                                            ₹@( (currentItem.RequestedQuantity * currentItem.UnitPrice).ToString("F2") )
+                                        </td>
+                                        <td class="text-center">
+                                            <button type="button" class="btn btn-sm btn-outline-danger border-0" @onclick="() => RemoveLineItem(currentItem)">
+                                                <i class="bi bi-trash"></i>
+                                            </button>
+                                        </td>
+                                    </tr>
+                                }
+                            }
+                        </tbody>
+                        <tfoot class="table-light fw-bold">
+                            <tr>
+                                <td colspan="3" class="text-end">Grand Total:</td>
+                                <td class="text-end text-primary fs-5">₹@po.TotalAmount.ToString("F2")</td>
+                                <td></td>
+                            </tr>
+                        </tfoot>
+                    </table>
+                </div>
+
+                @if (!string.IsNullOrEmpty(errorMessage))
+                {
+                    <div class="alert alert-danger small py-2">@errorMessage</div>
+                }
+
+                <div class="d-flex gap-2">
+                    <button type="submit" class="btn btn-primary px-4 shadow-sm" disabled="@isSubmitting">
+                        @if (isSubmitting)
+                        {
+                            <span class="spinner-border spinner-border-sm me-1"></span>
+                        }
+                        Save as Draft
+                    </button>
+                    <a href="/pharmacy/purchase-orders" class="btn btn-light px-4">Cancel</a>
+                </div>
+            </EditForm>
+        </div>
+    </div>
+</div>
+
+@code {
+    private PurchaseOrder po = new() { PoNumber = "TEMP", OrderDate = DateTime.UtcNow, ExpectedDeliveryDate = DateTime.UtcNow.AddDays(7) };
+    private List<Supplier>? suppliers;
+    private List<PharmacyItem>? pharmacyItems;
+
+    private bool isSubmitting = false;
+    private string errorMessage = string.Empty;
+
+    protected override async Task OnInitializedAsync()
+    {
+        suppliers = await SupplierService.GetSuppliersAsync(Guid.Empty);
+        pharmacyItems = await ItemService.GetActiveItemsAsync(Guid.Empty);
+        
+        // Start with one empty row
+        AddLineItem();
+    }
+
+    private void AddLineItem()
+    {
+        po.Items.Add(new PurchaseOrderItem
+        {
+            Id = Guid.NewGuid(),
+            RequestedQuantity = 1,
+            UnitPrice = 0
+        });
+        RecalculateTotals();
+    }
+
+    private void RemoveLineItem(PurchaseOrderItem item)
+    {
+        po.Items.Remove(item);
+        RecalculateTotals();
+    }
+
+    private void RecalculateTotals()
+    {
+        decimal total = 0;
+        foreach (var item in po.Items)
+        {
+            item.TotalPrice = item.RequestedQuantity * item.UnitPrice;
+            total += item.TotalPrice;
+        }
+        po.TotalAmount = total;
+    }
+
+    private async Task HandleValidSubmit()
+    {
+        if (po.SupplierId == Guid.Empty)
+        {
+            errorMessage = "Please select a supplier.";
+            return;
+        }
+
+        if (!po.Items.Any() || po.Items.Any(i => i.ItemId == Guid.Empty))
+        {
+            errorMessage = "Please add at least one line item and ensure all selected items are valid.";
+            return;
+        }
+
+        try
+        {
+            isSubmitting = true;
+            errorMessage = string.Empty;
+            po.TenantId = Guid.Empty;
+            po.OrderDate = DateTime.UtcNow;
+
+            await PoService.CreatePurchaseOrderAsync(po);
+            NavigationManager.NavigateTo("/pharmacy/purchase-orders");
+        }
+        catch (Microsoft.AspNetCore.Components.NavigationException)
+        {
+            throw; // expected Blazor redirect
+        }
+        catch (Exception ex)
+        {
+            errorMessage = $"Failed to save PO: {ex.Message}";
+            isSubmitting = false;
+        }
+    }
+}

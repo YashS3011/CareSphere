@@ -1,0 +1,380 @@
+@page "/billing/claims/{id:guid}"
+@using CareSphere.Models
+@using CareSphere.Services
+@using Microsoft.JSInterop
+@inject IClaimService ClaimService
+@inject IJSRuntime JSRuntime
+@rendermode InteractiveServer
+
+<PageTitle>Claim Details - CareSphere</PageTitle>
+
+<div class="container-fluid py-4">
+    @if (claim == null)
+    {
+        <div class="text-center py-5">
+            <div class="spinner-border text-primary" role="status">
+                <span class="visually-hidden">Loading...</span>
+            </div>
+        </div>
+    }
+    else
+    {
+        <!-- Header Info -->
+        <div class="d-flex justify-content-between align-items-center mb-4 border-bottom pb-3">
+            <div>
+                <a href="/billing/claims" class="btn btn-sm btn-outline-secondary mb-2"><i class="bi bi-arrow-left"></i> Back to Claims</a>
+                <h2 class="fw-bold mb-0">Claim: @claim.ClaimNumber</h2>
+            </div>
+            <div class="d-flex gap-2 align-items-center">
+                <span class="badge fs-6 px-3 py-2 @GetClaimBadgeClass(claim.Status)">@claim.Status</span>
+                <span class="fs-5 fw-bold ms-3 me-3 text-secondary">Claimed Amount: <span class="text-primary">INR @claim.ClaimedAmount.ToString("N2")</span></span>
+            </div>
+        </div>
+
+        <div class="row g-4">
+            <!-- Left Info Panel -->
+            <div class="col-lg-8">
+                <!-- Patient & Insurance Policy details -->
+                <div class="card shadow-sm border-0 mb-4">
+                    <div class="card-body">
+                        <div class="row g-3">
+                            <div class="col-md-6 border-end">
+                                <h6 class="text-uppercase text-muted fw-bold mb-3"><i class="bi bi-person-fill text-primary me-2"></i>Patient Information</h6>
+                                <h5 class="fw-bold mb-1">@claim.Patient?.FirstName @claim.Patient?.LastName</h5>
+                                <p class="mb-0 text-muted">MRN: @claim.Patient?.Mrn</p>
+                                <p class="mb-0 text-muted">Gender: @claim.Patient?.Gender</p>
+                                <p class="mb-0 text-muted">Phone: @claim.Patient?.Phone</p>
+                            </div>
+                            <div class="col-md-6 ps-md-4">
+                                <h6 class="text-uppercase text-muted fw-bold mb-3"><i class="bi bi-shield-lock-fill text-primary me-2"></i>Insurance Policy Details</h6>
+                                <p class="mb-1"><strong>Insurer:</strong> @claim.InsuranceProvider</p>
+                                <p class="mb-1"><strong>Policy Number:</strong> @claim.PolicyNumber</p>
+                                <p class="mb-1"><strong>Member Name:</strong> @claim.MemberName</p>
+                                <p class="mb-0"><strong>Invoice Reference:</strong> @claim.BillingInvoice?.InvoiceNumber</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Claim Settlement Amounts -->
+                <div class="card shadow-sm border-0 mb-4">
+                    <div class="card-header bg-white border-0 py-3">
+                        <h5 class="mb-0 fw-bold"><i class="bi bi-cash-stack text-primary me-2"></i>Claim Financials</h5>
+                    </div>
+                    <div class="card-body">
+                        <div class="row g-3">
+                            <div class="col-md-4 text-center py-2 border-end">
+                                <span class="text-muted small uppercase">Claimed Amount</span>
+                                <h3 class="fw-bold text-dark mt-1">INR @claim.ClaimedAmount.ToString("N2")</h3>
+                            </div>
+                            <div class="col-md-4 text-center py-2 border-end">
+                                <span class="text-muted small uppercase">Approved Amount</span>
+                                <h3 class="fw-bold text-success mt-1">
+                                    @(claim.ApprovedAmount.HasValue ? $"INR {claim.ApprovedAmount.Value:N2}" : "--")
+                                </h3>
+                            </div>
+                            <div class="col-md-4 text-center py-2">
+                                <span class="text-muted small uppercase">Rejected Amount</span>
+                                <h3 class="fw-bold text-danger mt-1">
+                                    @(claim.RejectedAmount.HasValue ? $"INR {claim.RejectedAmount:N2}" : "--")
+                                </h3>
+                            </div>
+                        </div>
+                        @if (!string.IsNullOrEmpty(claim.RejectionReason))
+                        {
+                            <div class="alert alert-danger mt-3 mb-0">
+                                <strong>Rejection Reason:</strong> @claim.RejectionReason
+                            </div>
+                        }
+                    </div>
+                </div>
+
+                <!-- Collapsible FHIR Bundle Preview -->
+                <div class="card shadow-sm border-0 mb-4">
+                    <div class="card-header bg-white border-0 py-3 d-flex justify-content-between align-items-center">
+                        <h5 class="mb-0 fw-bold"><i class="bi bi-filetype-json text-primary me-2"></i>FHIR R4 Claim Resource</h5>
+                        <div>
+                            @if (!string.IsNullOrEmpty(claim.FhirClaimBundleJson))
+                            {
+                                <button class="btn btn-sm btn-outline-primary me-2" @onclick="DownloadClaimBundleFile">
+                                    <i class="bi bi-download"></i> Download JSON
+                                </button>
+                            }
+                            <button class="btn btn-sm btn-light" @onclick="ToggleFhirPreview">
+                                @(showFhirPreview ? "Hide Preview" : "Show Preview")
+                            </button>
+                        </div>
+                    </div>
+                    @if (showFhirPreview)
+                    {
+                        <div class="card-body bg-dark text-light p-3" style="max-height: 400px; overflow-y: auto;">
+                            @if (string.IsNullOrEmpty(claim.FhirClaimBundleJson))
+                            {
+                                <p class="text-muted mb-0 small">No FHIR Bundle generated yet. Click "Generate FHIR Bundle".</p>
+                            }
+                            else
+                            {
+                                <pre class="mb-0" style="font-size: 0.85rem; font-family: monospace; white-space: pre-wrap;">@claim.FhirClaimBundleJson</pre>
+                            }
+                        </div>
+                    }
+                </div>
+            </div>
+
+            <!-- Right Sidebar: Timeline & Action Panel -->
+            <div class="col-lg-4">
+                <!-- Status Actions -->
+                <div class="card shadow-sm border-0 mb-4">
+                    <div class="card-header bg-primary text-white py-3">
+                        <h5 class="mb-0 fw-bold"><i class="bi bi-gear me-2"></i>Claim Workflows</h5>
+                    </div>
+                    <div class="card-body d-grid gap-2">
+                        <button class="btn btn-outline-primary text-start" @onclick="GenerateFhirBundle" disabled="@isGeneratingFhir">
+                            @if (isGeneratingFhir)
+                            {
+                                <span class="spinner-border spinner-border-sm me-2"></span>
+                            }
+                            else
+                            {
+                                <i class="bi bi-code-slash me-2"></i>
+                            }
+                            Generate FHIR Bundle
+                        </button>
+
+                        @if (claim.Status == "Draft")
+                        {
+                            <button class="btn btn-success text-start" @onclick="SubmitClaimToInsurer" disabled="@isSubmitting">
+                                @if (isSubmitting)
+                                {
+                                    <span class="spinner-border spinner-border-sm me-2"></span>
+                                }
+                                else
+                                {
+                                    <i class="bi bi-send-fill me-2"></i>
+                                }
+                                Submit Claim
+                            </button>
+                        }
+
+                        <button class="btn btn-warning text-start" @onclick="OpenStatusModal">
+                            <i class="bi bi-arrow-repeat me-2"></i> Update Claim Status
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Status Timeline Log -->
+                <div class="card shadow-sm border-0">
+                    <div class="card-body">
+                        <h5 class="fw-bold mb-3"><i class="bi bi-clock-history text-secondary me-2"></i>Status History</h5>
+                        @if (claim.ClaimStatusHistories == null || !claim.ClaimStatusHistories.Any())
+                        {
+                            <p class="text-muted small">No history logged yet.</p>
+                        }
+                        else
+                        {
+                            <div class="timeline" style="border-left: 2px solid #dee2e6; padding-left: 15px; margin-left: 10px;">
+                                @foreach (var hist in claim.ClaimStatusHistories.OrderByDescending(h => h.ChangedAt))
+                                {
+                                    <div class="mb-3 position-relative">
+                                        <div class="position-absolute" style="left: -22px; top: 5px; width: 12px; height: 12px; border-radius: 50%; background: #0d6efd;"></div>
+                                        <div class="small fw-bold">@hist.PreviousStatus <i class="bi bi-arrow-right"></i> @hist.NewStatus</div>
+                                        <div class="text-muted small">@hist.ChangedAt.ToString("dd MMM yyyy HH:mm") by @hist.ChangedByUserId</div>
+                                        @if (!string.IsNullOrEmpty(hist.Remarks))
+                                        {
+                                            <div class="text-muted italic bg-light p-1 rounded mt-1" style="font-size: 0.8rem;">@hist.Remarks</div>
+                                        }
+                                    </div>
+                                }
+                            </div>
+                        }
+                    </div>
+                </div>
+            </div>
+        </div>
+    }
+</div>
+
+<!-- Render Claim Status Modal -->
+@if (showStatusModal && claim != null)
+{
+    <div class="modal fade show" style="display: block; background: rgba(0,0,0,0.5);" tabindex="-1">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header bg-warning">
+                    <h5 class="modal-title fw-bold text-dark"><i class="bi bi-arrow-repeat me-2"></i>Update Claim Status</h5>
+                    <button type="button" class="btn-close" @onclick="CloseStatusModal"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="mb-3">
+                        <label class="form-label fw-bold">Select Status *</label>
+                        <select class="form-select" @bind="newStatus">
+                            <option value="Submitted">Submitted</option>
+                            <option value="UnderReview">Under Review</option>
+                            <option value="Approved">Approved</option>
+                            <option value="PartiallyApproved">Partially Approved</option>
+                            <option value="Rejected">Rejected</option>
+                            <option value="Resubmitted">Resubmitted</option>
+                        </select>
+                    </div>
+
+                    @if (newStatus == "Approved" || newStatus == "PartiallyApproved")
+                    {
+                        <div class="mb-3">
+                            <label class="form-label fw-bold">Approved Amount (INR) *</label>
+                            <input type="number" class="form-control" @bind="approvedAmount" />
+                        </div>
+                    }
+
+                    @if (newStatus == "Rejected")
+                    {
+                        <div class="mb-3">
+                            <label class="form-label fw-bold">Rejected Amount (INR) *</label>
+                            <input type="number" class="form-control" @bind="rejectedAmount" />
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label fw-bold">Rejection Reason *</label>
+                            <textarea class="form-control" rows="2" placeholder="Describe reason for insurer rejection..." @bind="rejectionReason"></textarea>
+                        </div>
+                    }
+                    else
+                    {
+                        <div class="mb-3">
+                            <label class="form-label fw-bold">Remarks / Internal Notes</label>
+                            <textarea class="form-control" rows="2" placeholder="Remarks..." @bind="rejectionReason"></textarea>
+                        </div>
+                    }
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" @onclick="CloseStatusModal">Cancel</button>
+                    <button type="button" class="btn btn-primary" @onclick="SubmitStatusUpdate" disabled="@isSubmittingStatus">
+                        @if (isSubmittingStatus)
+                        {
+                            <span class="spinner-border spinner-border-sm me-1"></span>
+                        }
+                        Update Status
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+}
+
+@code {
+    [Parameter]
+    public Guid Id { get; set; }
+
+    private InsuranceClaim? claim;
+    private bool showFhirPreview = false;
+    private bool showStatusModal = false;
+
+    // Workflow variables
+    private bool isGeneratingFhir = false;
+    private bool isSubmitting = false;
+    private bool isSubmittingStatus = false;
+
+    // Status update modal inputs
+    private string newStatus = "Submitted";
+    private decimal? approvedAmount;
+    private decimal? rejectedAmount;
+    private string rejectionReason = string.Empty;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadClaimDetails();
+    }
+
+    private async Task LoadClaimDetails()
+    {
+        claim = await ClaimService.GetClaimByIdAsync(Id);
+        if (claim != null)
+        {
+            newStatus = claim.Status;
+            approvedAmount = claim.ApprovedAmount ?? claim.ClaimedAmount;
+            rejectedAmount = claim.RejectedAmount ?? claim.ClaimedAmount;
+            rejectionReason = claim.RejectionReason ?? string.Empty;
+        }
+    }
+
+    private void ToggleFhirPreview() => showFhirPreview = !showFhirPreview;
+
+    private async Task GenerateFhirBundle()
+    {
+        try
+        {
+            isGeneratingFhir = true;
+            await ClaimService.GenerateFhirClaimBundleAsync(Id);
+            showFhirPreview = true;
+            await LoadClaimDetails();
+            await JSRuntime.InvokeVoidAsync("alert", "FHIR Bundle generated successfully!");
+        }
+        catch (Exception ex)
+        {
+            await JSRuntime.InvokeVoidAsync("alert", $"Error: {ex.Message}");
+        }
+        finally
+        {
+            isGeneratingFhir = false;
+        }
+    }
+
+    private async Task SubmitClaimToInsurer()
+    {
+        try
+        {
+            isSubmitting = true;
+            await ClaimService.SubmitClaimAsync(Id);
+            await LoadClaimDetails();
+            await JSRuntime.InvokeVoidAsync("alert", "Claim successfully marked as Submitted!");
+        }
+        catch (Exception ex)
+        {
+            await JSRuntime.InvokeVoidAsync("alert", $"Error: {ex.Message}");
+        }
+        finally
+        {
+            isSubmitting = false;
+        }
+    }
+
+    private void OpenStatusModal() => showStatusModal = true;
+    private void CloseStatusModal() => showStatusModal = false;
+
+    private async Task SubmitStatusUpdate()
+    {
+        try
+        {
+            isSubmittingStatus = true;
+            await ClaimService.UpdateClaimStatusAsync(Id, newStatus, approvedAmount, rejectedAmount, rejectionReason, "system");
+            showStatusModal = false;
+            await LoadClaimDetails();
+            await JSRuntime.InvokeVoidAsync("alert", "Claim status updated successfully!");
+        }
+        catch (Exception ex)
+        {
+            await JSRuntime.InvokeVoidAsync("alert", $"Error updating status: {ex.Message}");
+        }
+        finally
+        {
+            isSubmittingStatus = false;
+        }
+    }
+
+    private async Task DownloadClaimBundleFile()
+    {
+        if (claim == null || string.IsNullOrEmpty(claim.FhirClaimBundleJson)) return;
+        string fileName = $"Claim-{claim.ClaimNumber}-FHIR.json";
+        await JSRuntime.InvokeVoidAsync("downloadFile", fileName, "application/json", claim.FhirClaimBundleJson);
+    }
+
+    private string GetClaimBadgeClass(string status) => status switch
+    {
+        "Draft" => "bg-secondary text-white",
+        "Submitted" => "bg-primary text-white",
+        "UnderReview" => "bg-info text-white",
+        "Approved" => "bg-success text-white",
+        "PartiallyApproved" => "bg-warning text-dark",
+        "Rejected" => "bg-danger text-white",
+        "Resubmitted" => "bg-purple text-white",
+        _ => "bg-light text-dark"
+    };
+}

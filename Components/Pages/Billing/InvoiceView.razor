@@ -1,0 +1,446 @@
+@page "/billing/invoices/{id:guid}"
+@using CareSphere.Models
+@using CareSphere.Services
+@using Microsoft.JSInterop
+@inject IInvoiceService InvoiceService
+@inject IClaimService ClaimService
+@inject IDocumentService DocumentService
+@inject IJSRuntime JSRuntime
+@rendermode InteractiveServer
+
+<PageTitle>Invoice Details - CareSphere</PageTitle>
+
+<div class="container-fluid py-4">
+    @if (invoice == null)
+    {
+        <div class="text-center py-5">
+            <div class="spinner-border text-primary" role="status">
+                <span class="visually-hidden">Loading...</span>
+            </div>
+        </div>
+    }
+    else
+    {
+        <!-- Header Actions -->
+        <div class="d-flex justify-content-between align-items-center mb-4 border-bottom pb-3">
+            <div>
+                <a href="/billing/invoices" class="btn btn-sm btn-outline-secondary mb-2"><i class="bi bi-arrow-left"></i> Back to Invoices</a>
+                <h2 class="fw-bold mb-0">Invoice: @invoice.InvoiceNumber</h2>
+            </div>
+            <div class="d-flex gap-2 align-items-center">
+                <span class="badge fs-6 px-3 py-2 @GetInvoiceBadgeClass(invoice.Status)">@invoice.Status</span>
+                <span class="fs-4 fw-bold ms-3 me-3 text-secondary">Balance: <span class="@(invoice.BalanceAmount > 0 ? "text-danger" : "text-success")">INR @invoice.BalanceAmount.ToString("N2")</span></span>
+            </div>
+        </div>
+
+        <div class="row g-4">
+            <!-- Left Info Panel -->
+            <div class="col-lg-8">
+                <!-- Patient & Encounter details -->
+                <div class="card shadow-sm border-0 mb-4">
+                    <div class="card-body">
+                        <div class="row g-3">
+                            <div class="col-md-6 border-end">
+                                <h6 class="text-uppercase text-muted fw-bold mb-3"><i class="bi bi-person-fill text-primary me-2"></i>Patient Details</h6>
+                                <h5 class="fw-bold mb-1">@invoice.Patient?.FirstName @invoice.Patient?.LastName</h5>
+                                <p class="mb-0 text-muted">MRN: @invoice.Patient?.Mrn</p>
+                                <p class="mb-0 text-muted">Phone: @invoice.Patient?.Phone</p>
+                                <p class="mb-0 text-muted">Gender: @invoice.Patient?.Gender</p>
+                            </div>
+                            <div class="col-md-6 ps-md-4">
+                                <h6 class="text-uppercase text-muted fw-bold mb-3"><i class="bi bi-calendar3 text-primary me-2"></i>Billing Period</h6>
+                                <p class="mb-1"><strong>Invoice Date:</strong> @invoice.InvoiceDate.ToString("dd MMM yyyy")</p>
+                                <p class="mb-1"><strong>Due Date:</strong> @(invoice.DueDate.HasValue ? invoice.DueDate.Value.ToString("dd MMM yyyy") : "N/A")</p>
+                                @if (invoice.Encounter != null)
+                                {
+                                    <p class="mb-1"><strong>Encounter:</strong> @invoice.Encounter.EncounterType (Status: @invoice.Encounter.Status)</p>
+                                    <p class="mb-1"><strong>Admission:</strong> @invoice.Encounter.AdmissionDate.ToString("dd MMM yyyy")</p>
+                                    @if (invoice.Encounter.DischargeDate.HasValue)
+                                    {
+                                        <p class="mb-0"><strong>Discharge:</strong> @invoice.Encounter.DischargeDate.Value.ToString("dd MMM yyyy")</p>
+                                    }
+                                }
+                                else
+                                {
+                                    <p class="mb-0"><strong>Encounter:</strong> Outpatient / Walk-in</p>
+                                }
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Line Items Grid -->
+                <div class="card shadow-sm border-0 mb-4">
+                    <div class="card-header bg-white border-0 py-3">
+                        <h5 class="mb-0 fw-bold"><i class="bi bi-list-ul text-primary me-2"></i>Invoice Line Items</h5>
+                    </div>
+                    <div class="card-body p-0">
+                        <div class="table-responsive">
+                            <table class="table table-hover table-striped mb-0 align-middle">
+                                <thead class="table-light text-uppercase fs-7">
+                                    <tr>
+                                        <th class="ps-3">#</th>
+                                        <th>Description</th>
+                                        <th>Category</th>
+                                        <th class="text-end">Qty</th>
+                                        <th class="text-end">Unit Price</th>
+                                        <th class="text-end">Discount</th>
+                                        <th class="text-end">Tax</th>
+                                        <th class="text-end pe-3">Line Total</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    @{ int seq = 1; }
+                                    @foreach (var item in invoice.BillingLineItems)
+                                    {
+                                        <tr>
+                                            <td class="ps-3 text-muted">@seq</td>
+                                            <td>
+                                                <strong>@item.ItemDescription</strong>
+                                                @if (!string.IsNullOrEmpty(item.ItemCode))
+                                                {
+                                                    <span class="badge bg-light text-dark ms-2">@item.ItemCode</span>
+                                                }
+                                            </td>
+                                            <td>@item.ItemType</td>
+                                            <td class="text-end">@item.Quantity.ToString("G29")</td>
+                                            <td class="text-end">@item.UnitPrice.ToString("C")</td>
+                                            <td class="text-end text-danger">-@item.DiscountPercent.ToString("G29")%</td>
+                                            <td class="text-end text-success">+@item.TaxPercent.ToString("G29")%</td>
+                                            <td class="text-end fw-bold pe-3">@item.LineTotal.ToString("C")</td>
+                                        </tr>
+                                        seq++;
+                                    }
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Summary Row -->
+                <div class="row mb-4 justify-content-end">
+                    <div class="col-md-5">
+                        <div class="card shadow-sm border-0 bg-light">
+                            <div class="card-body">
+                                <div class="d-flex justify-content-between mb-2">
+                                    <span>Subtotal:</span>
+                                    <span>@invoice.SubtotalAmount.ToString("C")</span>
+                                </div>
+                                <div class="d-flex justify-content-between text-danger mb-2">
+                                    <span>Discount:</span>
+                                    <span>- @invoice.DiscountAmount.ToString("C")</span>
+                                </div>
+                                <div class="d-flex justify-content-between text-success mb-2">
+                                    <span>Tax Amount:</span>
+                                    <span>+ @invoice.TaxAmount.ToString("C")</span>
+                                </div>
+                                <hr />
+                                <div class="d-flex justify-content-between fw-bold fs-5 mb-0">
+                                    <span>Total Invoice:</span>
+                                    <span class="text-primary">@invoice.TotalAmount.ToString("C")</span>
+                                </div>
+                                <div class="d-flex justify-content-between text-muted small mt-2">
+                                    <span>Paid to Date:</span>
+                                    <span class="text-success">@invoice.PaidAmount.ToString("C")</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Right Sidebar Actions -->
+            <div class="col-lg-4">
+                <!-- Administrative Actions Card -->
+                <div class="card shadow-sm border-0 mb-4">
+                    <div class="card-header bg-primary text-white py-3">
+                        <h5 class="mb-0 fw-bold"><i class="bi bi-gear-fill me-2"></i>Actions</h5>
+                    </div>
+                    <div class="card-body d-grid gap-2">
+                        @if (invoice.Status != "Cancelled" && invoice.BalanceAmount > 0)
+                        {
+                            <button class="btn btn-success text-start py-2.5" @onclick="OpenPaymentModal">
+                                <i class="bi bi-cash-stack me-2 fs-5"></i> Add Payment / Settlement
+                            </button>
+                        }
+
+                        @if (invoice.Status == "Finalized" || invoice.Status == "PartiallyPaid")
+                        {
+                            <button class="btn btn-warning text-start py-2.5" @onclick="OpenClaimModal">
+                                <i class="bi bi-shield-plus me-2 fs-5"></i> Create Insurance Claim
+                            </button>
+                        }
+
+                        <button class="btn btn-outline-primary text-start py-2.5" @onclick="GenerateInvoicePdf" disabled="@isGeneratingPdf">
+                            @if (isGeneratingPdf)
+                            {
+                                <span class="spinner-border spinner-border-sm me-2"></span>
+                            }
+                            else
+                            {
+                                <i class="bi bi-file-earmark-pdf-fill me-2 fs-5"></i>
+                            }
+                            Download Invoice PDF
+                        </button>
+
+                        @if (invoice.EncounterId.HasValue)
+                        {
+                            <button class="btn btn-outline-secondary text-start py-2.5" @onclick="GenerateDischargeBillPdf" disabled="@isGeneratingDcb">
+                                @if (isGeneratingDcb)
+                                {
+                                    <span class="spinner-border spinner-border-sm me-2"></span>
+                                }
+                                else
+                                {
+                                    <i class="bi bi-file-earmark-medical me-2 fs-5"></i>
+                                }
+                                Download Discharge Bill
+                            </button>
+                        }
+                    </div>
+                </div>
+
+                <!-- Payments and Claims Summary -->
+                <div class="card shadow-sm border-0 mb-4">
+                    <div class="card-body">
+                        <h5 class="fw-bold mb-3"><i class="bi bi-cash text-success me-2"></i>Payment History</h5>
+                        @if (invoice.Payments == null || !invoice.Payments.Any())
+                        {
+                            <p class="text-muted small">No payments recorded yet.</p>
+                        }
+                        else
+                        {
+                            <ul class="list-group list-group-flush">
+                                @foreach (var pay in invoice.Payments)
+                                {
+                                    <li class="list-group-item px-0 d-flex justify-content-between align-items-center">
+                                        <div>
+                                            <span class="fw-bold">@pay.Amount.ToString("C")</span> - @pay.PaymentMethod
+                                            <div class="text-muted" style="font-size: 0.75rem;">@pay.PaymentDate.ToString("dd MMM yyyy HH:mm")</div>
+                                        </div>
+                                        <span class="badge @(pay.Status == "Success" ? "bg-success" : "bg-warning")">@pay.Status</span>
+                                    </li>
+                                }
+                            </ul>
+                        }
+                    </div>
+                </div>
+
+                <!-- Documents List -->
+                <div class="card shadow-sm border-0">
+                    <div class="card-body">
+                        <h5 class="fw-bold mb-3"><i class="bi bi-files text-secondary me-2"></i>Generated Documents</h5>
+                        @if (documents == null || !documents.Any())
+                        {
+                            <p class="text-muted small">No documents generated yet.</p>
+                        }
+                        else
+                        {
+                            <div class="list-group list-group-flush">
+                                @foreach (var doc in documents)
+                                {
+                                    <button class="list-group-item list-group-item-action px-0 border-0 d-flex justify-content-between align-items-center" @onclick="() => DownloadDocument(doc.StoragePath)">
+                                        <div class="text-start">
+                                            <span class="fw-bold small text-primary"><i class="bi bi-file-pdf"></i> @doc.FileName</span>
+                                            <div class="text-muted" style="font-size: 0.75rem;">@doc.DocumentType - @doc.GeneratedAt.ToString("dd MMM HH:mm")</div>
+                                        </div>
+                                        <i class="bi bi-download text-muted"></i>
+                                    </button>
+                                }
+                            </div>
+                        }
+                    </div>
+                </div>
+            </div>
+        </div>
+    }
+</div>
+
+<!-- Render Payment Modal -->
+@if (showPaymentModal && invoice != null)
+{
+    <PaymentModal InvoiceId="Id" OutstandingBalance="invoice.BalanceAmount" OnClose="OnPaymentModalClosed" />
+}
+
+<!-- Render Create Claim Modal -->
+@if (showClaimModal && invoice != null)
+{
+    <div class="modal fade show" style="display: block; background: rgba(0,0,0,0.5);" tabindex="-1">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title fw-bold"><i class="bi bi-shield-plus text-primary me-2"></i>Create Insurance Claim</h5>
+                    <button type="button" class="btn-close" @onclick="CloseClaimModal"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="mb-3">
+                        <label class="form-label fw-bold">Insurance Provider *</label>
+                        <input type="text" class="form-control" placeholder="e.g. Star Health Insurance" @bind="claimProvider" />
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label fw-bold">Policy Number *</label>
+                        <input type="text" class="form-control" placeholder="e.g. POL-987654" @bind="claimPolicyNumber" />
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label fw-bold">Member Name *</label>
+                        <input type="text" class="form-control" placeholder="Name on Card" @bind="claimMemberName" />
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label fw-bold">Claimed Amount (INR) *</label>
+                        <input type="number" class="form-control" @bind="claimAmount" />
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" @onclick="CloseClaimModal">Cancel</button>
+                    <button type="button" class="btn btn-primary" @onclick="SubmitClaimRecord" disabled="@isSubmittingClaim">
+                        @if (isSubmittingClaim)
+                        {
+                            <span class="spinner-border spinner-border-sm me-1"></span>
+                        }
+                        Create Draft Claim
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+}
+
+@code {
+    [Parameter]
+    public Guid Id { get; set; }
+
+    private BillingInvoice? invoice;
+    private List<CareSphere.Models.InvoiceDocument> documents = new();
+
+    private bool showPaymentModal = false;
+    private bool showClaimModal = false;
+
+    // Claim form fields
+    private string claimProvider = string.Empty;
+    private string claimPolicyNumber = string.Empty;
+    private string claimMemberName = string.Empty;
+    private decimal claimAmount;
+    private bool isSubmittingClaim = false;
+
+    private bool isGeneratingPdf = false;
+    private bool isGeneratingDcb = false;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadInvoiceDetails();
+    }
+
+    private async Task LoadInvoiceDetails()
+    {
+        invoice = await InvoiceService.GetInvoiceByIdAsync(Id);
+        if (invoice != null)
+        {
+            documents = await DocumentService.GetDocumentsByInvoiceAsync(Id);
+            claimAmount = invoice.BalanceAmount;
+            claimMemberName = $"{invoice.Patient?.FirstName} {invoice.Patient?.LastName}";
+        }
+    }
+
+    private void OpenPaymentModal() => showPaymentModal = true;
+
+    private async Task OnPaymentModalClosed(bool isSuccess)
+    {
+        showPaymentModal = false;
+        if (isSuccess)
+        {
+            await LoadInvoiceDetails();
+        }
+    }
+
+    private void OpenClaimModal() => showClaimModal = true;
+    private void CloseClaimModal() => showClaimModal = false;
+
+    private async Task SubmitClaimRecord()
+    {
+        if (string.IsNullOrWhiteSpace(claimProvider) || string.IsNullOrWhiteSpace(claimPolicyNumber) || string.IsNullOrWhiteSpace(claimMemberName))
+        {
+            await JSRuntime.InvokeVoidAsync("alert", "Please fill out all fields.");
+            return;
+        }
+
+        try
+        {
+            isSubmittingClaim = true;
+            // TenantId matches the invoice
+            Guid tenantId = invoice?.TenantId ?? Guid.Empty;
+
+            var claim = await ClaimService.CreateClaimAsync(tenantId, Id, claimProvider, claimPolicyNumber, claimMemberName, claimAmount);
+            
+            // Generate FHIR bundle JSON representation
+            await ClaimService.GenerateFhirClaimBundleAsync(claim.Id);
+
+            showClaimModal = false;
+            await JSRuntime.InvokeVoidAsync("alert", $"Draft claim {claim.ClaimNumber} successfully created!");
+            await LoadInvoiceDetails();
+        }
+        catch (Exception ex)
+        {
+            await JSRuntime.InvokeVoidAsync("alert", $"Error creating claim: {ex.Message}");
+        }
+        finally
+        {
+            isSubmittingClaim = false;
+        }
+    }
+
+    private async Task GenerateInvoicePdf()
+    {
+        try
+        {
+            isGeneratingPdf = true;
+            string relativePath = await DocumentService.GenerateInvoicePdfAsync(Id);
+            await LoadInvoiceDetails();
+            await JSRuntime.InvokeVoidAsync("open", relativePath, "_blank");
+        }
+        catch (Exception ex)
+        {
+            await JSRuntime.InvokeVoidAsync("alert", $"Error: {ex.Message}");
+        }
+        finally
+        {
+            isGeneratingPdf = false;
+        }
+    }
+
+    private async Task GenerateDischargeBillPdf()
+    {
+        if (invoice == null || !invoice.EncounterId.HasValue) return;
+
+        try
+        {
+            isGeneratingDcb = true;
+            string relativePath = await DocumentService.GenerateDischargeBillPdfAsync(invoice.EncounterId.Value);
+            await LoadInvoiceDetails();
+            await JSRuntime.InvokeVoidAsync("open", relativePath, "_blank");
+        }
+        catch (Exception ex)
+        {
+            await JSRuntime.InvokeVoidAsync("alert", $"Error: {ex.Message}");
+        }
+        finally
+        {
+            isGeneratingDcb = false;
+        }
+    }
+
+    private async Task DownloadDocument(string? storagePath)
+    {
+        if (string.IsNullOrEmpty(storagePath)) return;
+        await JSRuntime.InvokeVoidAsync("open", storagePath, "_blank");
+    }
+
+    private string GetInvoiceBadgeClass(string status) => status switch
+    {
+        "Draft" => "bg-secondary text-white",
+        "Finalized" => "bg-primary text-white",
+        "PartiallyPaid" => "bg-warning text-dark",
+        "Paid" => "bg-success text-white",
+        "Cancelled" => "bg-danger text-white",
+        _ => "bg-light text-dark"
+    };
+}

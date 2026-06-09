@@ -1,0 +1,560 @@
+@page "/pharmacy/otc-sale"
+@using CareSphere.Models
+@using CareSphere.Services
+@using CareSphere.Data
+@using CareSphere.Components
+@using CareSphere.Infrastructure
+@using Microsoft.EntityFrameworkCore
+@inject ApplicationDbContext DbContext
+@inject IOtcSaleService OtcService
+@inject IPharmacyItemService ItemService
+@inject IJSRuntime JSRuntime
+@inject NavigationManager NavigationManager
+@rendermode InteractiveServer
+
+<PageTitle>OTC POS Terminal - CareSphere</PageTitle>
+
+<div class="container-fluid py-4">
+    <div class="mb-4">
+        <h1 class="h3 mb-1 text-dark fw-bold"><i class="bi bi-shop me-2 text-primary"></i>OTC POS Terminal</h1>
+        <p class="text-muted mb-0">Process Over-The-Counter sales with cash and online payments</p>
+    </div>
+
+    @if (!string.IsNullOrEmpty(statusMessage))
+    {
+        <div class="alert alert-info py-2 px-3 small rounded mb-4 d-flex justify-content-between align-items-center">
+            <span>@statusMessage</span>
+            <button type="button" class="btn-close" @onclick="() => statusMessage = string.Empty"></button>
+        </div>
+    }
+
+    <div class="row g-4">
+        <!-- POS Cart & Scanner -->
+        <div class="col-lg-8">
+            <div class="card border-0 shadow-sm rounded-4 mb-4">
+                <div class="card-body p-4">
+                    <div class="d-flex justify-content-between align-items-center mb-3">
+                        <h5 class="fw-bold text-dark mb-0">Shopping Cart</h5>
+                        <button type="button" class="btn btn-sm btn-outline-secondary d-flex align-items-center gap-1" @onclick="ToggleCartScanner">
+                            <i class="bi @(showCartScanner ? "bi-camera-video-off" : "bi-camera")"></i>
+                            @(showCartScanner ? "Close Scanner" : "Scan Item Barcode")
+                        </button>
+                    </div>
+
+                    @if (showCartScanner)
+                    {
+                        <div class="card mb-4 border border-secondary shadow-sm rounded-3 overflow-hidden" style="max-width: 500px;">
+                            <div class="card-header bg-light py-2">
+                                <span class="small fw-semibold text-muted"><i class="bi bi-upc-scan me-1"></i> Scan product barcode</span>
+                            </div>
+                            <div class="card-body p-2">
+                                <BarcodeScanner VideoClass="w-100 rounded-3" OnScanned="HandleCartBarcodeScanned" />
+                            </div>
+                        </div>
+                    }
+
+                    <!-- Quick Barcode/Name Search -->
+                    <div class="row g-2 mb-3">
+                        <div class="col-md-9">
+                            <div class="input-group input-group-sm">
+                                <span class="input-group-text bg-white"><i class="bi bi-search"></i></span>
+                                <input type="text" class="form-control" placeholder="Search item by name or code to add..." @bind="searchKeyword" @onkeyup="HandleSearchKeyPress" />
+                            </div>
+                        </div>
+                        <div class="col-md-3">
+                            <button class="btn btn-sm btn-outline-primary w-100" @onclick="AddItemBySearch">Add Item</button>
+                        </div>
+                    </div>
+
+                    @if (searchResults != null && searchResults.Any())
+                    {
+                        <div class="list-group shadow-sm mb-3">
+                            @foreach (var resItem in searchResults)
+                            {
+                                <button type="button" class="list-group-item list-group-item-action py-2 px-3 small d-flex justify-content-between align-items-center" @onclick="() => AddItemToCart(resItem)">
+                                    <div>
+                                        <strong>@resItem.ItemName</strong> (@resItem.ItemCode)
+                                        @if (resItem.RequiresPrescription)
+                                        {
+                                            <span class="badge bg-warning text-dark ms-1">Rx Only</span>
+                                        }
+                                    </div>
+                                    <span class="text-primary fw-semibold">Add <i class="bi bi-plus-circle"></i></span>
+                                </button>
+                            }
+                        </div>
+                    }
+
+                    <div class="table-responsive">
+                        <table class="table align-middle">
+                            <thead class="table-light text-uppercase fs-7 fw-semibold text-muted">
+                                <tr>
+                                    <th>Item Details</th>
+                                    <th class="text-end" style="width: 15%;">Unit Price (₹)</th>
+                                    <th class="text-center" style="width: 20%;">Qty</th>
+                                    <th class="text-end" style="width: 15%;">Total (₹)</th>
+                                    <th class="text-center" style="width: 10%;">Delete</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                @if (!cart.Any())
+                                {
+                                    <tr>
+                                        <td colspan="5" class="text-center py-5 text-muted small">
+                                            <i class="bi bi-cart3 display-4 d-block mb-2 text-muted"></i>
+                                            Your cart is empty. Scan barcodes or search above to add items.
+                                        </td>
+                                    </tr>
+                                }
+                                else
+                                {
+                                    @foreach (var cartItem in cart)
+                                    {
+                                        <tr>
+                                            <td>
+                                                <div class="fw-bold text-dark">@cartItem.Item.ItemName</div>
+                                                <div class="small text-muted font-monospace">Code: @cartItem.Item.ItemCode | Unit: @cartItem.Item.Unit</div>
+                                            </td>
+                                            <td class="text-end">
+                                                ₹@cartItem.UnitPrice.ToString("F2")
+                                            </td>
+                                            <td class="text-center">
+                                                <div class="input-group input-group-sm justify-content-center">
+                                                    <button class="btn btn-outline-secondary px-2" type="button" @onclick="() => DecrementQty(cartItem)">-</button>
+                                                    <input type="text" class="form-control text-center fw-bold" style="max-width: 50px;" value="@cartItem.Quantity" readonly />
+                                                    <button class="btn btn-outline-secondary px-2" type="button" @onclick="() => IncrementQty(cartItem)">+</button>
+                                                </div>
+                                            </td>
+                                            <td class="text-end fw-semibold text-dark">
+                                                ₹@( (cartItem.Quantity * cartItem.UnitPrice).ToString("F2") )
+                                            </td>
+                                            <td class="text-center">
+                                                <button type="button" class="btn btn-sm btn-outline-danger border-0" @onclick="() => RemoveCartItem(cartItem)">
+                                                    <i class="bi bi-trash"></i>
+                                                </button>
+                                            </td>
+                                        </tr>
+                                    }
+                                }
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+
+            <!-- POS History (Today's Sales) -->
+            <div class="card border-0 shadow-sm rounded-4">
+                <div class="card-header bg-white py-3 px-4">
+                    <h5 class="fw-bold text-dark mb-0"><i class="bi bi-clock-history text-muted me-2"></i>Today's OTC Sales Log</h5>
+                </div>
+                <div class="table-responsive">
+                    <table class="table align-middle mb-0 small">
+                        <thead class="table-light text-uppercase fs-8 fw-semibold text-muted">
+                            <tr>
+                                <th class="px-4 py-2">Sale Number</th>
+                                <th class="py-2">Time</th>
+                                <th class="py-2">Customer</th>
+                                <th class="py-2">Method</th>
+                                <th class="py-2 text-end">Amount</th>
+                                <th class="py-2 text-center">Payment</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @if (todaysSales == null || !todaysSales.Any())
+                            {
+                                <tr>
+                                    <td colspan="6" class="text-center py-3 text-muted">No sales processed today.</td>
+                                </tr>
+                            }
+                            else
+                            {
+                                @foreach (var sale in todaysSales)
+                                {
+                                    var badgeColor = sale.PaymentStatus == "Paid" 
+                                        ? "bg-success-subtle text-success border border-success-subtle" 
+                                        : (sale.PaymentStatus == "Failed" ? "bg-danger-subtle text-danger border border-danger-subtle" : "bg-warning-subtle text-warning border border-warning-subtle");
+                                    
+                                    <tr>
+                                        <td class="px-4 py-2 fw-bold font-monospace text-dark">@sale.SaleNumber</td>
+                                        <td class="py-2 text-secondary">@sale.SaleDate.ToString("HH:mm")</td>
+                                        <td class="py-2 text-dark">@(sale.CustomerName ?? "Anonymous") (@(sale.CustomerPhone ?? "—"))</td>
+                                        <td class="py-2">@sale.PaymentMethod</td>
+                                        <td class="py-2 text-end fw-semibold text-dark">₹@sale.TotalAmount.ToString("F2")</td>
+                                        <td class="py-2 text-center">
+                                            <span class="badge rounded-pill @badgeColor px-2 py-1 fs-9">@sale.PaymentStatus</span>
+                                        </td>
+                                    </tr>
+                                }
+                            }
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+        <!-- POS Checkout panel -->
+        <div class="col-lg-4">
+            <div class="card border-0 shadow-sm rounded-4">
+                <div class="card-body p-4">
+                    <h5 class="fw-bold text-dark mb-3">POS Checkout</h5>
+                    <hr />
+
+                    <div class="mb-3">
+                        <label class="form-label text-muted small fw-semibold">Customer Name</label>
+                        <input type="text" class="form-control" placeholder="Optional Name" @bind="customerName" />
+                    </div>
+
+                    <div class="mb-3">
+                        <label class="form-label text-muted small fw-semibold">Customer Phone</label>
+                        <input type="text" class="form-control" placeholder="Optional Phone Number" @bind="customerPhone" />
+                    </div>
+
+                    <div class="mb-4">
+                        <label class="form-label text-muted small fw-semibold">Payment Method *</label>
+                        <div class="d-flex gap-2">
+                            <input type="radio" class="btn-check" name="btnradio" id="btnradioCash" autocomplete="off" checked="@(paymentMethod == "Cash")" @onclick='() => SetPaymentMethod("Cash")' />
+                            <label class="btn btn-outline-secondary w-50" for="btnradioCash"><i class="bi bi-cash me-1"></i> Cash</label>
+
+                            <input type="radio" class="btn-check" name="btnradio" id="btnradioOnline" autocomplete="off" checked="@(paymentMethod == "Card")" @onclick='() => SetPaymentMethod("Card")' />
+                            <label class="btn btn-outline-secondary w-50" for="btnradioOnline"><i class="bi bi-credit-card me-1"></i> Online / UPI</label>
+                        </div>
+                    </div>
+
+                    <div class="bg-light rounded-4 p-3 mb-4">
+                        <div class="d-flex justify-content-between mb-2">
+                            <span class="text-muted">Subtotal:</span>
+                            <span class="text-dark">₹@GrandTotal.ToString("F2")</span>
+                        </div>
+                        <div class="d-flex justify-content-between mb-2">
+                            <span class="text-muted">GST / Taxes:</span>
+                            <span class="text-dark">₹0.00</span>
+                        </div>
+                        <hr />
+                        <div class="d-flex justify-content-between align-items-center">
+                            <span class="fw-bold text-dark">Grand Total:</span>
+                            <span class="fs-4 fw-bold text-primary">₹@GrandTotal.ToString("F2")</span>
+                        </div>
+                    </div>
+
+                    @if (paymentMethod == "Cash")
+                    {
+                        <button class="btn btn-primary w-100 py-3 rounded-3 fw-bold shadow-sm btn-lg" @onclick="ProcessCashCheckout" disabled="@(isCheckoutRunning || !cart.Any())">
+                            @if (isCheckoutRunning)
+                            {
+                                <span class="spinner-border spinner-border-sm me-1"></span>
+                            }
+                            <i class="bi bi-check-circle me-1"></i> Complete Cash Sale
+                        </button>
+                    }
+                    else
+                    {
+                        <button class="btn btn-primary w-100 py-3 rounded-3 fw-bold shadow-sm btn-lg" @onclick="ProcessRazorpayCheckout" disabled="@(isCheckoutRunning || !cart.Any())">
+                            @if (isCheckoutRunning)
+                            {
+                                <span class="spinner-border spinner-border-sm me-1"></span>
+                            }
+                            <i class="bi bi-lightning-fill me-1"></i> Pay securely online
+                        </button>
+                    }
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+@code {
+    private List<CartItem> cart = new();
+    private List<OtcSale>? todaysSales;
+    private List<PharmacyItem>? searchResults;
+
+    private string searchKeyword = string.Empty;
+    private string customerName = string.Empty;
+    private string customerPhone = string.Empty;
+    private string paymentMethod = "Cash";
+
+    private bool showCartScanner = false;
+    private bool isCheckoutRunning = false;
+    private string statusMessage = string.Empty;
+    private string scannerMessage = string.Empty;
+
+    private decimal GrandTotal => cart.Sum(i => i.Quantity * i.UnitPrice);
+    private DotNetObjectReference<OtcSalePage>? objRef;
+    private OtcSale? pendingSale;
+
+    protected override async Task OnInitializedAsync()
+    {
+        objRef = DotNetObjectReference.Create(this);
+        await LoadSales();
+    }
+
+    private async Task LoadSales()
+    {
+        todaysSales = await DbContext.OtcSales
+            .Where(s => s.TenantId == Guid.Empty && s.SaleDate.Date == DateTime.UtcNow.Date)
+            .OrderByDescending(s => s.SaleDate)
+            .ToListAsync();
+    }
+
+    private void ToggleCartScanner()
+    {
+        showCartScanner = !showCartScanner;
+    }
+
+    private async Task HandleCartBarcodeScanned(string barcode)
+    {
+        showCartScanner = false;
+        var pItem = await ItemService.GetItemByBarcodeAsync(Guid.Empty, barcode);
+        if (pItem != null)
+        {
+            AddItemToCart(pItem);
+            statusMessage = $"Scanned & added {pItem.ItemName} to cart.";
+        }
+        else
+        {
+            statusMessage = $"Barcode '{barcode}' not found in catalog or requires prescription.";
+        }
+        StateHasChanged();
+    }
+
+    private async Task HandleSearchKeyPress(KeyboardEventArgs e)
+    {
+        if (string.IsNullOrWhiteSpace(searchKeyword))
+        {
+            searchResults = null;
+            return;
+        }
+
+        var lower = searchKeyword.ToLower();
+        // search only active non-prescription items for OTC
+        searchResults = await DbContext.PharmacyItems
+            .Where(i => i.TenantId == Guid.Empty && i.IsActive && !i.RequiresPrescription &&
+                        (i.ItemName.ToLower().Contains(lower) || i.ItemCode.ToLower().Contains(lower)))
+            .Take(5)
+            .ToListAsync();
+    }
+
+    private void AddItemBySearch()
+    {
+        if (searchResults != null && searchResults.Any())
+        {
+            AddItemToCart(searchResults.First());
+            searchResults = null;
+            searchKeyword = string.Empty;
+        }
+    }
+
+    private void AddItemToCart(PharmacyItem item)
+    {
+        if (item.RequiresPrescription)
+        {
+            statusMessage = $"Item '{item.ItemName}' requires a prescription and cannot be sold OTC.";
+            return;
+        }
+
+        var existing = cart.FirstOrDefault(i => i.Item.Id == item.Id);
+        if (existing != null)
+        {
+            existing.Quantity += 1;
+        }
+        else
+        {
+            // Resolve standard selling price from the earliest active batch
+            var earliestBatch = DbContext.PharmacyBatches
+                .Where(b => b.ItemId == item.Id && b.IsActive && b.ExpiryDate > DateTime.UtcNow && b.AvailableStock > 0)
+                .OrderBy(b => b.ExpiryDate)
+                .FirstOrDefault();
+
+            decimal sellingPrice = earliestBatch?.SellingPrice ?? 0;
+
+            cart.Add(new CartItem
+            {
+                Item = item,
+                Quantity = 1,
+                UnitPrice = sellingPrice
+            });
+        }
+        searchResults = null;
+        searchKeyword = string.Empty;
+    }
+
+    private void IncrementQty(CartItem cItem)
+    {
+        cItem.Quantity++;
+    }
+
+    private void DecrementQty(CartItem cItem)
+    {
+        if (cItem.Quantity > 1) cItem.Quantity--;
+    }
+
+    private void RemoveCartItem(CartItem cItem)
+    {
+        cart.Remove(cItem);
+    }
+
+    private void SetPaymentMethod(string method)
+    {
+        paymentMethod = method;
+    }
+
+    private async Task ProcessCashCheckout()
+    {
+        if (!cart.Any()) return;
+
+        try
+        {
+            isCheckoutRunning = true;
+            statusMessage = "Processing transaction...";
+
+            var sale = new OtcSale
+            {
+                TenantId = Guid.Empty,
+                CustomerName = string.IsNullOrWhiteSpace(customerName) ? "Anonymous" : customerName,
+                CustomerPhone = string.IsNullOrWhiteSpace(customerPhone) ? null : customerPhone,
+                PaymentMethod = "Cash",
+                CreatedByUserId = "system",
+                Items = cart.Select(c => new OtcSaleItem
+                {
+                    ItemId = c.Item.Id,
+                    Quantity = c.Quantity,
+                    UnitPrice = c.UnitPrice
+                }).ToList()
+            };
+
+            await OtcService.CreateOtcSaleAsync(sale);
+            statusMessage = "OTC Sale completed successfully!";
+            
+            // Clear cart
+            cart.Clear();
+            customerName = string.Empty;
+            customerPhone = string.Empty;
+            await LoadSales();
+        }
+        catch (Exception ex)
+        {
+            statusMessage = $"Checkout failed: {ex.Message}";
+        }
+        finally
+        {
+            isCheckoutRunning = false;
+        }
+    }
+
+    private async Task ProcessRazorpayCheckout()
+    {
+        if (!cart.Any()) return;
+
+        try
+        {
+            isCheckoutRunning = true;
+            statusMessage = "Initiating payment order...";
+
+            var sale = new OtcSale
+            {
+                TenantId = Guid.Empty,
+                CustomerName = string.IsNullOrWhiteSpace(customerName) ? "Anonymous" : customerName,
+                CustomerPhone = string.IsNullOrWhiteSpace(customerPhone) ? null : customerPhone,
+                PaymentMethod = "Card",
+                CreatedByUserId = "system",
+                Items = cart.Select(c => new OtcSaleItem
+                {
+                    ItemId = c.Item.Id,
+                    Quantity = c.Quantity,
+                    UnitPrice = c.UnitPrice
+                }).ToList()
+            };
+
+            // 1. Create sale record in DB
+            pendingSale = await OtcService.CreateOtcSaleAsync(sale);
+
+            // 2. Initiate Razorpay Order on server
+            var orderResult = await OtcService.InitiateRazorpayPaymentAsync(pendingSale.Id);
+
+            // 3. Launch Checkout overlay on client
+            var checkoutData = new
+            {
+                key = orderResult.Key,
+                amount = orderResult.Amount,
+                currency = "INR",
+                orderId = orderResult.OrderId,
+                patientName = pendingSale.CustomerName,
+                patientPhone = pendingSale.CustomerPhone
+            };
+
+            await JSRuntime.InvokeVoidAsync("openRazorpayCheckout", checkoutData, objRef);
+        }
+        catch (Exception ex)
+        {
+            statusMessage = $"Failed to launch online checkout: {ex.Message}";
+            isCheckoutRunning = false;
+        }
+    }
+
+    [JSInvokable]
+    public async Task OnPaymentSuccess(string paymentId, string orderId, string signature)
+    {
+        if (pendingSale == null) return;
+
+        try
+        {
+            statusMessage = "Payment successful. Finalizing transaction...";
+            StateHasChanged();
+
+            var verified = await OtcService.VerifyRazorpayPaymentAsync(pendingSale.Id, paymentId, signature);
+            if (verified)
+            {
+                statusMessage = "Online transaction verified & stock deducted.";
+                cart.Clear();
+                customerName = string.Empty;
+                customerPhone = string.Empty;
+                await LoadSales();
+            }
+            else
+            {
+                statusMessage = "Razorpay payment signature mismatch.";
+            }
+        }
+        catch (Exception ex)
+        {
+            statusMessage = $"Error verifying payment: {ex.Message}";
+        }
+        finally
+        {
+            isCheckoutRunning = false;
+            pendingSale = null;
+            StateHasChanged();
+        }
+    }
+
+    [JSInvokable]
+    public Task OnPaymentFailed(string code, string description, string paymentId, string orderId)
+    {
+        statusMessage = $"Payment failed: {description}";
+        isCheckoutRunning = false;
+        pendingSale = null;
+        StateHasChanged();
+        return Task.CompletedTask;
+    }
+
+    [JSInvokable]
+    public Task OnPaymentCancelled()
+    {
+        statusMessage = "Payment cancelled by customer.";
+        isCheckoutRunning = false;
+        pendingSale = null;
+        StateHasChanged();
+        return Task.CompletedTask;
+    }
+
+    public class CartItem
+    {
+        public PharmacyItem Item { get; set; } = null!;
+        public int Quantity { get; set; }
+        public decimal UnitPrice { get; set; }
+    }
+
+    public void Dispose()
+    {
+        objRef?.Dispose();
+    }
+}

@@ -1,0 +1,155 @@
+@page "/pharmacy/suppliers"
+@using CareSphere.Models
+@using CareSphere.Services
+@inject ISupplierService SupplierService
+@inject NavigationManager NavigationManager
+@rendermode InteractiveServer
+
+<PageTitle>Suppliers - CareSphere</PageTitle>
+
+<div class="container-fluid py-4">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <div>
+            <h1 class="h3 mb-1 text-dark fw-bold"><i class="bi bi-truck me-2 text-primary"></i>Supplier Management</h1>
+            <p class="text-muted mb-0">Add, edit, and manage pharmaceutical suppliers</p>
+        </div>
+        <a href="/pharmacy/suppliers/create" class="btn btn-primary d-flex align-items-center gap-2 px-4 shadow-sm">
+            <i class="bi bi-plus-circle"></i> Add New Supplier
+        </a>
+    </div>
+
+    <div class="card border-0 shadow-sm mb-4">
+        <div class="card-body p-3">
+            <div class="row g-3">
+                <div class="col-md-6 col-lg-4">
+                    <div class="input-group">
+                        <span class="input-group-text bg-white border-end-0"><i class="bi bi-search text-muted"></i></span>
+                        <input type="text" class="form-control border-start-0 ps-0" placeholder="Search by name, contact, phone..." @bind="SearchTerm" @bind:event="oninput" @onkeyup="HandleSearch" />
+                    </div>
+                </div>
+                <div class="col-md-2">
+                    <button class="btn btn-light w-100" @onclick="ClearSearch">Clear</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    @if (suppliers == null)
+    {
+        <div class="d-flex justify-content-center my-5">
+            <div class="spinner-border text-primary" role="status">
+                <span class="visually-hidden">Loading...</span>
+            </div>
+        </div>
+    }
+    else if (!suppliers.Any())
+    {
+        <div class="text-center py-5 bg-white rounded-4 shadow-sm">
+            <i class="bi bi-truck text-muted display-1 mb-3"></i>
+            <h4 class="fw-bold">No Suppliers Found</h4>
+            <p class="text-muted">Try modifying your search term or add a new supplier.</p>
+        </div>
+    }
+    else
+    {
+        <div class="card border-0 shadow-sm rounded-4 overflow-hidden">
+            <div class="table-responsive">
+                <table class="table table-hover align-middle mb-0">
+                    <thead class="table-light text-uppercase fs-7 fw-semibold text-muted">
+                        <tr>
+                            <th class="px-4 py-3">Supplier Name</th>
+                            <th class="py-3">Contact Person</th>
+                            <th class="py-3">Phone / Email</th>
+                            <th class="py-3">License / GST</th>
+                            <th class="py-3 text-center">Status</th>
+                            <th class="px-4 py-3 text-end">Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody class="border-top-0">
+                        @foreach (var supplier in suppliers)
+                        {
+                            <tr>
+                                <td class="px-4 py-3">
+                                    <div class="fw-bold text-dark fs-6">@supplier.SupplierName</div>
+                                    <div class="small text-muted text-truncate" style="max-width: 250px;">@supplier.Address</div>
+                                </td>
+                                <td class="py-3">
+                                    <span class="text-dark">@(supplier.ContactPerson ?? "—")</span>
+                                </td>
+                                <td class="py-3">
+                                    <div><i class="bi bi-telephone text-muted me-1"></i> @(supplier.Phone ?? "—")</div>
+                                    <div class="small text-muted"><i class="bi bi-envelope text-muted me-1"></i> @(supplier.Email ?? "—")</div>
+                                </td>
+                                <td class="py-3">
+                                    <div class="small text-dark"><strong>Lic:</strong> @(supplier.LicenseNumber ?? "—")</div>
+                                    <div class="small text-muted"><strong>GST:</strong> @(supplier.GstNumber ?? "—")</div>
+                                </td>
+                                <td class="py-3 text-center">
+                                    @if (supplier.IsActive)
+                                    {
+                                        <span class="badge rounded-pill bg-success-subtle text-success border border-success-subtle px-3 py-2">Active</span>
+                                    }
+                                    else
+                                    {
+                                        <span class="badge rounded-pill bg-danger-subtle text-danger border border-danger-subtle px-3 py-2">Inactive</span>
+                                    }
+                                </td>
+                                <td class="px-4 py-3 text-end">
+                                    <div class="d-flex justify-content-end gap-2">
+                                        <a href="/pharmacy/suppliers/edit/@supplier.Id" class="btn btn-sm btn-outline-secondary" title="Edit">
+                                            <i class="bi bi-pencil"></i>
+                                        </a>
+                                        <button class="btn btn-sm @(supplier.IsActive ? "btn-outline-danger" : "btn-outline-success")" @onclick="() => ToggleActive(supplier.Id)" title="@(supplier.IsActive ? "Deactivate" : "Activate")">
+                                            <i class="bi @(supplier.IsActive ? "bi-slash-circle" : "bi-check-circle")"></i>
+                                        </button>
+                                    </div>
+                                </td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    }
+</div>
+
+@code {
+    private List<Supplier>? suppliers;
+    private string SearchTerm { get; set; } = string.Empty;
+    private Guid currentTenantId = Guid.Empty; // Using default Guid.Empty for tenant discovery
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadSuppliers();
+    }
+
+    private async Task LoadSuppliers()
+    {
+        suppliers = await SupplierService.GetSuppliersAsync(currentTenantId, SearchTerm);
+    }
+
+    private async Task HandleSearch()
+    {
+        await LoadSuppliers();
+    }
+
+    private async Task ClearSearch()
+    {
+        SearchTerm = string.Empty;
+        await LoadSuppliers();
+    }
+
+    private async Task ToggleActive(Guid id)
+    {
+        try
+        {
+            await SupplierService.ToggleActiveAsync(id);
+            await LoadSuppliers();
+        }
+        catch (Exception ex)
+        {
+            // Handled or printed to logger
+            Console.WriteLine($"Error toggling supplier active: {ex.Message}");
+        }
+    }
+}

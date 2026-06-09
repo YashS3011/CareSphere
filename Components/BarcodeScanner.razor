@@ -1,0 +1,121 @@
+@inject IJSRuntime JSRuntime
+@implements IAsyncDisposable
+
+<div class="barcode-scanner-container">
+    <div class="mb-2">
+        <video id="@videoElementId" class="@VideoClass" style="max-width: 100%; border-radius: 8px; display: @(isScanning ? "block" : "none");" autoplay></video>
+    </div>
+
+    <div class="input-group mb-2">
+        <span class="input-group-text"><i class="bi bi-upc-scan"></i></span>
+        <input type="text" class="form-control" placeholder="Scanned barcode value..." @bind="ScannedValue" readonly />
+    </div>
+
+    <div class="btn-group btn-group-sm">
+        @if (!isScanning)
+        {
+            <button type="button" class="btn btn-outline-primary" @onclick="StartScanning" disabled="@isStarting">
+                @if (isStarting)
+                {
+                    <span class="spinner-border spinner-border-sm me-1"></span>
+                }
+                <i class="bi bi-camera me-1"></i> Start Scan
+            </button>
+        }
+        else
+        {
+            <button type="button" class="btn btn-outline-danger" @onclick="StopScanning">
+                <i class="bi bi-stop-circle me-1"></i> Stop Scan
+            </button>
+        }
+    </div>
+
+    @if (!string.IsNullOrEmpty(errorMessage))
+    {
+        <div class="alert alert-danger mt-2 py-1 small mb-0">@errorMessage</div>
+    }
+</div>
+
+@code {
+    [Parameter]
+    public string VideoClass { get; set; } = "";
+
+    [Parameter]
+    public EventCallback<string> OnScanned { get; set; }
+
+    private string ScannedValue { get; set; } = string.Empty;
+    private bool isScanning = false;
+    private bool isStarting = false;
+    private string errorMessage = string.Empty;
+    private string videoElementId = $"barcode-video-{Guid.NewGuid():N}";
+    private DotNetObjectReference<BarcodeScanner>? objRef;
+
+    protected override void OnInitialized()
+    {
+        objRef = DotNetObjectReference.Create(this);
+    }
+
+    private async Task StartScanning()
+    {
+        try
+        {
+            isStarting = true;
+            errorMessage = string.Empty;
+            StateHasChanged();
+
+            isScanning = true;
+            StateHasChanged();
+
+            // Small delay to ensure video element is rendered
+            await Task.Delay(100);
+            await JSRuntime.InvokeVoidAsync("startBarcodeScanner", videoElementId, objRef);
+            isStarting = false;
+        }
+        catch (Exception ex)
+        {
+            errorMessage = $"Failed to start scanner: {ex.Message}";
+            isScanning = false;
+            isStarting = false;
+        }
+    }
+
+    private async Task StopScanning()
+    {
+        try
+        {
+            await JSRuntime.InvokeVoidAsync("stopBarcodeScanner");
+        }
+        catch { /* Ignore errors on stop */ }
+        finally
+        {
+            isScanning = false;
+        }
+    }
+
+    [JSInvokable]
+    public async Task OnBarcodeScanned(string barcode)
+    {
+        ScannedValue = barcode;
+
+        // Auto-stop after successful scan
+        await StopScanning();
+
+        // Fire the callback
+        await OnScanned.InvokeAsync(barcode);
+        StateHasChanged();
+    }
+
+    public async ValueTask DisposeAsync()
+    {
+        if (isScanning)
+        {
+            try
+            {
+                await JSRuntime.InvokeVoidAsync("stopBarcodeScanner");
+            }
+            catch { /* Component being disposed, ignore errors */ }
+        }
+
+        objRef?.Dispose();
+    }
+}

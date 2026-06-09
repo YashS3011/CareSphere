@@ -1,0 +1,268 @@
+@page "/billing/dashboard"
+@using Microsoft.EntityFrameworkCore
+@using CareSphere.Models
+@using CareSphere.Data
+@inject ApplicationDbContext DbContext
+@rendermode InteractiveServer
+
+<PageTitle>Billing Dashboard - CareSphere</PageTitle>
+
+<div class="container-fluid py-4">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <div>
+            <h2 class="fw-bold text-primary"><i class="bi bi-wallet2 me-2"></i>Billing & Claims Dashboard</h2>
+            <p class="text-muted">Overview of hospital revenue, outstanding balances, and insurance claim approvals.</p>
+        </div>
+        <div class="btn-group">
+            <a href="/billing/invoices/create" class="btn btn-primary"><i class="bi bi-plus-circle me-1"></i>Create Invoice</a>
+            <a href="/billing/invoices" class="btn btn-outline-primary">View Invoices</a>
+            <a href="/billing/claims" class="btn btn-outline-secondary">View Claims</a>
+        </div>
+    </div>
+
+    <!-- KPI Cards -->
+    <div class="row g-3 mb-4">
+        <div class="col-md-4 col-xl-2">
+            <div class="card shadow-sm border-0 border-start border-primary border-4 h-100">
+                <div class="card-body">
+                    <h6 class="text-uppercase text-muted fw-bold mb-1" style="font-size: 0.8rem;">Revenue (Month)</h6>
+                    <h4 class="mb-0 fw-bold">INR @totalRevenueMonth.ToString("N2")</h4>
+                    <small class="text-muted">Successful payments</small>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-4 col-xl-2">
+            <div class="card shadow-sm border-0 border-start border-danger border-4 h-100">
+                <div class="card-body">
+                    <h6 class="text-uppercase text-muted fw-bold mb-1" style="font-size: 0.8rem;">Outstanding Balance</h6>
+                    <h4 class="mb-0 fw-bold text-danger">INR @totalOutstanding.ToString("N2")</h4>
+                    <small class="text-muted">Unpaid/Partially paid</small>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-4 col-xl-2">
+            <div class="card shadow-sm border-0 border-start border-info border-4 h-100">
+                <div class="card-body">
+                    <h6 class="text-uppercase text-muted fw-bold mb-1" style="font-size: 0.8rem;">Claims Submitted</h6>
+                    <h4 class="mb-0 fw-bold">@totalClaimsSubmittedMonth</h4>
+                    <small class="text-muted">This month</small>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-4 col-xl-2">
+            <div class="card shadow-sm border-0 border-start border-success border-4 h-100">
+                <div class="card-body">
+                    <h6 class="text-uppercase text-muted fw-bold mb-1" style="font-size: 0.8rem;">Claims Approved</h6>
+                    <h4 class="mb-0 fw-bold text-success">@totalClaimsApprovedMonth</h4>
+                    <small class="text-muted">This month</small>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-4 col-xl-2">
+            <div class="card shadow-sm border-0 border-start border-warning border-4 h-100">
+                <div class="card-body">
+                    <h6 class="text-uppercase text-muted fw-bold mb-1" style="font-size: 0.8rem;">Claim Approval Rate</h6>
+                    <h4 class="mb-0 fw-bold">@claimApprovalRate.ToString("F1")%</h4>
+                    <small class="text-muted">Approved vs Submitted</small>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-4 col-xl-2">
+            <div class="card shadow-sm border-0 border-start border-purple border-4 h-100" style="border-left-color: #6f42c1 !important;">
+                <div class="card-body">
+                    <h6 class="text-uppercase text-muted fw-bold mb-1" style="font-size: 0.8rem;">Collected Today</h6>
+                    <h4 class="mb-0 fw-bold" style="color: #6f42c1;">INR @totalCollectedToday.ToString("N2")</h4>
+                    <small class="text-muted">Successful today</small>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="row g-4">
+        <!-- Recent Invoices Table -->
+        <div class="col-lg-6">
+            <div class="card shadow-sm border-0 h-100">
+                <div class="card-header bg-white border-0 py-3 d-flex justify-content-between align-items-center">
+                    <h5 class="mb-0 fw-bold"><i class="bi bi-file-earmark-text text-primary me-2"></i>Recent Invoices</h5>
+                    <a href="/billing/invoices" class="btn btn-sm btn-link text-decoration-none">View All</a>
+                </div>
+                <div class="card-body p-0">
+                    <div class="table-responsive">
+                        <table class="table table-hover table-striped align-middle mb-0">
+                            <thead class="table-light text-uppercase fs-7">
+                                <tr>
+                                    <th class="ps-3">Invoice #</th>
+                                    <th>Patient</th>
+                                    <th>Date</th>
+                                    <th>Total</th>
+                                    <th>Status</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                @if (recentInvoices == null)
+                                {
+                                    <tr>
+                                        <td colspan="5" class="text-center py-4">
+                                            <div class="spinner-border spinner-border-sm text-primary" role="status"></div>
+                                        </td>
+                                    </tr>
+                                }
+                                else if (!recentInvoices.Any())
+                                {
+                                    <tr>
+                                        <td colspan="5" class="text-center py-4 text-muted">No recent invoices.</td>
+                                    </tr>
+                                }
+                                else
+                                {
+                                    @foreach (var inv in recentInvoices)
+                                    {
+                                        <tr>
+                                            <td class="ps-3 fw-bold"><a href="/billing/invoices/@inv.Id" class="text-decoration-none">@inv.InvoiceNumber</a></td>
+                                            <td>@inv.Patient?.FirstName @inv.Patient?.LastName</td>
+                                            <td>@inv.InvoiceDate.ToString("dd MMM yyyy")</td>
+                                            <td class="fw-bold">@inv.TotalAmount.ToString("C")</td>
+                                            <td>
+                                                <span class="badge @GetInvoiceBadgeClass(inv.Status)">@inv.Status</span>
+                                            </td>
+                                        </tr>
+                                    }
+                                }
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Recent Payments Table -->
+        <div class="col-lg-6">
+            <div class="card shadow-sm border-0 h-100">
+                <div class="card-header bg-white border-0 py-3 d-flex justify-content-between align-items-center">
+                    <h5 class="mb-0 fw-bold"><i class="bi bi-credit-card text-success me-2"></i>Recent Payments</h5>
+                    <a href="/billing/invoices" class="btn btn-sm btn-link text-decoration-none">View Invoices</a>
+                </div>
+                <div class="card-body p-0">
+                    <div class="table-responsive">
+                        <table class="table table-hover table-striped align-middle mb-0">
+                            <thead class="table-light text-uppercase fs-7">
+                                <tr>
+                                    <th class="ps-3">Invoice #</th>
+                                    <th>Patient</th>
+                                    <th>Method</th>
+                                    <th>Amount</th>
+                                    <th>Date</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                @if (recentPayments == null)
+                                {
+                                    <tr>
+                                        <td colspan="5" class="text-center py-4">
+                                            <div class="spinner-border spinner-border-sm text-primary" role="status"></div>
+                                        </td>
+                                    </tr>
+                                }
+                                else if (!recentPayments.Any())
+                                {
+                                    <tr>
+                                        <td colspan="5" class="text-center py-4 text-muted">No recent payments.</td>
+                                    </tr>
+                                }
+                                else
+                                {
+                                    @foreach (var pay in recentPayments)
+                                    {
+                                        <tr>
+                                            <td class="ps-3 fw-bold">@pay.BillingInvoice?.InvoiceNumber</td>
+                                            <td>@pay.Patient?.FirstName @pay.Patient?.LastName</td>
+                                            <td>
+                                                <i class="@GetPaymentIconClass(pay.PaymentMethod) me-1"></i> @pay.PaymentMethod
+                                            </td>
+                                            <td class="fw-bold text-success">@pay.Amount.ToString("C")</td>
+                                            <td>@pay.PaymentDate.ToString("dd MMM yyyy")</td>
+                                        </tr>
+                                    }
+                                }
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+@code {
+    private decimal totalRevenueMonth;
+    private decimal totalOutstanding;
+    private int totalClaimsSubmittedMonth;
+    private int totalClaimsApprovedMonth;
+    private double claimApprovalRate;
+    private decimal totalCollectedToday;
+
+    private List<BillingInvoice>? recentInvoices;
+    private List<Payment>? recentPayments;
+
+    protected override async Task OnInitializedAsync()
+    {
+        var startOfMonth = new DateTime(DateTime.UtcNow.Year, DateTime.UtcNow.Month, 1, 0, 0, 0, DateTimeKind.Utc);
+        var startOfToday = DateTime.UtcNow.Date;
+
+        totalRevenueMonth = await DbContext.Payments
+            .Where(p => p.Status == "Success" && p.PaymentDate >= startOfMonth)
+            .SumAsync(p => (decimal?)p.Amount) ?? 0m;
+
+        totalOutstanding = await DbContext.BillingInvoices
+            .Where(i => i.Status == "Finalized" || i.Status == "PartiallyPaid")
+            .SumAsync(i => (decimal?)i.BalanceAmount) ?? 0m;
+
+        totalClaimsSubmittedMonth = await DbContext.InsuranceClaims
+            .Where(c => c.Status != "Draft" && c.CreatedAt >= startOfMonth)
+            .CountAsync();
+
+        totalClaimsApprovedMonth = await DbContext.InsuranceClaims
+            .Where(c => (c.Status == "Approved" || c.Status == "PartiallyApproved") && c.CreatedAt >= startOfMonth)
+            .CountAsync();
+
+        claimApprovalRate = totalClaimsSubmittedMonth > 0 
+            ? ((double)totalClaimsApprovedMonth / totalClaimsSubmittedMonth) * 100 
+            : 0.0;
+
+        totalCollectedToday = await DbContext.Payments
+            .Where(p => p.Status == "Success" && p.PaymentDate >= startOfToday)
+            .SumAsync(p => (decimal?)p.Amount) ?? 0m;
+
+        recentInvoices = await DbContext.BillingInvoices
+            .Include(i => i.Patient)
+            .OrderByDescending(i => i.InvoiceDate)
+            .Take(10)
+            .ToListAsync();
+
+        recentPayments = await DbContext.Payments
+            .Include(p => p.Patient)
+            .Include(p => p.BillingInvoice)
+            .OrderByDescending(p => p.PaymentDate)
+            .Take(10)
+            .ToListAsync();
+    }
+
+    private string GetInvoiceBadgeClass(string status) => status switch
+    {
+        "Draft" => "bg-secondary text-white",
+        "Finalized" => "bg-primary text-white",
+        "PartiallyPaid" => "bg-warning text-dark",
+        "Paid" => "bg-success text-white",
+        "Cancelled" => "bg-danger text-white",
+        _ => "bg-light text-dark"
+    };
+
+    private string GetPaymentIconClass(string method) => method switch
+    {
+        "Cash" => "bi bi-cash-stack text-success",
+        "UPI" => "bi bi-phone text-primary",
+        "Card" => "bi bi-credit-card text-info",
+        "Insurance" => "bi bi-shield-check text-warning",
+        _ => "bi bi-wallet"
+    };
+}

@@ -1,0 +1,420 @@
+@page "/billing/invoices/create"
+@using CareSphere.Models
+@using CareSphere.Services
+@inject IPatientService PatientService
+@inject IEncounterService EncounterService
+@inject IInvoiceService InvoiceService
+@inject NavigationManager NavigationManager
+@inject IJSRuntime JSRuntime
+@rendermode InteractiveServer
+
+<PageTitle>Create Invoice - CareSphere</PageTitle>
+
+<div class="container-fluid py-4">
+    <div class="mb-4">
+        <h2><i class="bi bi-file-earmark-plus-fill text-primary me-2"></i>Create New Invoice</h2>
+        <hr />
+    </div>
+
+    <EditForm Model="@invoiceModel" OnValidSubmit="SaveInvoice" FormName="createInvoice">
+        <DataAnnotationsValidator />
+        <ValidationSummary class="alert alert-danger" />
+
+        <div class="row g-4">
+            <!-- Left Side: Patient & Encounter Selection -->
+            <div class="col-lg-4">
+                <div class="card shadow-sm border-0 mb-4 h-100">
+                    <div class="card-header bg-light py-3">
+                        <h5 class="card-title mb-0 fw-bold">1. Patient & Case Selection</h5>
+                    </div>
+                    <div class="card-body">
+                        <!-- Patient Search -->
+                        <div class="mb-3">
+                            <label class="form-label fw-bold">Search Patient *</label>
+                            <div class="input-group">
+                                <input type="text" class="form-control" placeholder="Enter Patient name or MRN..." 
+                                       @bind="patientSearchText" @bind:event="oninput" @onkeyup="HandlePatientSearchKeyup" />
+                                <button type="button" class="btn btn-outline-secondary" @onclick="SearchPatients">Search</button>
+                            </div>
+                        </div>
+
+                        <!-- Patient Results -->
+                        @if (searchResults != null)
+                        {
+                            <div class="mb-3">
+                                <label class="form-label small text-muted">Select from search results:</label>
+                                <select class="form-select" size="4" @onchange="OnPatientSelected">
+                                    @foreach (var pat in searchResults)
+                                    {
+                                        <option value="@pat.Id">@pat.FirstName @pat.LastName (@pat.Mrn)</option>
+                                    }
+                                </select>
+                            </div>
+                        }
+
+                        <!-- Selected Patient Info -->
+                        @if (selectedPatient != null)
+                        {
+                            <div class="p-3 bg-light rounded border border-primary mb-3">
+                                <h6 class="fw-bold mb-1"><i class="bi bi-person-check-fill text-primary me-1"></i>Selected Patient</h6>
+                                <p class="mb-0 fs-6 fw-bold">@selectedPatient.FirstName @selectedPatient.LastName</p>
+                                <p class="mb-0 text-muted small">MRN: @selectedPatient.Mrn</p>
+                                <p class="mb-0 text-muted small">Phone: @selectedPatient.Phone</p>
+                            </div>
+
+                            <!-- Encounter Link -->
+                            <div class="mb-3">
+                                <label class="form-label fw-bold">Link Encounter (Optional)</label>
+                                <select class="form-select" @onchange="OnEncounterSelected">
+                                    <option value="">-- No Encounter (OPD Walk-in) --</option>
+                                    @foreach (var enc in patientEncounters)
+                                    {
+                                        <option value="@enc.Id">@enc.EncounterType - Adm: @enc.AdmissionDate.ToString("dd MMM yyyy")</option>
+                                    }
+                                </select>
+                            </div>
+                        }
+                        else
+                        {
+                            <div class="alert alert-warning">Please search and select a patient first.</div>
+                        }
+
+                        <!-- Dates -->
+                        <div class="mb-3">
+                            <label class="form-label fw-bold">Invoice Date</label>
+                            <input type="date" class="form-control" @bind="invoiceDate" />
+                        </div>
+
+                        <div class="mb-3">
+                            <label class="form-label fw-bold">Due Date</label>
+                            <input type="date" class="form-control" @bind="dueDate" />
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Right Side: Invoicing Line Items -->
+            <div class="col-lg-8">
+                <div class="card shadow-sm border-0 mb-4 h-100">
+                    <div class="card-header bg-light py-3 d-flex justify-content-between align-items-center">
+                        <h5 class="card-title mb-0 fw-bold">2. Line Items</h5>
+                        <button type="button" class="btn btn-sm btn-outline-primary" @onclick="AddEmptyRow">
+                            <i class="bi bi-plus-lg me-1"></i>Add Line Item
+                        </button>
+                    </div>
+                    <div class="card-body">
+                        <div class="table-responsive">
+                            <table class="table table-hover align-middle">
+                                <thead>
+                                    <tr class="table-light small">
+                                        <th style="width: 15%;">Type</th>
+                                        <th style="width: 25%;">Description</th>
+                                        <th style="width: 10%;">Code</th>
+                                        <th style="width: 10%;">Qty</th>
+                                        <th style="width: 12%;">Unit Price</th>
+                                        <th style="width: 10%;">Disc %</th>
+                                        <th style="width: 10%;">Tax %</th>
+                                        <th style="width: 12%;">Total</th>
+                                        <th style="width: 6%;"></th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    @if (!lineItems.Any())
+                                    {
+                                        <tr>
+                                            <td colspan="9" class="text-center text-muted py-4">No line items added yet. Click "Add Line Item".</td>
+                                        </tr>
+                                    }
+                                    else
+                                    {
+                                        @for (int i = 0; i < lineItems.Count; i++)
+                                        {
+                                            int idx = i;
+                                            var item = lineItems[idx];
+                                            <tr>
+                                                <td>
+                                                    <select class="form-select form-select-sm" @bind="item.ItemType" @bind:after="RecalculateLiveTotals">
+                                                        <option value="Consultation">Consultation</option>
+                                                        <option value="Procedure">Procedure</option>
+                                                        <option value="Medication">Medication</option>
+                                                        <option value="RoomCharge">RoomCharge</option>
+                                                        <option value="LabTest">LabTest</option>
+                                                        <option value="Radiology">Radiology</option>
+                                                        <option value="Nursing">Nursing</option>
+                                                        <option value="Miscellaneous">Miscellaneous</option>
+                                                    </select>
+                                                </td>
+                                                <td>
+                                                    <input type="text" class="form-control form-control-sm" placeholder="Description" @bind="item.ItemDescription" />
+                                                </td>
+                                                <td>
+                                                    <input type="text" class="form-control form-control-sm" placeholder="Code" @bind="item.ItemCode" />
+                                                </td>
+                                                <td>
+                                                    <input type="number" class="form-control form-control-sm" min="1" step="any" @bind="item.Quantity" @bind:after="RecalculateLiveTotals" />
+                                                </td>
+                                                <td>
+                                                    <input type="number" class="form-control form-control-sm" min="0" step="any" @bind="item.UnitPrice" @bind:after="RecalculateLiveTotals" />
+                                                </td>
+                                                <td>
+                                                    <input type="number" class="form-control form-control-sm" min="0" max="100" step="any" @bind="item.DiscountPercent" @bind:after="RecalculateLiveTotals" />
+                                                </td>
+                                                <td>
+                                                    <input type="number" class="form-control form-control-sm" min="0" max="100" step="any" @bind="item.TaxPercent" @bind:after="RecalculateLiveTotals" />
+                                                </td>
+                                                <td class="fw-bold text-end">
+                                                    @item.LineTotal.ToString("N2")
+                                                </td>
+                                                <td>
+                                                    <button type="button" class="btn btn-sm btn-outline-danger" @onclick="() => RemoveRow(idx)">
+                                                        <i class="bi bi-trash"></i>
+                                                    </button>
+                                                </td>
+                                            </tr>
+                                        }
+                                    }
+                                </tbody>
+                            </table>
+                        </div>
+
+                        <!-- Summary Totals Panel -->
+                        <div class="row mt-4">
+                            <div class="col-md-6">
+                                <label class="form-label fw-bold">Notes</label>
+                                <textarea class="form-control" rows="3" placeholder="Add invoice notes..." @bind="notes"></textarea>
+                            </div>
+                            <div class="col-md-6">
+                                <div class="bg-light p-3 rounded border">
+                                    <div class="d-flex justify-content-between mb-2">
+                                        <span>Subtotal:</span>
+                                        <span>INR @subtotal.ToString("N2")</span>
+                                    </div>
+                                    <div class="d-flex justify-content-between text-danger mb-2">
+                                        <span>Discount:</span>
+                                        <span>- INR @discountTotal.ToString("N2")</span>
+                                    </div>
+                                    <div class="d-flex justify-content-between text-success mb-2">
+                                        <span>Tax:</span>
+                                        <span>+ INR @taxTotal.ToString("N2")</span>
+                                    </div>
+                                    <hr />
+                                    <div class="d-flex justify-content-between fw-bold fs-5 mb-0">
+                                        <span>Grand Total:</span>
+                                        <span class="text-primary">INR @grandTotal.ToString("N2")</span>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Form Actions -->
+                        <div class="d-flex justify-content-end gap-2 mt-4">
+                            <a href="/billing/invoices" class="btn btn-secondary">Cancel</a>
+                            <button type="button" class="btn btn-outline-primary" @onclick="() => ProcessSave(false)" disabled="@isSaving">
+                                @if (isSaving && !finalizeOnSave)
+                                {
+                                    <span class="spinner-border spinner-border-sm me-1"></span>
+                                }
+                                Save as Draft
+                            </button>
+                            <button type="button" class="btn btn-primary" @onclick="() => ProcessSave(true)" disabled="@isSaving">
+                                @if (isSaving && finalizeOnSave)
+                                {
+                                    <span class="spinner-border spinner-border-sm me-1"></span>
+                                }
+                                Save & Finalize
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </EditForm>
+</div>
+
+@code {
+    // Model for form rendering purposes
+    private BillingInvoice invoiceModel = new();
+
+    private string patientSearchText = string.Empty;
+    private List<Patient>? searchResults;
+    private Patient? selectedPatient;
+    private List<Encounter> patientEncounters = new();
+    private Guid? selectedEncounterId;
+
+    private DateTime invoiceDate = DateTime.Today;
+    private DateTime dueDate = DateTime.Today.AddDays(15);
+    private string notes = string.Empty;
+
+    private List<BillingLineItem> lineItems = new();
+
+    private decimal subtotal;
+    private decimal discountTotal;
+    private decimal taxTotal;
+    private decimal grandTotal;
+
+    private bool isSaving = false;
+    private bool finalizeOnSave = false;
+
+    protected override void OnInitialized()
+    {
+        AddEmptyRow();
+    }
+
+    private async Task SearchPatients()
+    {
+        if (string.IsNullOrWhiteSpace(patientSearchText))
+        {
+            searchResults = null;
+            return;
+        }
+
+        searchResults = await PatientService.GetPatientsAsync(patientSearchText);
+    }
+
+    private async Task HandlePatientSearchKeyup(KeyboardEventArgs e)
+    {
+        if (e.Key == "Enter")
+        {
+            await SearchPatients();
+        }
+    }
+
+    private async Task OnPatientSelected(ChangeEventArgs e)
+    {
+        if (Guid.TryParse(e.Value?.ToString(), out Guid patientId) && searchResults != null)
+        {
+            selectedPatient = searchResults.FirstOrDefault(p => p.Id == patientId);
+            if (selectedPatient != null)
+            {
+                patientEncounters = await EncounterService.GetEncountersByPatientAsync(patientId);
+                selectedEncounterId = null;
+            }
+        }
+    }
+
+    private void OnEncounterSelected(ChangeEventArgs e)
+    {
+        if (Guid.TryParse(e.Value?.ToString(), out Guid encounterId))
+        {
+            selectedEncounterId = encounterId;
+        }
+        else
+        {
+            selectedEncounterId = null;
+        }
+    }
+
+    private void AddEmptyRow()
+    {
+        lineItems.Add(new BillingLineItem
+        {
+            ItemType = "Consultation",
+            ItemDescription = "",
+            ItemCode = "",
+            Quantity = 1,
+            UnitPrice = 0,
+            DiscountPercent = 0,
+            TaxPercent = 0,
+            LineTotal = 0
+        });
+        RecalculateLiveTotals();
+    }
+
+    private void RemoveRow(int index)
+    {
+        if (index >= 0 && index < lineItems.Count)
+        {
+            lineItems.RemoveAt(index);
+        }
+        RecalculateLiveTotals();
+    }
+
+    private void RecalculateLiveTotals()
+    {
+        subtotal = 0;
+        discountTotal = 0;
+        taxTotal = 0;
+        grandTotal = 0;
+
+        foreach (var item in lineItems)
+        {
+            // Ensure bounds
+            if (item.Quantity < 0) item.Quantity = 0;
+            if (item.UnitPrice < 0) item.UnitPrice = 0;
+            if (item.DiscountPercent < 0) item.DiscountPercent = 0;
+            if (item.DiscountPercent > 100) item.DiscountPercent = 100;
+            if (item.TaxPercent < 0) item.TaxPercent = 0;
+            if (item.TaxPercent > 100) item.TaxPercent = 100;
+
+            decimal basePrice = item.Quantity * item.UnitPrice;
+            decimal discAmt = basePrice * (item.DiscountPercent / 100m);
+            decimal taxableAmt = basePrice - discAmt;
+            decimal taxAmt = taxableAmt * (item.TaxPercent / 100m);
+            item.LineTotal = taxableAmt + taxAmt;
+
+            subtotal += basePrice;
+            discountTotal += discAmt;
+            taxTotal += taxAmt;
+            grandTotal += item.LineTotal;
+        }
+    }
+
+    private async Task ProcessSave(bool finalize)
+    {
+        finalizeOnSave = finalize;
+        await SaveInvoice();
+    }
+
+    private async Task SaveInvoice()
+    {
+        if (selectedPatient == null)
+        {
+            await JSRuntime.InvokeVoidAsync("alert", "Please select a patient first.");
+            return;
+        }
+
+        if (!lineItems.Any() || lineItems.All(li => string.IsNullOrWhiteSpace(li.ItemDescription)))
+        {
+            await JSRuntime.InvokeVoidAsync("alert", "Please add at least one line item with description.");
+            return;
+        }
+
+        try
+        {
+            isSaving = true;
+
+            // Save via Invoice Service
+            // TenantId matches the existing patient tenant
+            Guid tenantId = selectedPatient.TenantId != Guid.Empty ? selectedPatient.TenantId : Guid.Parse("00000000-0000-0000-0000-000000000000");
+
+            var createdInvoice = await InvoiceService.CreateInvoiceAsync(tenantId, selectedPatient.Id, selectedEncounterId, lineItems);
+
+            // Save notes
+            if (!string.IsNullOrEmpty(notes))
+            {
+                createdInvoice.Notes = notes;
+            }
+            // Update invoice dates selected in UI
+            createdInvoice.InvoiceDate = invoiceDate.ToUniversalTime();
+            createdInvoice.DueDate = dueDate.ToUniversalTime();
+
+            // Recalculate and update database
+            await InvoiceService.UpdateInvoiceTotalsAsync(createdInvoice.Id);
+
+            if (finalizeOnSave)
+            {
+                await InvoiceService.FinalizeInvoiceAsync(createdInvoice.Id);
+            }
+
+            NavigationManager.NavigateTo("/billing/invoices");
+        }
+        catch (Exception ex)
+        {
+            await JSRuntime.InvokeVoidAsync("alert", $"Error saving invoice: {ex.Message}");
+        }
+        finally
+        {
+            isSaving = false;
+        }
+    }
+}

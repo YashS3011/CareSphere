@@ -1,4 +1,4 @@
-﻿<div class="top-row ps-3 navbar navbar-dark bg-primary text-white">
+<div class="top-row ps-3 navbar navbar-dark bg-primary text-white">
     <div class="container-fluid">
         <a class="navbar-brand fw-bold" href=""><i class="bi bi-heart-pulse-fill me-2"></i>CareSphere</a>
     </div>
@@ -41,6 +41,103 @@
         <div class="nav-item px-3">
             <NavLink class="nav-link" href="allotments">
                 <i class="bi bi-journal-medical me-3" aria-hidden="true"></i> Allotments
+            </NavLink>
+        </div>
+
+        <hr class="mx-3 my-2" />
+
+        <div class="nav-item px-3">
+            <NavLink class="nav-link" href="doctors">
+                <i class="bi bi-person-badge me-3" aria-hidden="true"></i> Doctors
+            </NavLink>
+        </div>
+
+        <div class="nav-item px-3">
+            @* Note: Using placeholder GUID until auth is added. Replace with logged-in doctor's ID. *@
+            <NavLink class="nav-link" href="doctor/queue/00000000-0000-0000-0000-000000000000">
+                <i class="bi bi-clock me-3" aria-hidden="true"></i> Queue
+            </NavLink>
+        </div>
+
+        <div class="nav-item px-3">
+            <NavLink class="nav-link" href="encounters">
+                <i class="bi bi-clipboard2-pulse me-3" aria-hidden="true"></i> Encounters
+            </NavLink>
+        </div>
+
+        <hr class="mx-3 my-2" />
+
+        <div class="nav-item px-3">
+            <NavLink class="nav-link" href="billing/dashboard">
+                <i class="bi bi-wallet2 me-3" aria-hidden="true"></i> Billing Dashboard
+            </NavLink>
+        </div>
+
+        <div class="nav-item px-3">
+            <NavLink class="nav-link" href="billing/invoices">
+                <i class="bi bi-file-earmark-spreadsheet me-3" aria-hidden="true"></i> Invoices
+            </NavLink>
+        </div>
+
+        <div class="nav-item px-3">
+            <NavLink class="nav-link" href="billing/claims">
+                <i class="bi bi-shield-check me-3" aria-hidden="true"></i> Claims
+            </NavLink>
+        </div>
+
+        <hr class="mx-3 my-2" />
+
+        <div class="nav-item px-3">
+            <NavLink class="nav-link" href="pharmacy/dashboard">
+                <i class="bi bi-capsule me-3" aria-hidden="true"></i> Pharmacy Dashboard
+            </NavLink>
+        </div>
+
+        <div class="nav-item px-3">
+            <NavLink class="nav-link" href="pharmacy/items">
+                <i class="bi bi-box-seam me-3" aria-hidden="true"></i> Pharmacy Items
+            </NavLink>
+        </div>
+
+        <div class="nav-item px-3">
+            <NavLink class="nav-link" href="pharmacy/suppliers">
+                <i class="bi bi-truck me-3" aria-hidden="true"></i> Suppliers
+            </NavLink>
+        </div>
+
+        <div class="nav-item px-3">
+            <NavLink class="nav-link" href="pharmacy/purchase-orders">
+                <i class="bi bi-cart4 me-3" aria-hidden="true"></i> Purchase Orders
+            </NavLink>
+        </div>
+
+        <div class="nav-item px-3">
+            <NavLink class="nav-link" href="pharmacy/grn">
+                <i class="bi bi-box-arrow-in-down me-3" aria-hidden="true"></i> GRN (Receipts)
+            </NavLink>
+        </div>
+
+        <div class="nav-item px-3">
+            <NavLink class="nav-link" href="pharmacy/dispense">
+                <i class="bi bi-prescription2 me-3" aria-hidden="true"></i> Dispense Rx
+            </NavLink>
+        </div>
+
+        <div class="nav-item px-3">
+            <NavLink class="nav-link" href="pharmacy/otc-sale">
+                <i class="bi bi-shop me-3" aria-hidden="true"></i> OTC Sale (POS)
+            </NavLink>
+        </div>
+
+        <div class="nav-item px-3">
+            <NavLink class="nav-link" href="pharmacy/expiry-alerts">
+                <i class="bi bi-exclamation-triangle me-3" aria-hidden="true"></i> Expiry Alerts
+            </NavLink>
+        </div>
+
+        <div class="nav-item px-3">
+            <NavLink class="nav-link" href="pharmacy/stock-ledger">
+                <i class="bi bi-journal-text me-3" aria-hidden="true"></i> Stock Ledger
             </NavLink>
         </div>
     </nav>

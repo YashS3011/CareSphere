@@ -1,0 +1,366 @@
+@using CareSphere.Models
+@using CareSphere.Services
+@using CareSphere.Data
+@using Microsoft.EntityFrameworkCore
+@inject IPaymentService PaymentService
+@inject ApplicationDbContext DbContext
+@inject IJSRuntime JSRuntime
+
+<div class="modal fade show" style="display: block; background: rgba(0,0,0,0.5);" tabindex="-1">
+    <div class="modal-dialog modal-md">
+        <div class="modal-content border-0 shadow-lg">
+            <div class="modal-header bg-primary text-white">
+                <h5 class="modal-title fw-bold"><i class="bi bi-credit-card-fill me-2"></i>Process Invoice Payment</h5>
+                <button type="button" class="btn-close btn-close-white" @onclick="() => CloseModal(false)"></button>
+            </div>
+            <div class="modal-body">
+                @if (isProcessing)
+                {
+                    <div class="text-center py-5">
+                        <div class="spinner-border text-primary mb-3" role="status"></div>
+                        <p class="mb-0 text-muted">Processing payment. Please do not close this window...</p>
+                    </div>
+                }
+                else
+                {
+                    <!-- Payment Mode Tabs -->
+                    <div class="mb-4">
+                        <label class="form-label fw-bold">Select Payment Method</label>
+                        <div class="row g-2">
+                            <div class="col-6 col-sm-3">
+                                <button type="button" class="btn w-100 py-3 @(selectedMethod == "Cash" ? "btn-primary" : "btn-outline-secondary")" @onclick='() => SetPaymentMethod("Cash")'>
+                                    <i class="bi bi-cash-stack d-block mb-1 fs-4"></i> Cash
+                                </button>
+                            </div>
+                            <div class="col-6 col-sm-3">
+                                <button type="button" class="btn w-100 py-3 @(selectedMethod == "UPI" ? "btn-primary" : "btn-outline-secondary")" @onclick='() => SetPaymentMethod("UPI")'>
+                                    <i class="bi bi-phone d-block mb-1 fs-4"></i> UPI
+                                </button>
+                            </div>
+                            <div class="col-6 col-sm-3">
+                                <button type="button" class="btn w-100 py-3 @(selectedMethod == "Card" ? "btn-primary" : "btn-outline-secondary")" @onclick='() => SetPaymentMethod("Card")'>
+                                    <i class="bi bi-credit-card d-block mb-1 fs-4"></i> Card
+                                </button>
+                            </div>
+                            <div class="col-6 col-sm-3">
+                                <button type="button" class="btn w-100 py-3 @(selectedMethod == "Insurance" ? "btn-primary" : "btn-outline-secondary")" @onclick='() => SetPaymentMethod("Insurance")'>
+                                    <i class="bi bi-shield-check d-block mb-1 fs-4"></i> Insurance
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Payment Mode: Cash -->
+                    @if (selectedMethod == "Cash")
+                    {
+                        <div class="mb-3">
+                            <label class="form-label fw-bold">Amount to Pay (INR) *</label>
+                            <input type="number" class="form-control" max="@OutstandingBalance" step="any" @bind="paymentAmount" />
+                            <small class="text-muted">Maximum Outstanding: INR @OutstandingBalance.ToString("N2")</small>
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label fw-bold">Notes</label>
+                            <textarea class="form-control" rows="2" placeholder="e.g. Paid at reception counter" @bind="notes"></textarea>
+                        </div>
+                        <button type="button" class="btn btn-success w-100 py-2 fw-bold mt-2" @onclick="RecordCashPayment">
+                            <i class="bi bi-check-circle me-1"></i> Record Cash Payment
+                        </button>
+                    }
+
+                    <!-- Payment Mode: UPI or Card (Razorpay) -->
+                    @if (selectedMethod == "UPI" || selectedMethod == "Card")
+                    {
+                        <div class="p-3 bg-light rounded border border-primary-subtle mb-3 text-center">
+                            <h6 class="fw-bold text-primary mb-2">Pay securely online via Razorpay</h6>
+                            <p class="small text-muted mb-0">You will be redirected to the Razorpay Checkout widget to complete the transaction.</p>
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label fw-bold">Amount to Pay (INR) *</label>
+                            <input type="number" class="form-control" max="@OutstandingBalance" step="any" @bind="paymentAmount" />
+                        </div>
+                        <button type="button" class="btn btn-primary w-100 py-2 fw-bold mt-2" @onclick="RecordRazorpayPayment">
+                            <i class="bi bi-lightning-fill me-1"></i> Pay via Razorpay
+                        </button>
+                    }
+
+                    <!-- Payment Mode: Insurance Settlement -->
+                    @if (selectedMethod == "Insurance")
+                    {
+                        @if (submittedClaims == null || !submittedClaims.Any())
+                        {
+                            <div class="alert alert-warning">
+                                No active submitted claims found for this invoice. Please submit a claim first.
+                            </div>
+                        }
+                        else
+                        {
+                            <div class="mb-3">
+                                <label class="form-label fw-bold">Link Claim *</label>
+                                <select class="form-select" @onchange="OnClaimSelected">
+                                    <option value="">-- Select Submitted Claim --</option>
+                                    @foreach (var claim in submittedClaims)
+                                    {
+                                        <option value="@claim.Id">@claim.ClaimNumber - @claim.InsuranceProvider (Claimed: INR @claim.ClaimedAmount)</option>
+                                    }
+                                </select>
+                            </div>
+                            
+                            @if (selectedClaim != null)
+                            {
+                                <div class="mb-3">
+                                    <label class="form-label fw-bold">Insurance Provider</label>
+                                    <input type="text" class="form-control" @bind="insuranceProvider" disabled />
+                                </div>
+                                <div class="mb-3">
+                                    <label class="form-label fw-bold">Policy Number</label>
+                                    <input type="text" class="form-control" @bind="policyNumber" disabled />
+                                </div>
+                                <div class="mb-3">
+                                    <label class="form-label fw-bold">Member Name</label>
+                                    <input type="text" class="form-control" @bind="memberName" disabled />
+                                </div>
+                                <div class="mb-3">
+                                    <label class="form-label fw-bold">Approved Amount (INR) *</label>
+                                    <input type="number" class="form-control" @bind="approvedAmount" />
+                                </div>
+                                <div class="mb-3">
+                                    <label class="form-label fw-bold">Transaction Reference *</label>
+                                    <input type="text" class="form-control" placeholder="e.g. SET-982173" @bind="transactionReference" />
+                                </div>
+                                <button type="button" class="btn btn-warning w-100 py-2 fw-bold text-dark mt-2" @onclick="RecordInsuranceSettlement">
+                                    <i class="bi bi-shield-check me-1"></i> Record Settlement
+                                </button>
+                            }
+                        }
+                    }
+
+                    @if (!string.IsNullOrEmpty(errorMessage))
+                    {
+                        <div class="alert alert-danger mt-3 mb-0">@errorMessage</div>
+                    }
+                }
+            </div>
+        </div>
+    </div>
+</div>
+
+@code {
+    [Parameter]
+    public Guid InvoiceId { get; set; }
+
+    [Parameter]
+    public decimal OutstandingBalance { get; set; }
+
+    [Parameter]
+    public EventCallback<bool> OnClose { get; set; }
+
+    private string selectedMethod = "Cash";
+    private decimal paymentAmount;
+    private string notes = string.Empty;
+    private bool isProcessing = false;
+    private string errorMessage = string.Empty;
+
+    // Insurance fields
+    private List<InsuranceClaim>? submittedClaims;
+    private InsuranceClaim? selectedClaim;
+    private string insuranceProvider = string.Empty;
+    private string policyNumber = string.Empty;
+    private string memberName = string.Empty;
+    private decimal approvedAmount;
+    private string transactionReference = string.Empty;
+
+    private DotNetObjectReference<PaymentModal>? objRef;
+
+    protected override async Task OnInitializedAsync()
+    {
+        paymentAmount = OutstandingBalance;
+        objRef = DotNetObjectReference.Create(this);
+
+        // Load submitted claims for this invoice
+        submittedClaims = await DbContext.InsuranceClaims
+            .Where(c => c.InvoiceId == InvoiceId && (c.Status == "Submitted" || c.Status == "UnderReview"))
+            .ToListAsync();
+    }
+
+    private void SetPaymentMethod(string method)
+    {
+        selectedMethod = method;
+        errorMessage = string.Empty;
+    }
+
+    private void OnClaimSelected(ChangeEventArgs e)
+    {
+        if (Guid.TryParse(e.Value?.ToString(), out Guid claimId) && submittedClaims != null)
+        {
+            selectedClaim = submittedClaims.FirstOrDefault(c => c.Id == claimId);
+            if (selectedClaim != null)
+            {
+                insuranceProvider = selectedClaim.InsuranceProvider;
+                policyNumber = selectedClaim.PolicyNumber;
+                memberName = selectedClaim.MemberName;
+                approvedAmount = selectedClaim.ClaimedAmount;
+            }
+        }
+        else
+        {
+            selectedClaim = null;
+        }
+    }
+
+    private async Task CloseModal(bool success)
+    {
+        if (objRef != null)
+        {
+            objRef.Dispose();
+        }
+        await OnClose.InvokeAsync(success);
+    }
+
+    private async Task RecordCashPayment()
+    {
+        if (paymentAmount <= 0)
+        {
+            errorMessage = "Please enter an amount greater than zero.";
+            return;
+        }
+
+        try
+        {
+            isProcessing = true;
+            errorMessage = string.Empty;
+
+            // Tenant ID can be extracted from invoice
+            var invoice = await DbContext.BillingInvoices.FindAsync(InvoiceId);
+            Guid tenantId = invoice?.TenantId ?? Guid.Empty;
+
+            await PaymentService.RecordCashPaymentAsync(tenantId, InvoiceId, paymentAmount, notes, "system");
+            await CloseModal(true);
+        }
+        catch (Exception ex)
+        {
+            errorMessage = ex.Message;
+            isProcessing = false;
+        }
+    }
+
+    private async Task RecordRazorpayPayment()
+    {
+        if (paymentAmount <= 0)
+        {
+            errorMessage = "Please enter an amount greater than zero.";
+            return;
+        }
+
+        try
+        {
+            isProcessing = true;
+            errorMessage = string.Empty;
+
+            var invoice = await DbContext.BillingInvoices
+                .Include(i => i.Patient)
+                .FirstOrDefaultAsync(i => i.Id == InvoiceId);
+
+            if (invoice == null)
+            {
+                errorMessage = "Invoice not found.";
+                isProcessing = false;
+                return;
+            }
+
+            Guid tenantId = invoice.TenantId;
+
+            // Initiate payment record in DB and obtain Razorpay Order details
+            var orderResult = await PaymentService.InitiateRazorpayPaymentAsync(tenantId, InvoiceId, selectedMethod);
+
+            // Trigger Razorpay Widget via JS Interop
+            var checkoutData = new
+            {
+                key = orderResult.Key,
+                amount = orderResult.Amount,
+                currency = orderResult.Currency,
+                orderId = orderResult.OrderId,
+                patientName = $"{invoice.Patient?.FirstName} {invoice.Patient?.LastName}",
+                patientEmail = invoice.Patient?.Email ?? "",
+                patientPhone = invoice.Patient?.Phone ?? ""
+            };
+
+            await JSRuntime.InvokeVoidAsync("openRazorpayCheckout", checkoutData, objRef);
+        }
+        catch (Exception ex)
+        {
+            errorMessage = $"Error initiating Razorpay: {ex.Message}";
+            isProcessing = false;
+        }
+    }
+
+    [JSInvokable]
+    public async Task OnPaymentSuccess(string paymentId, string orderId, string signature)
+    {
+        try
+        {
+            await PaymentService.VerifyRazorpayPaymentAsync(orderId, paymentId, signature);
+            await CloseModal(true);
+        }
+        catch (Exception ex)
+        {
+            errorMessage = $"Signature verification failed: {ex.Message}";
+            isProcessing = false;
+            StateHasChanged();
+        }
+    }
+
+    [JSInvokable]
+    public Task OnPaymentCancelled()
+    {
+        errorMessage = "Online checkout dismissed by patient.";
+        isProcessing = false;
+        StateHasChanged();
+        return Task.CompletedTask;
+    }
+
+    [JSInvokable]
+    public Task OnPaymentFailed(string code, string description, string paymentId, string orderId)
+    {
+        errorMessage = $"Razorpay Payment Failed: {description}";
+        isProcessing = false;
+        StateHasChanged();
+        return Task.CompletedTask;
+    }
+
+    private async Task RecordInsuranceSettlement()
+    {
+        if (selectedClaim == null)
+        {
+            errorMessage = "Please select a claim.";
+            return;
+        }
+
+        if (approvedAmount <= 0)
+        {
+            errorMessage = "Please enter approved amount.";
+            return;
+        }
+
+        if (string.IsNullOrWhiteSpace(transactionReference))
+        {
+            errorMessage = "Please enter transaction reference.";
+            return;
+        }
+
+        try
+        {
+            isProcessing = true;
+            errorMessage = string.Empty;
+
+            Guid tenantId = selectedClaim.TenantId;
+
+            await PaymentService.RecordInsuranceSettlementAsync(tenantId, InvoiceId, selectedClaim.Id, approvedAmount, transactionReference, "system");
+            await CloseModal(true);
+        }
+        catch (Exception ex)
+        {
+            errorMessage = ex.Message;
+            isProcessing = false;
+        }
+    }
+}

@@ -1,0 +1,164 @@
+@page "/pharmacy/items/{itemId:guid}/batches"
+@using CareSphere.Models
+@using CareSphere.Data
+@using Microsoft.EntityFrameworkCore
+@inject ApplicationDbContext DbContext
+@inject NavigationManager NavigationManager
+@rendermode InteractiveServer
+
+<PageTitle>Item Batches - CareSphere</PageTitle>
+
+<div class="container-fluid py-4">
+    <div class="mb-4">
+        <a href="/pharmacy/items" class="btn btn-link link-secondary p-0 text-decoration-none mb-2">
+            <i class="bi bi-arrow-left"></i> Back to Catalog
+        </a>
+        
+        @if (item != null)
+        {
+            <h1 class="h3 mb-1 text-dark fw-bold"><i class="bi bi-layers me-2 text-primary"></i>Batches for @item.ItemName</h1>
+            <p class="text-muted mb-0">Code: <strong>@item.ItemCode</strong> | Category: <strong>@item.Category</strong> | Unit: <strong>@item.Unit</strong></p>
+        }
+        else
+        {
+            <h1 class="h3 mb-1 text-dark fw-bold">Item Batches</h1>
+        }
+    </div>
+
+    @if (item == null)
+    {
+        <div class="d-flex justify-content-center my-5">
+            <div class="spinner-border text-primary" role="status">
+                <span class="visually-hidden">Loading...</span>
+            </div>
+        </div>
+    }
+    else if (batches == null)
+    {
+        <div class="d-flex justify-content-center my-4">
+            <div class="spinner-border text-primary" role="status">
+                <span class="visually-hidden">Loading batches...</span>
+            </div>
+        </div>
+    }
+    else if (!batches.Any())
+    {
+        <div class="text-center py-5 bg-white rounded-4 shadow-sm">
+            <i class="bi bi-layers text-muted display-1 mb-3"></i>
+            <h4 class="fw-bold">No Batches Available</h4>
+            <p class="text-muted mb-0">This item currently has no stock batches. Stock is created when a Goods Received Note (GRN) is posted.</p>
+            <a href="/pharmacy/grn/create" class="btn btn-primary mt-3"><i class="bi bi-box-arrow-in-down"></i> Create GRN</a>
+        </div>
+    }
+    else
+    {
+        <div class="card border-0 shadow-sm rounded-4 overflow-hidden">
+            <div class="table-responsive">
+                <table class="table table-hover align-middle mb-0">
+                    <thead class="table-light text-uppercase fs-7 fw-semibold text-muted">
+                        <tr>
+                            <th class="px-4 py-3">Batch Number</th>
+                            <th class="py-3">Supplier</th>
+                            <th class="py-3">Dates</th>
+                            <th class="py-3 text-end">Purchase Price</th>
+                            <th class="py-3 text-end">Selling Price</th>
+                            <th class="py-3 text-center">Stock Details</th>
+                            <th class="py-3 text-center">Status</th>
+                        </tr>
+                    </thead>
+                    <tbody class="border-top-0">
+                        @foreach (var batch in batches)
+                        {
+                            var expiryClass = GetExpiryAlertClass(batch.ExpiryDate);
+                            var daysUntilExpiry = (batch.ExpiryDate.Date - DateTime.UtcNow.Date).Days;
+                            
+                            <tr>
+                                <td class="px-4 py-3">
+                                    <div class="fw-bold text-dark font-monospace">@batch.BatchNumber</div>
+                                    <div class="small text-muted">Created: @batch.CreatedAt.ToString("yyyy-MM-dd")</div>
+                                </td>
+                                <td class="py-3">
+                                    <div class="small text-dark">@(batch.Supplier?.SupplierName ?? "—")</div>
+                                </td>
+                                <td class="py-3">
+                                    @if (batch.ManufactureDate.HasValue)
+                                    {
+                                        <div class="small text-muted"><strong>Mfg:</strong> @batch.ManufactureDate.Value.ToString("yyyy-MM-dd")</div>
+                                    }
+                                    <div class="small fw-semibold @expiryClass">
+                                        <strong>Exp:</strong> @batch.ExpiryDate.ToString("yyyy-MM-dd")
+                                        @if (daysUntilExpiry <= 0)
+                                        {
+                                            <span class="badge bg-danger ms-1">Expired</span>
+                                        }
+                                        else if (daysUntilExpiry <= 90)
+                                        {
+                                            <span class="badge bg-warning text-dark ms-1">@daysUntilExpiry days left</span>
+                                        }
+                                    </div>
+                                </td>
+                                <td class="py-3 text-end">
+                                    <span>₹@batch.PurchasePrice.ToString("F2")</span>
+                                </td>
+                                <td class="py-3 text-end fw-semibold text-primary">
+                                    <span>₹@batch.SellingPrice.ToString("F2")</span>
+                                </td>
+                                <td class="py-3 text-center">
+                                    <div class="fw-bold text-dark">@batch.CurrentStock <span class="small text-muted fw-normal">Current</span></div>
+                                    <div class="small text-muted">Reserved: @batch.ReservedStock | Available: @(batch.CurrentStock - batch.ReservedStock)</div>
+                                </td>
+                                <td class="py-3 text-center">
+                                    @if (batch.IsActive && batch.ExpiryDate > DateTime.UtcNow && batch.CurrentStock > 0)
+                                    {
+                                        <span class="badge bg-success-subtle text-success border border-success-subtle px-2 py-1">In Stock</span>
+                                    }
+                                    else if (!batch.IsActive)
+                                    {
+                                        <span class="badge bg-secondary-subtle text-secondary border border-secondary-subtle px-2 py-1">Inactive</span>
+                                    }
+                                    else if (batch.ExpiryDate <= DateTime.UtcNow)
+                                    {
+                                        <span class="badge bg-danger-subtle text-danger border border-danger-subtle px-2 py-1">Expired</span>
+                                    }
+                                    else if (batch.CurrentStock <= 0)
+                                    {
+                                        <span class="badge bg-warning-subtle text-warning border border-warning-subtle px-2 py-1">Out of Stock</span>
+                                    }
+                                </td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    }
+</div>
+
+@code {
+    [Parameter]
+    public Guid ItemId { get; set; }
+
+    private PharmacyItem? item;
+    private List<PharmacyBatch>? batches;
+
+    protected override async Task OnInitializedAsync()
+    {
+        item = await DbContext.PharmacyItems.FindAsync(ItemId);
+        if (item != null)
+        {
+            batches = await DbContext.PharmacyBatches
+                .Include(b => b.Supplier)
+                .Where(b => b.ItemId == ItemId)
+                .OrderBy(b => b.ExpiryDate)
+                .ToListAsync();
+        }
+    }
+
+    private string GetExpiryAlertClass(DateTime expiryDate)
+    {
+        var days = (expiryDate.Date - DateTime.UtcNow.Date).Days;
+        if (days <= 0) return "text-danger";
+        if (days <= 90) return "text-warning";
+        return "text-success";
+    }
+}

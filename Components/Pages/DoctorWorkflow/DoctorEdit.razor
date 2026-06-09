@@ -1,0 +1,155 @@
+@page "/doctors/edit/{Id:guid}"
+@using CareSphere.Models
+@inject CareSphere.Services.IDoctorService DoctorService
+@inject NavigationManager NavigationManager
+@rendermode InteractiveServer
+
+<PageTitle>Edit Doctor - CareSphere</PageTitle>
+
+<h2>Edit Doctor</h2>
+<hr />
+
+@if (doctor == null && !isNotFound)
+{
+    <p><em>Loading...</em></p>
+}
+else if (isNotFound)
+{
+    <div class="alert alert-danger">Doctor not found.</div>
+    <a href="/doctors" class="btn btn-primary">Back to List</a>
+}
+else if (doctor != null)
+{
+    <EditForm Model="@doctor" OnValidSubmit="HandleValidSubmit">
+        <DataAnnotationsValidator />
+
+        <div class="card mb-4">
+            <div class="card-header bg-light d-flex justify-content-between">
+                <h5 class="mb-0">Doctor Information</h5>
+                <span class="badge bg-secondary">Reg #: @doctor.RegistrationNumber</span>
+            </div>
+            <div class="card-body">
+                <div class="row g-3">
+                    <div class="col-md-6">
+                        <label class="form-label">First Name *</label>
+                        <InputText class="form-control" @bind-Value="doctor.FirstName" />
+                        <ValidationMessage For="@(() => doctor.FirstName)" class="text-danger" />
+                    </div>
+                    <div class="col-md-6">
+                        <label class="form-label">Last Name *</label>
+                        <InputText class="form-control" @bind-Value="doctor.LastName" />
+                        <ValidationMessage For="@(() => doctor.LastName)" class="text-danger" />
+                    </div>
+                    <div class="col-md-6">
+                        <label class="form-label">Specialization *</label>
+                        <InputSelect class="form-select" @bind-Value="doctor.Specialization">
+                            <option value="">Select Specialization</option>
+                            <option value="General Medicine">General Medicine</option>
+                            <option value="Cardiology">Cardiology</option>
+                            <option value="Neurology">Neurology</option>
+                            <option value="Orthopedics">Orthopedics</option>
+                            <option value="Pediatrics">Pediatrics</option>
+                            <option value="Gynecology">Gynecology</option>
+                            <option value="Dermatology">Dermatology</option>
+                            <option value="Ophthalmology">Ophthalmology</option>
+                            <option value="ENT">ENT</option>
+                            <option value="Psychiatry">Psychiatry</option>
+                            <option value="Surgery">Surgery</option>
+                            <option value="Radiology">Radiology</option>
+                            <option value="Pathology">Pathology</option>
+                            <option value="Anesthesiology">Anesthesiology</option>
+                            <option value="Emergency Medicine">Emergency Medicine</option>
+                        </InputSelect>
+                        <ValidationMessage For="@(() => doctor.Specialization)" class="text-danger" />
+                    </div>
+                    <div class="col-md-6">
+                        <label class="form-label">Registration Number *</label>
+                        <InputText class="form-control" @bind-Value="doctor.RegistrationNumber" />
+                        <ValidationMessage For="@(() => doctor.RegistrationNumber)" class="text-danger" />
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="card mb-4">
+            <div class="card-header bg-light">
+                <h5 class="mb-0">Contact & Status</h5>
+            </div>
+            <div class="card-body">
+                <div class="row g-3">
+                    <div class="col-md-6">
+                        <label class="form-label">Phone</label>
+                        <InputText class="form-control" @bind-Value="doctor.Phone" />
+                        <ValidationMessage For="@(() => doctor.Phone)" class="text-danger" />
+                    </div>
+                    <div class="col-md-6">
+                        <label class="form-label">Email</label>
+                        <InputText class="form-control" type="email" @bind-Value="doctor.Email" />
+                        <ValidationMessage For="@(() => doctor.Email)" class="text-danger" />
+                    </div>
+                    <div class="col-md-6">
+                        <label class="form-label">Status</label>
+                        <InputSelect class="form-select" @bind-Value="doctor.IsActive">
+                            <option value="true">Active</option>
+                            <option value="false">Inactive</option>
+                        </InputSelect>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="d-flex gap-2">
+            <button type="submit" class="btn btn-warning" disabled="@isSubmitting">
+                @if (isSubmitting) { <span class="spinner-border spinner-border-sm me-1" role="status" aria-hidden="true"></span> }
+                Save Changes
+            </button>
+            <a href="/doctors" class="btn btn-secondary">Cancel</a>
+        </div>
+
+        @if (!string.IsNullOrEmpty(errorMessage))
+        {
+            <div class="alert alert-danger mt-3">@errorMessage</div>
+        }
+    </EditForm>
+}
+
+@code {
+    [Parameter]
+    public Guid Id { get; set; }
+
+    private Doctor? doctor;
+    private bool isNotFound = false;
+    private bool isSubmitting = false;
+    private string errorMessage = string.Empty;
+
+    protected override async Task OnInitializedAsync()
+    {
+        doctor = await DoctorService.GetDoctorByIdAsync(Id);
+        if (doctor == null)
+        {
+            isNotFound = true;
+        }
+    }
+
+    private async Task HandleValidSubmit()
+    {
+        if (doctor != null)
+        {
+            try
+            {
+                isSubmitting = true;
+                errorMessage = string.Empty;
+                await DoctorService.UpdateDoctorAsync(doctor);
+                NavigationManager.NavigateTo("/doctors");
+            }
+            catch (Exception ex)
+            {
+                errorMessage = $"Error updating doctor: {ex.Message}";
+            }
+            finally
+            {
+                isSubmitting = false;
+            }
+        }
+    }
+}

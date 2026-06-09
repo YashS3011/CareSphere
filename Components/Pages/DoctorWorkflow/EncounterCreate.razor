@@ -1,0 +1,165 @@
+@page "/encounters/create"
+@using CareSphere.Models
+@inject CareSphere.Services.IEncounterService EncounterService
+@inject CareSphere.Services.IPatientService PatientService
+@inject CareSphere.Services.IDoctorService DoctorService
+@inject NavigationManager NavigationManager
+
+<PageTitle>New Encounter - CareSphere</PageTitle>
+
+<h2>Start New Encounter</h2>
+<hr />
+
+<div class="row">
+    <div class="col-md-8">
+        <EditForm Model="@formModel" FormName="createEncounter" OnValidSubmit="ProcessValidSubmit">
+            <DataAnnotationsValidator />
+            <ValidationSummary class="alert alert-danger" />
+
+            <div class="card mb-4">
+                <div class="card-header bg-light">
+                    <h5 class="mb-0">Encounter Details</h5>
+                </div>
+                <div class="card-body">
+                    <div class="row g-3">
+
+                        <div class="col-md-12">
+                            <label class="form-label">Select Patient *</label>
+                            <InputSelect class="form-select" @bind-Value="formModel.PatientIdAsString">
+                                <option value="">Select a Patient</option>
+                                @if (patients != null)
+                                {
+                                    @foreach (var p in patients)
+                                    {
+                                        <option value="@p.Id">@p.FirstName @p.LastName (MRN: @p.Mrn)</option>
+                                    }
+                                }
+                            </InputSelect>
+                            <ValidationMessage For="@(() => formModel.PatientIdAsString)" />
+                        </div>
+
+                        <div class="col-md-12">
+                            <label class="form-label">Select Doctor *</label>
+                            <InputSelect class="form-select" @bind-Value="formModel.DoctorIdAsString">
+                                <option value="">Select a Doctor</option>
+                                @if (doctors != null)
+                                {
+                                    @foreach (var d in doctors)
+                                    {
+                                        <option value="@d.Id">Dr. @d.FirstName @d.LastName (@d.Specialization)</option>
+                                    }
+                                }
+                            </InputSelect>
+                            <ValidationMessage For="@(() => formModel.DoctorIdAsString)" />
+                        </div>
+
+                        <div class="col-md-6">
+                            <label class="form-label">Encounter Type *</label>
+                            <InputSelect class="form-select" @bind-Value="formModel.EncounterType">
+                                <option value="">Select Type</option>
+                                <option value="OPD">OPD</option>
+                                <option value="IPD">IPD</option>
+                                <option value="Emergency">Emergency</option>
+                            </InputSelect>
+                            <ValidationMessage For="@(() => formModel.EncounterType)" />
+                        </div>
+
+                        <div class="col-md-6">
+                            <label class="form-label">Date *</label>
+                            <InputDate class="form-control" @bind-Value="formModel.AdmissionDate" />
+                            <ValidationMessage For="@(() => formModel.AdmissionDate)" />
+                        </div>
+
+                        <div class="col-md-12">
+                            <label class="form-label">Chief Complaint</label>
+                            <InputTextArea class="form-control" @bind-Value="formModel.ChiefComplaint" rows="3" placeholder="Describe the patient's chief complaint..." />
+                        </div>
+
+                    </div>
+                </div>
+            </div>
+
+            <div class="d-flex gap-2">
+                <button type="submit" class="btn btn-primary" disabled="@isSubmitting">
+                    @if (isSubmitting)
+                    {
+                        <span class="spinner-border spinner-border-sm me-1"></span>
+                    }
+                    Start Encounter
+                </button>
+                <a href="/encounters" class="btn btn-secondary">Cancel</a>
+            </div>
+
+            @if (!string.IsNullOrEmpty(errorMessage))
+            {
+                <div class="alert alert-danger mt-3">@errorMessage</div>
+            }
+
+        </EditForm>
+    </div>
+</div>
+
+@code {
+    [SupplyParameterFromForm]
+    public EncounterFormModel formModel { get; set; } = new() { AdmissionDate = DateTime.Now };
+
+    public class EncounterFormModel
+    {
+        [System.ComponentModel.DataAnnotations.Required]
+        public string PatientIdAsString { get; set; } = string.Empty;
+
+        [System.ComponentModel.DataAnnotations.Required]
+        public string DoctorIdAsString { get; set; } = string.Empty;
+
+        [System.ComponentModel.DataAnnotations.Required]
+        public string EncounterType { get; set; } = string.Empty;
+
+        [System.ComponentModel.DataAnnotations.Required]
+        public DateTime AdmissionDate { get; set; }
+
+        public string? ChiefComplaint { get; set; }
+    }
+
+    private List<Patient>? patients;
+    private List<Doctor>? doctors;
+    private bool isSubmitting = false;
+    private string errorMessage = string.Empty;
+
+    protected override async Task OnInitializedAsync()
+    {
+        patients = await PatientService.GetPatientsAsync();
+        doctors = await DoctorService.GetActiveDoctorsAsync();
+    }
+
+    private async Task ProcessValidSubmit()
+    {
+        try
+        {
+            isSubmitting = true;
+            errorMessage = string.Empty;
+
+            var encounter = new Encounter
+            {
+                PatientId = Guid.Parse(formModel.PatientIdAsString),
+                DoctorId = Guid.Parse(formModel.DoctorIdAsString),
+                EncounterType = formModel.EncounterType,
+                AdmissionDate = formModel.AdmissionDate.ToUniversalTime(),
+                ChiefComplaint = formModel.ChiefComplaint,
+                Status = "Planned"
+            };
+
+            var created = await EncounterService.CreateEncounterAsync(encounter);
+
+            NavigationManager.NavigateTo($"/encounters/{created.Id}");
+        }
+        catch (Microsoft.AspNetCore.Components.NavigationException)
+        {
+            throw;
+        }
+        catch (Exception ex)
+        {
+            errorMessage = $"Error creating encounter: {ex.Message}";
+            isSubmitting = false;
+        }
+    }
+}

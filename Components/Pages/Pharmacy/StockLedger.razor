@@ -1,0 +1,253 @@
+@page "/pharmacy/stock-ledger"
+@using CareSphere.Models
+@using CareSphere.Services
+@inject IStockLedgerService LedgerService
+@inject NavigationManager NavigationManager
+@rendermode InteractiveServer
+
+<PageTitle>Stock Ledger - CareSphere</PageTitle>
+
+<div class="container-fluid py-4">
+    <div class="mb-4">
+        <h1 class="h3 mb-1 text-dark fw-bold"><i class="bi bi-journal-text me-2 text-primary"></i>Pharmacy Stock Ledger</h1>
+        <p class="text-muted mb-0">Monitor stock balances and audit detailed historical inventory logs</p>
+    </div>
+
+    <div class="row g-4">
+        <!-- Stock Summary List -->
+        <div class="col-lg-5">
+            <div class="card border-0 shadow-sm rounded-4">
+                <div class="card-header bg-white py-3 px-4">
+                    <h5 class="fw-bold text-dark mb-0">Stock Balances</h5>
+                </div>
+                <div class="card-body p-3">
+                    <div class="input-group input-group-sm mb-3">
+                        <span class="input-group-text bg-white"><i class="bi bi-search"></i></span>
+                        <input type="text" class="form-control" placeholder="Search item by name/code..." @bind="SearchQuery" @bind:event="oninput" @onkeyup="HandleSearch" />
+                    </div>
+
+                    @if (summaries == null)
+                    {
+                        <div class="d-flex justify-content-center my-4">
+                            <div class="spinner-border text-primary" role="status">
+                                <span class="visually-hidden">Loading...</span>
+                            </div>
+                        </div>
+                    }
+                    else if (!summaries.Any())
+                    {
+                        <div class="text-center py-4 text-muted small">No items found in stock ledger.</div>
+                    }
+                    else
+                    {
+                        <div class="list-group overflow-y-auto" style="max-height: 550px;">
+                            @foreach (var sum in summaries)
+                            {
+                                var activeClass = selectedItemId == sum.ItemId ? "active border-primary bg-primary-subtle" : "";
+                                var qtyColor = sum.TotalCurrentStock <= 0 ? "text-danger" : "text-dark";
+                                
+                                <button type="button" class="list-group-item list-group-item-action p-3 mb-2 border rounded-3 @activeClass" @onclick="() => SelectItem(sum.ItemId, sum.ItemName)">
+                                    <div class="d-flex justify-content-between align-items-center mb-1">
+                                        <span class="fw-bold fs-6 @(selectedItemId == sum.ItemId ? "text-primary-emphasis" : "text-dark")">@sum.ItemName</span>
+                                        <span class="badge bg-light text-dark border font-monospace small">@sum.ItemCode</span>
+                                    </div>
+                                    <div class="d-flex justify-content-between align-items-center small text-secondary">
+                                        <span>Cat: @sum.Category | Batches: @sum.BatchCount</span>
+                                        <span class="fw-bold @qtyColor">Bal: @sum.TotalCurrentStock @sum.Unit</span>
+                                    </div>
+                                </button>
+                            }
+                        </div>
+                    }
+                </div>
+            </div>
+        </div>
+
+        <!-- Ledger Transactions Log -->
+        <div class="col-lg-7">
+            <div class="card border-0 shadow-sm rounded-4">
+                <div class="card-header bg-white py-3 px-4 d-flex justify-content-between align-items-center">
+                    <h5 class="fw-bold text-dark mb-0">
+                        <i class="bi bi-clock-history me-2 text-muted"></i>
+                        @if (!string.IsNullOrEmpty(selectedItemName))
+                        {
+                            <span>Transaction History: @selectedItemName</span>
+                        }
+                        else
+                        {
+                            <span>Transaction History</span>
+                        }
+                    </h5>
+                </div>
+                <div class="card-body p-4">
+                    @if (selectedItemId == Guid.Empty)
+                    {
+                        <div class="text-center py-5 text-muted">
+                            <i class="bi bi-arrow-left-circle display-4 mb-3 d-block text-muted"></i>
+                            <h5>Select an item from the left pane to view detailed ledger transaction entries.</h5>
+                        </div>
+                    }
+                    else if (ledgerLogs == null)
+                    {
+                        <div class="d-flex justify-content-center my-5">
+                            <div class="spinner-border text-primary" role="status">
+                                <span class="visually-hidden">Loading transactions...</span>
+                            </div>
+                        </div>
+                    }
+                    else if (!ledgerLogs.Any())
+                    {
+                        <div class="text-center py-5 text-muted">
+                            No ledger transactions recorded for this item.
+                        </div>
+                    }
+                    else
+                    {
+                        <div class="table-responsive">
+                            <table class="table table-hover align-middle mb-0 small">
+                                <thead class="table-light text-uppercase fs-8 fw-semibold text-muted">
+                                    <tr>
+                                        <th>Date</th>
+                                        <th>Transaction</th>
+                                        <th class="text-center">Batch</th>
+                                        <th class="text-end">Qty In</th>
+                                        <th class="text-end">Qty Out</th>
+                                        <th class="text-end">Balance</th>
+                                        <th>Ref / Notes</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    @foreach (var log in ledgerLogs)
+                                    {
+                                        var txBadge = GetTxBadgeClass(log.TransactionType);
+                                        
+                                        <tr>
+                                            <td class="text-secondary small">
+                                                @log.TransactionDate.ToString("yyyy-MM-dd HH:mm")
+                                            </td>
+                                            <td>
+                                                <span class="badge @txBadge rounded px-2 py-1">@log.TransactionType</span>
+                                            </td>
+                                            <td class="text-center font-monospace small">
+                                                @(log.Batch?.BatchNumber ?? "—")
+                                            </td>
+                                            <td class="text-end text-success fw-semibold">
+                                                @(log.QuantityIn > 0 ? $"+{log.QuantityIn}" : "—")
+                                            </td>
+                                            <td class="text-end text-danger fw-semibold">
+                                                @(log.QuantityOut > 0 ? $"-{log.QuantityOut}" : "—")
+                                            </td>
+                                            <td class="text-end fw-bold text-dark">
+                                                @log.BalanceAfter
+                                            </td>
+                                            <td>
+                                                <div class="fw-semibold font-monospace small text-dark">@log.ReferenceId</div>
+                                                <div class="text-muted small">@log.Notes</div>
+                                            </td>
+                                        </tr>
+                                    }
+                                </tbody>
+                            </table>
+                        </div>
+
+                        @if (totalPages > 1)
+                        {
+                            <div class="d-flex justify-content-between align-items-center mt-3 pt-3 border-top">
+                                <span class="small text-muted">Page @currentPage of @totalPages</span>
+                                <nav aria-label="Page navigation">
+                                    <ul class="pagination pagination-sm mb-0">
+                                        <li class="page-item @(currentPage == 1 ? "disabled" : "")">
+                                            <button class="page-item page-link" @onclick="() => NavigateToPage(currentPage - 1)">Previous</button>
+                                        </li>
+                                        @for (int i = 1; i <= totalPages; i++)
+                                        {
+                                            var pageNum = i;
+                                            <li class="page-item @(currentPage == pageNum ? "active" : "")">
+                                                <button class="page-link" @onclick="() => NavigateToPage(pageNum)">@pageNum</button>
+                                            </li>
+                                        }
+                                        <li class="page-item @(currentPage == totalPages ? "disabled" : "")">
+                                            <button class="page-item page-link" @onclick="() => NavigateToPage(currentPage + 1)">Next</button>
+                                        </li>
+                                    </ul>
+                                </nav>
+                            </div>
+                        }
+                    }
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+@code {
+    private List<StockSummaryDto>? summaries;
+    private List<StockLedgerEntry>? ledgerLogs;
+
+    private string SearchQuery { get; set; } = string.Empty;
+    private Guid selectedItemId = Guid.Empty;
+    private string selectedItemName = string.Empty;
+
+    private int currentPage = 1;
+    private int pageSize = 15;
+    private int totalPages = 1;
+    private Guid currentTenantId = Guid.Empty;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadSummaries();
+    }
+
+    private async Task LoadSummaries()
+    {
+        summaries = await LedgerService.GetStockSummaryAsync(currentTenantId, SearchQuery);
+    }
+
+    private async Task HandleSearch()
+    {
+        await LoadSummaries();
+    }
+
+    private async Task SelectItem(Guid itemId, string itemName)
+    {
+        selectedItemId = itemId;
+        selectedItemName = itemName;
+        currentPage = 1;
+        await LoadLedger();
+    }
+
+    private async Task LoadLedger()
+    {
+        ledgerLogs = null;
+        var totalLogs = await LedgerService.GetLedgerCountByItemAsync(selectedItemId);
+        totalPages = (int)Math.Ceiling((double)totalLogs / pageSize);
+        if (totalPages == 0) totalPages = 1;
+
+        if (currentPage > totalPages) currentPage = totalPages;
+
+        ledgerLogs = await LedgerService.GetLedgerByItemAsync(selectedItemId, currentPage, pageSize);
+    }
+
+    private async Task NavigateToPage(int page)
+    {
+        if (page >= 1 && page <= totalPages)
+        {
+            currentPage = page;
+            await LoadLedger();
+        }
+    }
+
+    private string GetTxBadgeClass(string txType)
+    {
+        return txType switch
+        {
+            "GRN" => "bg-success text-white",
+            "Dispensed" => "bg-primary text-white",
+            "OtcSale" => "bg-info text-dark",
+            "Adjustment" => "bg-warning text-dark",
+            "ReturnedToSupplier" => "bg-secondary text-white",
+            "Expired" => "bg-danger text-white",
+            _ => "bg-light text-dark border"
+        };
+    }
+}

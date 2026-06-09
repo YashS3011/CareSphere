@@ -1,0 +1,249 @@
+@page "/pharmacy/purchase-orders/{id:guid}"
+@using CareSphere.Models
+@using CareSphere.Services
+@inject IPurchaseOrderService PoService
+@inject NavigationManager NavigationManager
+@rendermode InteractiveServer
+
+<PageTitle>View Purchase Order - CareSphere</PageTitle>
+
+<div class="container py-4">
+    <div class="mb-4">
+        <a href="/pharmacy/purchase-orders" class="btn btn-link link-secondary p-0 text-decoration-none mb-2">
+            <i class="bi bi-arrow-left"></i> Back to Orders
+        </a>
+        
+        @if (po != null)
+        {
+            <div class="d-flex justify-content-between align-items-start">
+                <div>
+                    <h1 class="h3 mb-1 text-dark fw-bold font-monospace">@po.PoNumber</h1>
+                    <p class="text-muted mb-0">Created on @po.CreatedAt.ToString("yyyy-MM-dd HH:mm")</p>
+                </div>
+                <div class="d-flex align-items-center gap-2">
+                    <span class="badge rounded-pill @GetStatusBadgeClass(po.Status) px-3 py-2 fs-7">@po.Status</span>
+                    @if (po.Status == "Draft")
+                    {
+                        <button class="btn btn-success d-flex align-items-center gap-1 shadow-sm" @onclick="SendPO" disabled="@isActionRunning">
+                            <i class="bi bi-send"></i> Send Order
+                        </button>
+                    }
+                    @if (po.Status == "Sent" || po.Status == "PartiallyReceived")
+                    {
+                        <a href="/pharmacy/grn/create?poId=@po.Id" class="btn btn-primary d-flex align-items-center gap-1 shadow-sm">
+                            <i class="bi bi-box-arrow-in-down"></i> Receive Goods
+                        </a>
+                    }
+                    @if (po.Status == "Draft" || po.Status == "Sent")
+                    {
+                        <button class="btn btn-outline-danger d-flex align-items-center gap-1" @onclick="CancelPO" disabled="@isActionRunning">
+                            <i class="bi bi-x-circle"></i> Cancel PO
+                        </button>
+                    }
+                </div>
+            </div>
+        }
+    </div>
+
+    @if (po == null)
+    {
+        <div class="d-flex justify-content-center my-5">
+            <div class="spinner-border text-primary" role="status">
+                <span class="visually-hidden">Loading...</span>
+            </div>
+        </div>
+    }
+    else
+    {
+        @if (!string.IsNullOrEmpty(actionMessage))
+        {
+            <div class="alert alert-info py-2 small mb-3">@actionMessage</div>
+        }
+
+        <div class="row g-4">
+            <div class="col-lg-4">
+                <!-- Supplier Info -->
+                <div class="card border-0 shadow-sm rounded-4 mb-4">
+                    <div class="card-body p-4">
+                        <h5 class="fw-bold text-dark mb-3"><i class="bi bi-truck text-muted me-2"></i>Supplier Details</h5>
+                        <hr />
+                        <div class="mb-3">
+                            <div class="small text-muted fw-semibold uppercase fs-8 mb-1">Supplier Name</div>
+                            <div class="fw-bold text-dark fs-6">@po.Supplier.SupplierName</div>
+                        </div>
+                        @if (!string.IsNullOrEmpty(po.Supplier.ContactPerson))
+                        {
+                            <div class="mb-3">
+                                <div class="small text-muted fw-semibold uppercase fs-8 mb-1">Contact Person</div>
+                                <div class="text-dark">@po.Supplier.ContactPerson</div>
+                            </div>
+                        }
+                        <div class="mb-3">
+                            <div class="small text-muted fw-semibold uppercase fs-8 mb-1">Contact Details</div>
+                            <div class="text-dark"><i class="bi bi-telephone text-muted me-1"></i> @(po.Supplier.Phone ?? "—")</div>
+                            <div class="small text-muted mt-1"><i class="bi bi-envelope text-muted me-1"></i> @(po.Supplier.Email ?? "—")</div>
+                        </div>
+                        <div class="mb-0">
+                            <div class="small text-muted fw-semibold uppercase fs-8 mb-1">Address</div>
+                            <div class="small text-dark">@(po.Supplier.Address ?? "—")</div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Order Info -->
+                <div class="card border-0 shadow-sm rounded-4">
+                    <div class="card-body p-4">
+                        <h5 class="fw-bold text-dark mb-3"><i class="bi bi-info-circle text-muted me-2"></i>Order Summary</h5>
+                        <hr />
+                        <div class="mb-3">
+                            <div class="small text-muted fw-semibold uppercase fs-8 mb-1">Expected Delivery</div>
+                            <div class="text-dark fw-semibold">@(po.ExpectedDeliveryDate?.ToString("yyyy-MM-dd") ?? "—")</div>
+                        </div>
+                        @if (!string.IsNullOrEmpty(po.Notes))
+                        {
+                            <div class="mb-0">
+                                <div class="small text-muted fw-semibold uppercase fs-8 mb-1">Instructions / Notes</div>
+                                <div class="bg-light p-2 rounded small text-dark" style="white-space: pre-wrap;">@po.Notes</div>
+                            </div>
+                        }
+                    </div>
+                </div>
+            </div>
+
+            <div class="col-lg-8">
+                <!-- Items list -->
+                <div class="card border-0 shadow-sm rounded-4 mb-4">
+                    <div class="card-header bg-white py-3 px-4">
+                        <h5 class="fw-bold text-dark mb-0"><i class="bi bi-list-check text-muted me-2"></i>Order Line Items</h5>
+                    </div>
+                    <div class="table-responsive">
+                        <table class="table align-middle mb-0">
+                            <thead class="table-light text-uppercase fs-7 fw-semibold text-muted">
+                                <tr>
+                                    <th class="px-4 py-3">Item Name</th>
+                                    <th class="py-3 text-end">Requested</th>
+                                    <th class="py-3 text-end">Received</th>
+                                    <th class="py-3 text-end">Unit Price</th>
+                                    <th class="px-4 py-3 text-end">Total Price</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                @foreach (var item in po.Items)
+                                {
+                                    var receivedPct = item.RequestedQuantity > 0 ? (double)item.ReceivedQuantity / item.RequestedQuantity * 100 : 0;
+                                    var progressColor = receivedPct >= 100 ? "bg-success" : (receivedPct > 0 ? "bg-warning" : "bg-light");
+                                    
+                                    <tr>
+                                        <td class="px-4 py-3">
+                                            <div class="fw-bold text-dark">@item.Item.ItemName</div>
+                                            <div class="small text-muted">Code: @item.Item.ItemCode | Unit: @item.Item.Unit</div>
+                                        </td>
+                                        <td class="py-3 text-end fw-semibold text-dark">
+                                            @item.RequestedQuantity
+                                        </td>
+                                        <td class="py-3 text-end">
+                                            <div class="d-inline-block text-end">
+                                                <span class="fw-bold @(item.ReceivedQuantity >= item.RequestedQuantity ? "text-success" : (item.ReceivedQuantity > 0 ? "text-warning" : "text-muted"))">@item.ReceivedQuantity</span>
+                                                <div class="progress mt-1" style="height: 4px; width: 60px; margin-left: auto;">
+                                                    <div class="progress-bar @progressColor" role="progressbar" style="width: @(Math.Min(100, receivedPct))%" aria-valuenow="@receivedPct" aria-valuemin="0" aria-valuemax="100"></div>
+                                                </div>
+                                            </div>
+                                        </td>
+                                        <td class="py-3 text-end text-secondary">
+                                            ₹@item.UnitPrice.ToString("F2")
+                                        </td>
+                                        <td class="px-4 py-3 text-end fw-bold text-dark">
+                                            ₹@item.TotalPrice.ToString("F2")
+                                        </td>
+                                    </tr>
+                                }
+                            </tbody>
+                            <tfoot class="table-light fw-bold fs-6">
+                                <tr>
+                                    <td colspan="4" class="px-4 py-3 text-end">Grand Total:</td>
+                                    <td class="px-4 py-3 text-end text-primary fs-5">₹@po.TotalAmount.ToString("F2")</td>
+                                </tr>
+                            </tfoot>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+    }
+</div>
+
+@code {
+    [Parameter]
+    public Guid Id { get; set; }
+
+    private PurchaseOrder? po;
+    private bool isActionRunning = false;
+    private string actionMessage = string.Empty;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadPO();
+    }
+
+    private async Task LoadPO()
+    {
+        po = await PoService.GetPurchaseOrderByIdAsync(Id);
+        if (po == null)
+        {
+            actionMessage = "Purchase order not found.";
+        }
+    }
+
+    private async Task SendPO()
+    {
+        try
+        {
+            isActionRunning = true;
+            actionMessage = "Sending PO...";
+            await PoService.SendPurchaseOrderAsync(Id);
+            actionMessage = "Purchase order marked as Sent.";
+            await LoadPO();
+        }
+        catch (Exception ex)
+        {
+            actionMessage = $"Error sending order: {ex.Message}";
+        }
+        finally
+        {
+            isActionRunning = false;
+        }
+    }
+
+    private async Task CancelPO()
+    {
+        try
+        {
+            isActionRunning = true;
+            actionMessage = "Canceling PO...";
+            await PoService.CancelPurchaseOrderAsync(Id, "Cancelled by user via dashboard.");
+            actionMessage = "Purchase order Cancelled.";
+            await LoadPO();
+        }
+        catch (Exception ex)
+        {
+            actionMessage = $"Error canceling order: {ex.Message}";
+        }
+        finally
+        {
+            isActionRunning = false;
+        }
+    }
+
+    private string GetStatusBadgeClass(string status)
+    {
+        return status switch
+        {
+            "Draft" => "bg-light text-dark border",
+            "Sent" => "bg-primary-subtle text-primary border border-primary-subtle",
+            "PartiallyReceived" => "bg-warning-subtle text-warning border border-warning-subtle",
+            "Received" => "bg-success-subtle text-success border border-success-subtle",
+            "Cancelled" => "bg-danger-subtle text-danger border border-danger-subtle",
+            _ => "bg-secondary text-white"
+        };
+    }
+}

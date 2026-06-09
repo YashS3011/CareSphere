@@ -1,0 +1,431 @@
+@page "/pharmacy/grn/create"
+@using CareSphere.Models
+@using CareSphere.Services
+@using CareSphere.Components
+@inject IGrnService GrnService
+@inject IPurchaseOrderService PoService
+@inject ISupplierService SupplierService
+@inject IPharmacyItemService ItemService
+@inject NavigationManager NavigationManager
+@rendermode InteractiveServer
+
+<PageTitle>Create Goods Received Note - CareSphere</PageTitle>
+
+<div class="container-fluid py-4">
+    <div class="mb-4">
+        <a href="/pharmacy/grn" class="btn btn-link link-secondary p-0 text-decoration-none mb-2">
+            <i class="bi bi-arrow-left"></i> Back to Receipts
+        </a>
+        <h1 class="h3 mb-1 text-dark fw-bold">Record Goods Received Note (GRN)</h1>
+        <p class="text-muted">Acknowledge incoming stock delivery and assign batch details</p>
+    </div>
+
+    @if (poLoading)
+    {
+        <div class="alert alert-info py-2 small mb-4">
+            <span class="spinner-border spinner-border-sm me-2"></span> Loading linked Purchase Order details...
+        </div>
+    }
+
+    <div class="card border-0 shadow-sm rounded-4 mb-4">
+        <div class="card-body p-4">
+            <EditForm Model="@grn" OnValidSubmit="HandleValidSubmit" FormName="createGRN">
+                <DataAnnotationsValidator />
+                <ValidationSummary class="alert alert-danger mb-4 py-2 small" />
+
+                <div class="row g-3 mb-4">
+                    <div class="col-md-4">
+                        <label class="form-label fw-semibold text-muted">Supplier *</label>
+                        @if (linkedPO != null)
+                        {
+                            <input type="text" class="form-control" value="@linkedPO.Supplier.SupplierName" readonly />
+                        }
+                        else
+                        {
+                            <InputSelect class="form-select" @bind-Value="grn.SupplierId" @bind:after="SupplierChanged">
+                                <option value="">Select Supplier</option>
+                                @if (suppliers != null)
+                                {
+                                    @foreach (var supplier in suppliers)
+                                    {
+                                        <option value="@supplier.Id">@supplier.SupplierName</option>
+                                    }
+                                }
+                            </InputSelect>
+                        }
+                        <ValidationMessage For="@(() => grn.SupplierId)" class="text-danger small" />
+                    </div>
+
+                    <div class="col-md-4">
+                        <label class="form-label fw-semibold text-muted">Received Date *</label>
+                        <InputDate class="form-control" @bind-Value="grn.ReceivedDate" />
+                        <ValidationMessage For="@(() => grn.ReceivedDate)" class="text-danger small" />
+                    </div>
+
+                    <div class="col-md-4">
+                        <label class="form-label fw-semibold text-muted">Invoice Number</label>
+                        <InputText class="form-control" @bind-Value="grn.InvoiceNumber" placeholder="e.g. INV-98765" />
+                        <ValidationMessage For="@(() => grn.InvoiceNumber)" class="text-danger small" />
+                    </div>
+
+                    @if (linkedPO != null)
+                    {
+                        <div class="col-12">
+                            <div class="alert alert-success-subtle border border-success-subtle text-success py-2 px-3 rounded d-flex align-items-center justify-content-between mb-0">
+                                <span><i class="bi bi-link-45deg me-1"></i> Linked to Purchase Order: <strong>@linkedPO.PoNumber</strong></span>
+                                <button type="button" class="btn btn-sm btn-outline-danger py-0" @onclick="UnlinkPO">Unlink PO</button>
+                            </div>
+                        </div>
+                    }
+
+                    <div class="col-12">
+                        <label class="form-label fw-semibold text-muted">Notes / Remarks</label>
+                        <InputTextArea class="form-control" @bind-Value="grn.Notes" rows="2" placeholder="e.g. Received in good condition..." />
+                        <ValidationMessage For="@(() => grn.Notes)" class="text-danger small" />
+                    </div>
+                </div>
+
+                <div class="mb-3 d-flex justify-content-between align-items-center border-top pt-4">
+                    <h5 class="fw-bold text-dark mb-0">Receipt Items & Batch Allocation</h5>
+                    <div class="d-flex gap-2">
+                        <button type="button" class="btn btn-sm btn-outline-secondary d-flex align-items-center gap-1" @onclick="ToggleGlobalScanner">
+                            <i class="bi @(showGlobalScanner ? "bi-camera-video-off" : "bi-camera")"></i>
+                            @(showGlobalScanner ? "Close Scanner" : "Scan Item to Add")
+                        </button>
+                        <button type="button" class="btn btn-sm btn-outline-primary d-flex align-items-center gap-1" @onclick="AddLineItem">
+                            <i class="bi bi-plus"></i> Add Item Row
+                        </button>
+                    </div>
+                </div>
+
+                @if (showGlobalScanner)
+                {
+                    <div class="card mb-4 border border-secondary shadow-sm rounded-3 overflow-hidden" style="max-width: 500px;">
+                        <div class="card-header bg-light py-2">
+                            <span class="small fw-semibold text-muted"><i class="bi bi-upc-scan me-1"></i> Point barcode to camera</span>
+                        </div>
+                        <div class="card-body p-2">
+                            <BarcodeScanner VideoClass="w-100 rounded-3" OnScanned="HandleGlobalBarcodeScanned" />
+                        </div>
+                    </div>
+                }
+
+                @if (!string.IsNullOrEmpty(scannerMessage))
+                {
+                    <div class="alert alert-warning py-1 small mb-3">@scannerMessage</div>
+                }
+
+                <div class="table-responsive mb-4">
+                    <table class="table table-bordered align-middle">
+                        <thead class="table-light text-uppercase fs-7 fw-semibold text-muted">
+                            <tr>
+                                <th style="width: 25%;">Pharmacy Item *</th>
+                                <th style="width: 15%;">Batch # *</th>
+                                <th style="width: 12%;">Dates (Mfg / Exp) *</th>
+                                <th class="text-end" style="width: 10%;">Received Qty *</th>
+                                <th class="text-end" style="width: 8%;">Free Qty</th>
+                                <th class="text-end" style="width: 10%;">Cost Price (₹) *</th>
+                                <th class="text-end" style="width: 10%;">Sale Price (₹) *</th>
+                                <th class="text-end" style="width: 10%;">Total Cost (₹)</th>
+                                <th class="text-center" style="width: 5%;">Delete</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @if (!grn.Items.Any())
+                            {
+                                <tr>
+                                    <td colspan="9" class="text-center py-4 text-muted small">
+                                        No items added yet. Click "Add Item Row" or scan barcode to add lines.
+                                    </td>
+                                </tr>
+                            }
+                            else
+                            {
+                                @foreach (var item in grn.Items)
+                                {
+                                    var currentItem = item;
+                                    <tr>
+                                        <td>
+                                            <select class="form-select form-select-sm" @bind="currentItem.ItemId">
+                                                <option value="">Select Item</option>
+                                                @if (pharmacyItems != null)
+                                                {
+                                                    @foreach (var pItem in pharmacyItems)
+                                                    {
+                                                        <option value="@pItem.Id">@pItem.ItemName (@pItem.ItemCode) [@pItem.Unit]</option>
+                                                    }
+                                                }
+                                            </select>
+                                        </td>
+                                        <td>
+                                            <input type="text" class="form-control form-control-sm font-monospace text-uppercase" placeholder="Batch No" @bind="currentItem.BatchNumber" />
+                                        </td>
+                                        <td>
+                                            <div class="d-flex flex-column gap-1">
+                                                <input type="date" class="form-control form-control-xs" placeholder="Mfg Date" @bind="currentItem.ManufactureDate" />
+                                                <input type="date" class="form-control form-control-xs border-danger-subtle" placeholder="Exp Date" @bind="currentItem.ExpiryDate" />
+                                            </div>
+                                        </td>
+                                        <td>
+                                            <input type="number" class="form-control form-control-sm text-end" min="1" @bind="currentItem.ReceivedQuantity" @bind:after="RecalculateTotals" />
+                                        </td>
+                                        <td>
+                                            <input type="number" class="form-control form-control-sm text-end" min="0" @bind="currentItem.FreeQuantity" />
+                                        </td>
+                                        <td>
+                                            <input type="number" step="0.01" class="form-control form-control-sm text-end" min="0" @bind="currentItem.PurchasePrice" @bind:after="RecalculateTotals" />
+                                        </td>
+                                        <td>
+                                            <input type="number" step="0.01" class="form-control form-control-sm text-end" min="0" @bind="currentItem.SellingPrice" />
+                                        </td>
+                                        <td class="text-end fw-semibold text-dark">
+                                            ₹@( (currentItem.ReceivedQuantity * currentItem.PurchasePrice).ToString("F2") )
+                                        </td>
+                                        <td class="text-center">
+                                            <button type="button" class="btn btn-sm btn-outline-danger border-0" @onclick="() => RemoveLineItem(currentItem)">
+                                                <i class="bi bi-trash"></i>
+                                            </button>
+                                        </td>
+                                    </tr>
+                                }
+                            }
+                        </tbody>
+                        <tfoot class="table-light fw-bold">
+                            <tr>
+                                <td colspan="7" class="text-end">Total Receipt Cost:</td>
+                                <td class="text-end text-primary fs-5">₹@grn.TotalAmount.ToString("F2")</td>
+                                <td></td>
+                            </tr>
+                        </tfoot>
+                    </table>
+                </div>
+
+                @if (!string.IsNullOrEmpty(errorMessage))
+                {
+                    <div class="alert alert-danger small py-2">@errorMessage</div>
+                }
+
+                <div class="d-flex gap-2">
+                    <button type="submit" class="btn btn-primary px-4 shadow-sm" disabled="@isSubmitting">
+                        @if (isSubmitting)
+                        {
+                            <span class="spinner-border spinner-border-sm me-1"></span>
+                        }
+                        Save GRN Draft
+                    </button>
+                    <a href="/pharmacy/grn" class="btn btn-light px-4">Cancel</a>
+                </div>
+            </EditForm>
+        </div>
+    </div>
+</div>
+
+@code {
+    [Parameter]
+    [SupplyParameterFromQuery]
+    public Guid? poId { get; set; }
+
+    private GoodsReceivedNote grn = new() { GrnNumber = "TEMP", ReceivedDate = DateTime.UtcNow };
+    private PurchaseOrder? linkedPO;
+    private List<Supplier>? suppliers;
+    private List<PharmacyItem>? pharmacyItems;
+
+    private bool poLoading = false;
+    private bool isSubmitting = false;
+    private bool showGlobalScanner = false;
+    private string scannerMessage = string.Empty;
+    private string errorMessage = string.Empty;
+
+    protected override async Task OnInitializedAsync()
+    {
+        suppliers = await SupplierService.GetSuppliersAsync(Guid.Empty);
+        pharmacyItems = await ItemService.GetActiveItemsAsync(Guid.Empty);
+
+        if (poId.HasValue && poId.Value != Guid.Empty)
+        {
+            await LoadLinkedPO(poId.Value);
+        }
+        else
+        {
+            AddLineItem();
+        }
+    }
+
+    private async Task LoadLinkedPO(Guid orderId)
+    {
+        try
+        {
+            poLoading = true;
+            linkedPO = await PoService.GetPurchaseOrderByIdAsync(orderId);
+            if (linkedPO != null)
+            {
+                grn.PoId = linkedPO.Id;
+                grn.SupplierId = linkedPO.SupplierId;
+
+                grn.Items.Clear();
+                foreach (var poItem in linkedPO.Items)
+                {
+                    var remaining = poItem.RequestedQuantity - poItem.ReceivedQuantity;
+                    if (remaining > 0)
+                    {
+                        grn.Items.Add(new GrnItem
+                        {
+                            Id = Guid.NewGuid(),
+                            ItemId = poItem.ItemId,
+                            ReceivedQuantity = remaining,
+                            FreeQuantity = 0,
+                            PurchasePrice = poItem.UnitPrice,
+                            SellingPrice = Math.Round(poItem.UnitPrice * 1.25m, 2), // 25% markup default
+                            ExpiryDate = DateTime.UtcNow.AddMonths(12),
+                            BatchNumber = string.Empty
+                        });
+                    }
+                }
+                RecalculateTotals();
+            }
+        }
+        catch (Exception ex)
+        {
+            errorMessage = $"Failed to load linked PO: {ex.Message}";
+        }
+        finally
+        {
+            poLoading = false;
+        }
+    }
+
+    private void UnlinkPO()
+    {
+        linkedPO = null;
+        grn.PoId = null;
+        grn.Items.Clear();
+        AddLineItem();
+        RecalculateTotals();
+    }
+
+    private void SupplierChanged()
+    {
+        // supplier selection update
+    }
+
+    private void AddLineItem()
+    {
+        grn.Items.Add(new GrnItem
+        {
+            Id = Guid.NewGuid(),
+            ReceivedQuantity = 1,
+            FreeQuantity = 0,
+            PurchasePrice = 0,
+            SellingPrice = 0,
+            ExpiryDate = DateTime.UtcNow.AddMonths(12)
+        });
+        RecalculateTotals();
+    }
+
+    private void RemoveLineItem(GrnItem item)
+    {
+        grn.Items.Remove(item);
+        RecalculateTotals();
+    }
+
+    private void RecalculateTotals()
+    {
+        decimal total = 0;
+        foreach (var item in grn.Items)
+        {
+            item.TotalAmount = item.ReceivedQuantity * item.PurchasePrice;
+            total += item.TotalAmount;
+        }
+        grn.TotalAmount = total;
+    }
+
+    private void ToggleGlobalScanner()
+    {
+        showGlobalScanner = !showGlobalScanner;
+        scannerMessage = string.Empty;
+    }
+
+    private async Task HandleGlobalBarcodeScanned(string barcode)
+    {
+        showGlobalScanner = false;
+        scannerMessage = string.Empty;
+
+        var matchingItem = await ItemService.GetItemByBarcodeAsync(Guid.Empty, barcode);
+        if (matchingItem != null)
+        {
+            // Add or append row with this item
+            var existingRow = grn.Items.FirstOrDefault(i => i.ItemId == matchingItem.Id);
+            if (existingRow != null)
+            {
+                existingRow.ReceivedQuantity += 1;
+                scannerMessage = $"Incremented quantity of '{matchingItem.ItemName}' by 1.";
+            }
+            else
+            {
+                grn.Items.Add(new GrnItem
+                {
+                    Id = Guid.NewGuid(),
+                    ItemId = matchingItem.Id,
+                    ReceivedQuantity = 1,
+                    FreeQuantity = 0,
+                    PurchasePrice = 0,
+                    SellingPrice = 0,
+                    ExpiryDate = DateTime.UtcNow.AddMonths(12)
+                });
+                scannerMessage = $"Added '{matchingItem.ItemName}' to list.";
+            }
+            RecalculateTotals();
+        }
+        else
+        {
+            scannerMessage = $"Scanned barcode '{barcode}' not found in item catalog. You can create the item first.";
+        }
+        StateHasChanged();
+    }
+
+    private async Task HandleValidSubmit()
+    {
+        if (grn.SupplierId == Guid.Empty)
+        {
+            errorMessage = "Please select a supplier.";
+            return;
+        }
+
+        if (!grn.Items.Any() || grn.Items.Any(i => i.ItemId == Guid.Empty))
+        {
+            errorMessage = "Please add at least one item row and ensure all selected items are valid.";
+            return;
+        }
+
+        if (grn.Items.Any(i => string.IsNullOrWhiteSpace(i.BatchNumber)))
+        {
+            errorMessage = "Please enter a batch number for all rows.";
+            return;
+        }
+
+        if (grn.Items.Any(i => i.ExpiryDate <= DateTime.UtcNow))
+        {
+            errorMessage = "Expiry dates must be in the future.";
+            return;
+        }
+
+        try
+        {
+            isSubmitting = true;
+            errorMessage = string.Empty;
+            grn.TenantId = Guid.Empty;
+
+            await GrnService.CreateGrnAsync(grn);
+            NavigationManager.NavigateTo("/pharmacy/grn");
+        }
+        catch (Microsoft.AspNetCore.Components.NavigationException)
+        {
+            throw; // expected Blazor redirect
+        }
+        catch (Exception ex)
+        {
+            errorMessage = $"Failed to save GRN: {ex.Message}";
+            isSubmitting = false;
+        }
+    }
+}

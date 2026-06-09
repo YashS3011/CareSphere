@@ -1,0 +1,526 @@
+@page "/pharmacy/dispense"
+@using CareSphere.Models
+@using CareSphere.Services
+@using CareSphere.Data
+@using CareSphere.Components
+@using Microsoft.EntityFrameworkCore
+@inject ApplicationDbContext DbContext
+@inject IDispenseService DispenseService
+@inject IPharmacyItemService ItemService
+@inject NavigationManager NavigationManager
+@rendermode InteractiveServer
+
+<PageTitle>Dispense Prescription - CareSphere</PageTitle>
+
+<div class="container py-4">
+    <div class="mb-4">
+        <h1 class="h3 mb-1 text-dark fw-bold"><i class="bi bi-prescription2 me-2 text-primary"></i>Dispense Prescription</h1>
+        <p class="text-muted">Validate and dispense medicines against active doctor prescriptions</p>
+    </div>
+
+    <!-- Step Progress Indicator -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="d-flex justify-content-between position-relative align-items-center">
+                <div class="position-absolute bg-light w-100 start-0 end-0" style="height: 4px; top: 18px; z-index: 1;"></div>
+                <div class="position-absolute bg-primary start-0" style="height: 4px; top: 18px; width: @( (currentStep - 1) * 50 )%; transition: width 0.3s; z-index: 2;"></div>
+                
+                <div class="text-center position-relative" style="z-index: 3; width: 80px;">
+                    <div class="rounded-circle d-flex align-items-center justify-content-center mx-auto @(currentStep >= 1 ? "bg-primary text-white" : "bg-light text-muted") shadow-sm" style="width: 40px; height: 40px;">1</div>
+                    <span class="small fw-semibold text-muted mt-2 d-block">Lookup Rx</span>
+                </div>
+                
+                <div class="text-center position-relative" style="z-index: 3; width: 80px;">
+                    <div class="rounded-circle d-flex align-items-center justify-content-center mx-auto @(currentStep >= 2 ? "bg-primary text-white" : "bg-light text-muted") shadow-sm" style="width: 40px; height: 40px;">2</div>
+                    <span class="small fw-semibold text-muted mt-2 d-block">Scan Item</span>
+                </div>
+                
+                <div class="text-center position-relative" style="z-index: 3; width: 80px;">
+                    <div class="rounded-circle d-flex align-items-center justify-content-center mx-auto @(currentStep >= 3 ? "bg-primary text-white" : "bg-light text-muted") shadow-sm" style="width: 40px; height: 40px;">3</div>
+                    <span class="small fw-semibold text-muted mt-2 d-block">Dispense</span>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    @if (!string.IsNullOrEmpty(statusMessage))
+    {
+        <div class="alert alert-warning py-2 px-3 small rounded mb-4">@statusMessage</div>
+    }
+
+    <!-- STEP 1: Prescription Lookup -->
+    @if (currentStep == 1)
+    {
+        <div class="card border-0 shadow-sm rounded-4 mb-4">
+            <div class="card-body p-4">
+                <h5 class="fw-bold text-dark mb-3">Step 1: Look up Doctor Prescription</h5>
+                <p class="text-muted small">Enter the Patient MRN, Patient Name, or scan the Prescription Barcode/ID.</p>
+
+                <div class="row g-3">
+                    <div class="col-md-6">
+                        <div class="input-group">
+                            <span class="input-group-text bg-white border-end-0"><i class="bi bi-search text-muted"></i></span>
+                            <input type="text" class="form-control border-start-0 ps-0" placeholder="Enter Patient MRN, Name, or Rx ID..." @bind="SearchQuery" @onkeyup="HandleKeyPress" />
+                            <button class="btn btn-outline-secondary" type="button" @onclick="ToggleLookupScanner">
+                                <i class="bi @(showLookupScanner ? "bi-camera-video-off" : "bi-camera")"></i>
+                            </button>
+                        </div>
+                    </div>
+                    <div class="col-md-2">
+                        <button class="btn btn-primary w-100" @onclick="SearchPrescriptions">Find</button>
+                    </div>
+                </div>
+
+                @if (showLookupScanner)
+                {
+                    <div class="card mt-3 border border-secondary shadow-sm rounded-3 overflow-hidden" style="max-width: 500px;">
+                        <div class="card-header bg-light py-2">
+                            <span class="small fw-semibold text-muted"><i class="bi bi-upc-scan me-1"></i> Scan prescription barcode</span>
+                        </div>
+                        <div class="card-body p-2">
+                            <BarcodeScanner VideoClass="w-100 rounded-3" OnScanned="HandleLookupBarcodeScanned" />
+                        </div>
+                    </div>
+                }
+
+                @if (foundPrescriptions != null)
+                {
+                    @if (!foundPrescriptions.Any())
+                    {
+                        <div class="alert alert-warning mt-4 small mb-0 py-2">No active prescriptions found matching your search.</div>
+                    }
+                    else
+                    {
+                        <div class="table-responsive mt-4">
+                            <table class="table table-hover align-middle border">
+                                <thead class="table-light fs-7 fw-semibold text-muted text-uppercase">
+                                    <tr>
+                                        <th>Date</th>
+                                        <th>Patient MRN / Name</th>
+                                        <th>Prescribed Drug</th>
+                                        <th class="text-end">Prescribed Qty</th>
+                                        <th class="text-center">Action</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    @foreach (var rx in foundPrescriptions)
+                                    {
+                                        <tr>
+                                            <td class="small text-secondary">@rx.IssuedAt.ToString("yyyy-MM-dd HH:mm")</td>
+                                            <td>
+                                                <div class="fw-bold text-dark">@rx.Patient.FirstName @rx.Patient.LastName</div>
+                                                <div class="small text-muted font-monospace">@rx.Patient.Mrn</div>
+                                            </td>
+                                            <td>
+                                                <div class="fw-bold text-primary">@rx.DrugName</div>
+                                                <div class="small text-muted">Code: @rx.DrugCode | Form: @rx.Form | Strength: @rx.Strength</div>
+                                            </td>
+                                            <td class="text-end fw-bold">@rx.Quantity</td>
+                                            <td class="text-center">
+                                                <button class="btn btn-sm btn-primary px-3 shadow-sm" @onclick="() => SelectPrescription(rx.Id)">Select</button>
+                                            </td>
+                                        </tr>
+                                    }
+                                </tbody>
+                            </table>
+                        </div>
+                    }
+                }
+            </div>
+        </div>
+    }
+
+    <!-- STEP 2: Item Confirmation -->
+    @if (currentStep == 2 && selectedRx != null && targetItem != null)
+    {
+        <div class="card border-0 shadow-sm rounded-4 mb-4">
+            <div class="card-body p-4">
+                <h5 class="fw-bold text-dark mb-3">Step 2: Confirm Physical Item Barcode</h5>
+                <p class="text-muted small">Scan the barcode on the medicine packaging to prevent medication errors.</p>
+
+                <div class="row g-4 align-items-center">
+                    <div class="col-md-6">
+                        <div class="p-3 bg-light rounded-3">
+                            <h6 class="fw-bold text-secondary uppercase fs-8 mb-2">Prescribed Medicine</h6>
+                            <div class="fs-5 fw-bold text-dark">@selectedRx.DrugName</div>
+                            <div class="text-muted small">Form: @selectedRx.Form | Strength: @selectedRx.Strength</div>
+                            
+                            <hr class="my-2" />
+
+                            <h6 class="fw-bold text-secondary uppercase fs-8 mb-2">Matching Catalog Item</h6>
+                            <div class="fw-bold text-primary">@targetItem.ItemName</div>
+                            <div class="small text-dark mt-1">Expected Barcode: <strong class="font-monospace">@(targetItem.Barcode ?? "NO BARCODE CONFIGURED")</strong></div>
+                        </div>
+
+                        <div class="mt-4">
+                            <label class="form-label fw-semibold text-muted">Scan or Enter Barcode *</label>
+                            <div class="input-group">
+                                <input type="text" class="form-control" placeholder="Scan medicine barcode..." @bind="ConfirmBarcode" @onkeyup="HandleConfirmBarcodeKeyPress" />
+                                <button class="btn btn-outline-secondary" type="button" @onclick="ToggleConfirmScanner">
+                                    <i class="bi @(showConfirmScanner ? "bi-camera-video-off" : "bi-camera")"></i>
+                                </button>
+                            </div>
+                            @if (!string.IsNullOrEmpty(barcodeMismatchError))
+                            {
+                                <div class="text-danger small mt-1"><i class="bi bi-x-circle-fill"></i> @barcodeMismatchError</div>
+                            }
+                        </div>
+                    </div>
+
+                    <div class="col-md-6">
+                        @if (showConfirmScanner)
+                        {
+                            <div class="card border border-secondary shadow-sm rounded-3 overflow-hidden">
+                                <div class="card-header bg-light py-2">
+                                    <span class="small fw-semibold text-muted"><i class="bi bi-upc-scan me-1"></i> Confirming Scan</span>
+                                </div>
+                                <div class="card-body p-2">
+                                    <BarcodeScanner VideoClass="w-100 rounded-3" OnScanned="HandleConfirmBarcodeScanned" />
+                                </div>
+                            </div>
+                        }
+                    </div>
+                </div>
+
+                <div class="d-flex gap-2 mt-4 pt-3 border-top">
+                    <button class="btn btn-primary px-4 shadow-sm" @onclick="VerifyAndProceed">Confirm & Continue</button>
+                    <button class="btn btn-light px-4" @onclick="GoBackToStep1">Back</button>
+                </div>
+            </div>
+        </div>
+    }
+
+    <!-- STEP 3: Quantity & FEFO Allocation -->
+    @if (currentStep == 3 && selectedRx != null && targetItem != null)
+    {
+        <div class="row g-4">
+            <div class="col-lg-6">
+                <div class="card border-0 shadow-sm rounded-4">
+                    <div class="card-body p-4">
+                        <h5 class="fw-bold text-dark mb-3">Step 3: Dispense Quantity</h5>
+                        <p class="text-muted small">Select the quantity to dispense. If you dispense less than the remaining quantity, it will be recorded as a partial dispense.</p>
+
+                        <div class="p-3 bg-light rounded-3 mb-4">
+                            <div class="row text-center">
+                                <div class="col-4 border-end">
+                                    <div class="small text-muted">Prescribed</div>
+                                    <div class="fs-4 fw-bold text-dark">@selectedRx.Quantity</div>
+                                </div>
+                                <div class="col-4 border-end">
+                                    <div class="small text-muted">Dispensed</div>
+                                    <div class="fs-4 fw-bold text-dark">@alreadyDispensed</div>
+                                </div>
+                                <div class="col-4">
+                                    <div class="small text-muted text-primary">Remaining</div>
+                                    <div class="fs-4 fw-bold text-primary">@remainingAllowed</div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="mb-4">
+                            <label class="form-label fw-semibold text-muted">Quantity to Dispense *</label>
+                            <input type="number" class="form-control form-control-lg text-center fw-bold text-primary" style="font-size: 1.5rem;" min="1" max="@remainingAllowed" @bind="QtyToDispense" @bind:after="RecalculateFefoPreview" />
+                            @if (QtyToDispense > remainingAllowed)
+                            {
+                                <div class="text-danger small mt-1">Requested quantity exceeds the remaining allowed amount.</div>
+                            }
+                        </div>
+
+                        <div class="mb-4">
+                            <label class="form-label fw-semibold text-muted">Notes / Remarks</label>
+                            <textarea class="form-control" rows="2" @bind="DispenseNotes" placeholder="Optional notes..."></textarea>
+                        </div>
+
+                        <div class="d-flex gap-2 pt-3 border-top">
+                            <button class="btn btn-success px-5 shadow-sm btn-lg" @onclick="CompleteDispense" disabled="@(isSubmitting || QtyToDispense <= 0 || QtyToDispense > remainingAllowed)">
+                                @if (isSubmitting)
+                                {
+                                    <span class="spinner-border spinner-border-sm me-1"></span>
+                                }
+                                Complete Dispensing
+                            </button>
+                            <button class="btn btn-light px-4 btn-lg" @onclick="GoBackToStep2">Back</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="col-lg-6">
+                <!-- FEFO Batch preview allocation -->
+                <div class="card border-0 shadow-sm rounded-4">
+                    <div class="card-header bg-white py-3 px-4">
+                        <h5 class="fw-bold text-dark mb-0"><i class="bi bi-layers text-muted me-2"></i>FEFO Batch Allocation Forecast</h5>
+                    </div>
+                    <div class="card-body p-4">
+                        <p class="text-muted small mb-3">Batches are selected automatically based on the First Expiry, First Out (FEFO) principle to optimize stock freshness.</p>
+
+                        @if (previewAllocations == null || !previewAllocations.Any())
+                        {
+                            <div class="alert alert-warning py-2 small">No stock batches available to cover the requested quantity. Please check inventory levels.</div>
+                        }
+                        else
+                        {
+                            <div class="list-group">
+                                @foreach (var alloc in previewAllocations)
+                                {
+                                    <div class="list-group-item list-group-item-action border rounded-3 p-3 mb-2">
+                                        <div class="d-flex justify-content-between align-items-center">
+                                            <div>
+                                                <div class="fw-bold text-dark font-monospace">Batch: @alloc.BatchNumber</div>
+                                                <div class="small text-danger">Expires on: @alloc.ExpiryDate.ToString("yyyy-MM-dd")</div>
+                                            </div>
+                                            <div class="text-end">
+                                                <div class="badge bg-success px-3 py-2 fs-6 shadow-sm">- @alloc.QuantityToDeduct units</div>
+                                                <div class="small text-muted mt-1">Stock Left After: @(alloc.CurrentStock - alloc.QuantityToDeduct)</div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                }
+                            </div>
+                        }
+                    </div>
+                </div>
+            </div>
+        </div>
+    }
+</div>
+
+@code {
+    private int currentStep = 1;
+    private string SearchQuery { get; set; } = string.Empty;
+    private List<Prescription>? foundPrescriptions;
+    private Prescription? selectedRx;
+    private PharmacyItem? targetItem;
+    private int alreadyDispensed = 0;
+    private int remainingAllowed = 0;
+
+    // Step 2
+    private string ConfirmBarcode { get; set; } = string.Empty;
+    private string barcodeMismatchError = string.Empty;
+    private bool showLookupScanner = false;
+    private bool showConfirmScanner = false;
+
+    // Step 3
+    private int QtyToDispense { get; set; } = 0;
+    private string DispenseNotes { get; set; } = string.Empty;
+    private List<BatchAllocPreview>? previewAllocations;
+    private bool isSubmitting = false;
+
+    private string statusMessage = string.Empty;
+
+    private void ToggleLookupScanner()
+    {
+        showLookupScanner = !showLookupScanner;
+        foundPrescriptions = null;
+    }
+
+    private void ToggleConfirmScanner()
+    {
+        showConfirmScanner = !showConfirmScanner;
+        barcodeMismatchError = string.Empty;
+    }
+
+    private async Task HandleLookupBarcodeScanned(string barcode)
+    {
+        showLookupScanner = false;
+        SearchQuery = barcode;
+        await SearchPrescriptions();
+    }
+
+    private async Task HandleKeyPress(KeyboardEventArgs e)
+    {
+        if (e.Key == "Enter")
+        {
+            await SearchPrescriptions();
+        }
+    }
+
+    private async Task SearchPrescriptions()
+    {
+        statusMessage = string.Empty;
+        if (string.IsNullOrWhiteSpace(SearchQuery))
+        {
+            statusMessage = "Please enter a search query.";
+            return;
+        }
+
+        var cleanQuery = SearchQuery.Trim();
+        var rxQuery = DbContext.Prescriptions
+            .Include(p => p.Patient)
+            .Include(p => p.Doctor)
+            .Where(p => p.Status == "Active");
+
+        // Attempt exact ID matching first
+        if (Guid.TryParse(cleanQuery, out var rxGuid))
+        {
+            foundPrescriptions = await rxQuery.Where(p => p.Id == rxGuid).ToListAsync();
+        }
+        else
+        {
+            // Match MRN or Patient Name
+            foundPrescriptions = await rxQuery
+                .Where(p => p.Patient.Mrn.ToLower() == cleanQuery.ToLower() ||
+                            (p.Patient.FirstName + " " + p.Patient.LastName).ToLower().Contains(cleanQuery.ToLower()))
+                .OrderByDescending(p => p.IssuedAt)
+                .ToListAsync();
+        }
+    }
+
+    private async Task SelectPrescription(Guid id)
+    {
+        statusMessage = string.Empty;
+        selectedRx = await DbContext.Prescriptions
+            .Include(p => p.Patient)
+            .FirstOrDefaultAsync(p => p.Id == id);
+
+        if (selectedRx == null) return;
+
+        // Verify database validation constraints
+        var validation = await DispenseService.ValidatePrescriptionForDispenseAsync(id);
+        if (!validation.IsValid)
+        {
+            statusMessage = $"Cannot dispense: {string.Join(", ", validation.ValidationErrors)}";
+            return;
+        }
+
+        // Look up item
+        if (!string.IsNullOrWhiteSpace(selectedRx.DrugCode))
+        {
+            targetItem = await DbContext.PharmacyItems.FirstOrDefaultAsync(i => i.TenantId == selectedRx.TenantId && i.ItemCode == selectedRx.DrugCode);
+        }
+        if (targetItem == null)
+        {
+            targetItem = await DbContext.PharmacyItems.FirstOrDefaultAsync(i => i.TenantId == selectedRx.TenantId && i.ItemName.ToLower() == selectedRx.DrugName.ToLower());
+        }
+
+        // Already dispensed tally
+        alreadyDispensed = await DbContext.DispenseRecords
+            .Where(r => r.PrescriptionId == id)
+            .SumAsync(r => r.DispensedQuantity);
+
+        remainingAllowed = selectedRx.Quantity - alreadyDispensed;
+        QtyToDispense = remainingAllowed; // Default to dispense maximum remainder
+
+        currentStep = 2;
+        ConfirmBarcode = string.Empty;
+        barcodeMismatchError = string.Empty;
+        showLookupScanner = false;
+        showConfirmScanner = false;
+    }
+
+    private void HandleConfirmBarcodeScanned(string barcode)
+    {
+        ConfirmBarcode = barcode;
+        showConfirmScanner = false;
+        VerifyAndProceed();
+    }
+
+    private void HandleConfirmBarcodeKeyPress(KeyboardEventArgs e)
+    {
+        if (e.Key == "Enter")
+        {
+            VerifyAndProceed();
+        }
+    }
+
+    private void VerifyAndProceed()
+    {
+        barcodeMismatchError = string.Empty;
+        if (targetItem == null) return;
+
+        if (string.IsNullOrWhiteSpace(ConfirmBarcode))
+        {
+            barcodeMismatchError = "Please scan or enter the item barcode.";
+            return;
+        }
+
+        if (!string.IsNullOrEmpty(targetItem.Barcode) && targetItem.Barcode != ConfirmBarcode.Trim())
+        {
+            barcodeMismatchError = $"Scanned barcode '{ConfirmBarcode}' does not match catalog barcode '{targetItem.Barcode}'.";
+            return;
+        }
+
+        currentStep = 3;
+        showConfirmScanner = false;
+        RecalculateFefoPreview();
+    }
+
+    private void RecalculateFefoPreview()
+    {
+        if (targetItem == null || QtyToDispense <= 0) return;
+
+        // Fetch batches to compute simulated FEFO allocation
+        var activeBatches = DbContext.PharmacyBatches
+            .Where(b => b.ItemId == targetItem.Id && b.IsActive && b.ExpiryDate > DateTime.UtcNow && b.CurrentStock > 0)
+            .OrderBy(b => b.ExpiryDate)
+            .ToList();
+
+        var allocated = new List<BatchAllocPreview>();
+        var remaining = QtyToDispense;
+
+        foreach (var b in activeBatches)
+        {
+            if (remaining <= 0) break;
+            var toDeduct = Math.Min(remaining, b.CurrentStock);
+            allocated.Add(new BatchAllocPreview
+            {
+                BatchNumber = b.BatchNumber,
+                ExpiryDate = b.ExpiryDate,
+                CurrentStock = b.CurrentStock,
+                QuantityToDeduct = toDeduct
+            });
+            remaining -= toDeduct;
+        }
+
+        previewAllocations = allocated;
+    }
+
+    private async Task CompleteDispense()
+    {
+        if (selectedRx == null || QtyToDispense <= 0) return;
+
+        try
+        {
+            isSubmitting = true;
+            statusMessage = string.Empty;
+
+            await DispenseService.DispenseItemAsync(selectedRx.Id, QtyToDispense, "system", ConfirmBarcode);
+            
+            statusMessage = "Prescription successfully dispensed!";
+            
+            // Return to step 1
+            currentStep = 1;
+            selectedRx = null;
+            targetItem = null;
+            SearchQuery = string.Empty;
+            foundPrescriptions = null;
+        }
+        catch (Exception ex)
+        {
+            statusMessage = $"Dispensing failed: {ex.Message}";
+        }
+        finally
+        {
+            isSubmitting = false;
+        }
+    }
+
+    private void GoBackToStep1()
+    {
+        currentStep = 1;
+    }
+
+    private void GoBackToStep2()
+    {
+        currentStep = 2;
+        ConfirmBarcode = string.Empty;
+    }
+
+    public class BatchAllocPreview
+    {
+        public string BatchNumber { get; set; } = string.Empty;
+        public DateTime ExpiryDate { get; set; }
+        public int CurrentStock { get; set; }
+        public int QuantityToDeduct { get; set; }
+    }
+}
