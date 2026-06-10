@@ -4,11 +4,8 @@ using System.ComponentModel.DataAnnotations.Schema;
 namespace CareSphere.Models
 {
     [Table("dispense_records")]
-    public class DispenseRecord
+    public class DispenseRecord : BaseEntity
     {
-        [Key]
-        [Column("id")]
-        public Guid Id { get; set; }
 
         [Column("tenant_id")]
         public Guid TenantId { get; set; } = Guid.Empty;

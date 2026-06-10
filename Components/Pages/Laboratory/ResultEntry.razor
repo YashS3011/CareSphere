@@ -1,0 +1,408 @@
+@page "/lab/requisitions/{requisitionItemId:guid}/results"
+@attribute [Microsoft.AspNetCore.Authorization.Authorize(Policy = PolicyNames.Permission_Lab_EnterResults)]
+@using CareSphere.Models
+@using CareSphere.Services
+@using CareSphere.Data
+@using Microsoft.EntityFrameworkCore
+@inject ILabResultService ResultService
+@inject ApplicationDbContext DbContext
+@inject NavigationManager NavigationManager
+@rendermode InteractiveServer
+
+<PageTitle>Enter Lab Results - CareSphere</PageTitle>
+
+<div class="container py-4" style="max-width: 800px;">
+    <!-- Back Link -->
+    <div class="mb-3">
+        @if (requisitionItem != null)
+        {
+            <a href="/lab/requisitions/@requisitionItem.RequisitionId" class="btn btn-link p-0 text-decoration-none link-secondary small">
+                <i class="bi bi-arrow-left"></i> Back to Requisition Details
+            </a>
+        }
+    </div>
+
+    @if (loading)
+    {
+        <div class="d-flex justify-content-center my-5">
+            <div class="spinner-border text-primary" role="status">
+                <span class="visually-hidden">Loading parameters...</span>
+            </div>
+        </div>
+    }
+    else if (requisitionItem == null)
+    {
+        <div class="alert alert-danger">
+            Requisition item not found.
+        </div>
+    }
+    else
+    {
+        <!-- Header Info -->
+        <div class="card border-0 shadow-sm rounded-4 mb-4 bg-light">
+            <div class="card-body p-3">
+                <h4 class="fw-bold text-dark mb-1">@requisitionItem.Test.TestName</h4>
+                <p class="text-muted mb-0 small">Patient: <strong>@requisitionItem.Requisition.Patient.FirstName @requisitionItem.Requisition.Patient.LastName</strong> (MRN: @requisitionItem.Requisition.Patient.Mrn)</p>
+            </div>
+        </div>
+
+        @if (!string.IsNullOrEmpty(successMessage))
+        {
+            <div class="alert alert-success py-2 small mb-3">@successMessage</div>
+        }
+
+        @if (!string.IsNullOrEmpty(errorMessage))
+        {
+            <div class="alert alert-danger py-2 small mb-3">@errorMessage</div>
+        }
+
+        <div class="card border-0 shadow-sm rounded-4 mb-4">
+            <div class="card-header bg-white py-3 px-4 border-bottom">
+                <h5 class="fw-bold text-dark mb-0">Result Entry</h5>
+            </div>
+            <div class="table-responsive p-0">
+                <table class="table align-middle mb-0 small">
+                    <thead class="table-light fs-8 text-uppercase text-muted">
+                        <tr>
+                            <th style="width: 30%;">Parameter</th>
+                            <th style="width: 10%;">Unit</th>
+                            <th style="width: 20%;">Ref Range</th>
+                            <th style="width: 25%;">Result Value *</th>
+                            <th class="text-center" style="width: 15%;">Alert Flag</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var param in testParameters)
+                        {
+                            var pId = param.Id;
+                            var resultRow = parameterResults[pId];
+
+                            <tr>
+                                <td class="fw-semibold">@param.ParameterName</td>
+                                <td class="text-muted">@(param.Unit ?? "-")</td>
+                                <td class="text-muted">
+                                    @if (param.DataType == "Numeric")
+                                    {
+                                        <span>@param.ReferenceRangeLow - @param.ReferenceRangeHigh</span>
+                                    }
+                                    else
+                                    {
+                                        <span>@param.ReferenceRangeText</span>
+                                    }
+                                </td>
+                                <td>
+                                    @if (param.DataType == "Numeric")
+                                    {
+                                        <input type="number" step="0.01" class="form-control form-control-sm" placeholder="Numeric value" 
+                                               @bind="resultRow.ResultNumericStr" @bind:after="() => OnNumericValueInput(pId)" />
+                                    }
+                                    else if (param.DataType == "Boolean")
+                                    {
+                                        <select class="form-select form-select-sm" @bind="resultRow.ResultValue">
+                                            <option value="">Select Option</option>
+                                            <option value="Positive">Positive</option>
+                                            <option value="Negative">Negative</option>
+                                        </select>
+                                    }
+                                    else
+                                    {
+                                        <input type="text" class="form-control form-control-sm" placeholder="Text value" 
+                                               @bind="resultRow.ResultValue" />
+                                    }
+                                </td>
+                                <td class="text-center">
+                                    @{
+                                        var flag = ComputeLiveFlag(param, resultRow);
+                                    }
+                                    @if (!string.IsNullOrEmpty(flag))
+                                    {
+                                        <span style="@GetFlagStyle(flag)">@flag</span>
+                                    }
+                                    else
+                                    {
+                                        <span class="text-muted small">-</span>
+                                    }
+                                </td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <!-- Notes Card -->
+        <div class="card border-0 shadow-sm rounded-4 mb-4">
+            <div class="card-body p-4">
+                <label class="form-label fw-semibold text-muted small">Notes / Observations</label>
+                <textarea class="form-control" rows="3" placeholder="Enter notes or laboratory observations..." @bind="generalNotes"></textarea>
+            </div>
+        </div>
+
+        <!-- Actions -->
+        <div class="d-flex gap-2">
+            <button type="button" class="btn btn-primary px-4 shadow-sm" @onclick="SaveResults" disabled="@isSaving">
+                @if (isSaving)
+                {
+                    <span class="spinner-border spinner-border-sm me-1"></span>
+                }
+                Save Results
+            </button>
+
+            @if (allSaved)
+            {
+                <button type="button" class="btn btn-success px-4 shadow-sm" @onclick="VerifyResults" disabled="@isVerifying">
+                    @if (isVerifying)
+                    {
+                        <span class="spinner-border spinner-border-sm me-1"></span>
+                    }
+                    Verify Results
+                </button>
+            }
+
+            <a href="/lab/requisitions/@requisitionItem.RequisitionId" class="btn btn-light px-4">Cancel</a>
+        </div>
+    }
+</div>
+
+@code {
+    [Parameter]
+    public Guid requisitionItemId { get; set; }
+
+    private bool loading = true;
+    private LabRequisitionItem? requisitionItem;
+    private List<LabTestParameter> testParameters = new();
+    
+    // Map parameter ID to row input representation
+    private Dictionary<Guid, ResultInputModel> parameterResults = new();
+    
+    private string generalNotes = string.Empty;
+    private bool allSaved = false;
+    private bool isSaving = false;
+    private bool isVerifying = false;
+    private string successMessage = string.Empty;
+    private string errorMessage = string.Empty;
+
+    public class ResultInputModel
+    {
+        public Guid ResultId { get; set; }
+        public string ResultValue { get; set; } = string.Empty;
+        public string ResultNumericStr { get; set; } = string.Empty;
+        public decimal? ResultNumeric { get; set; }
+        public bool SavedInDb { get; set; }
+    }
+
+    protected override async Task OnInitializedAsync()
+    {
+        try
+        {
+            loading = true;
+
+            requisitionItem = await DbContext.LabRequisitionItems
+                .Include(ri => ri.Requisition)
+                    .ThenInclude(r => r.Patient)
+                .Include(ri => ri.Test)
+                .FirstOrDefaultAsync(ri => ri.Id == requisitionItemId);
+
+            if (requisitionItem != null)
+            {
+                // Fetch parameters of the test
+                testParameters = await DbContext.LabTestParameters
+                    .Where(p => p.TestId == requisitionItem.TestId)
+                    .OrderBy(p => p.SortOrder)
+                    .ToListAsync();
+
+                // Fetch existing results if any
+                var existingResults = await DbContext.LabResults
+                    .Where(r => r.RequisitionItemId == requisitionItemId)
+                    .ToListAsync();
+
+                foreach (var param in testParameters)
+                {
+                    var existing = existingResults.FirstOrDefault(r => r.ParameterId == param.Id);
+                    if (existing != null)
+                    {
+                        parameterResults[param.Id] = new ResultInputModel
+                        {
+                            ResultId = existing.Id,
+                            ResultValue = existing.ResultValue,
+                            ResultNumericStr = existing.ResultNumeric?.ToString() ?? string.Empty,
+                            ResultNumeric = existing.ResultNumeric,
+                            SavedInDb = true
+                        };
+                    }
+                    else
+                    {
+                        parameterResults[param.Id] = new ResultInputModel
+                        {
+                            ResultId = Guid.Empty,
+                            ResultValue = string.Empty,
+                            ResultNumericStr = string.Empty,
+                            ResultNumeric = null,
+                            SavedInDb = false
+                        };
+                    }
+                }
+
+                // If all parameters have saved results, allow verification
+                allSaved = parameterResults.Values.All(v => v.SavedInDb);
+                generalNotes = existingResults.FirstOrDefault(r => !string.IsNullOrEmpty(r.Notes))?.Notes ?? string.Empty;
+            }
+        }
+        catch (Exception ex)
+        {
+            errorMessage = $"Error initializing form: {ex.Message}";
+        }
+        finally
+        {
+            loading = false;
+        }
+    }
+
+    private void OnNumericValueInput(Guid parameterId)
+    {
+        var row = parameterResults[parameterId];
+        if (decimal.TryParse(row.ResultNumericStr, out var val))
+        {
+            row.ResultNumeric = val;
+            row.ResultValue = val.ToString("G29");
+        }
+        else
+        {
+            row.ResultNumeric = null;
+            row.ResultValue = string.Empty;
+        }
+    }
+
+    private string? ComputeLiveFlag(LabTestParameter param, ResultInputModel row)
+    {
+        var val = row.ResultValue;
+        var num = row.ResultNumeric;
+
+        if (param.DataType == "Numeric")
+        {
+            if (!num.HasValue) return null;
+            var valNum = num.Value;
+
+            if (param.ReferenceRangeHigh.HasValue && valNum > param.ReferenceRangeHigh.Value)
+            {
+                if (valNum > param.ReferenceRangeHigh.Value * 1.5m)
+                {
+                    return "HH";
+                }
+                return "H";
+            }
+            else if (param.ReferenceRangeLow.HasValue && valNum < param.ReferenceRangeLow.Value)
+            {
+                if (valNum < param.ReferenceRangeLow.Value * 0.5m)
+                {
+                    return "LL";
+                }
+                return "L";
+            }
+        }
+        else if (param.DataType == "Text" && !string.IsNullOrWhiteSpace(param.ReferenceRangeText))
+        {
+            if (!string.IsNullOrWhiteSpace(val) && !string.Equals(val.Trim(), param.ReferenceRangeText.Trim(), StringComparison.OrdinalIgnoreCase))
+            {
+                return "A";
+            }
+        }
+        else if (param.DataType == "Boolean" && !string.IsNullOrWhiteSpace(param.ReferenceRangeText))
+        {
+            if (!string.IsNullOrWhiteSpace(val) &&
+                string.Equals(val.Trim(), "Positive", StringComparison.OrdinalIgnoreCase) &&
+                string.Equals(param.ReferenceRangeText.Trim(), "Negative", StringComparison.OrdinalIgnoreCase))
+            {
+                return "A";
+            }
+        }
+
+        return null;
+    }
+
+    private string GetFlagStyle(string flag)
+    {
+        return flag switch
+        {
+            "H" or "HH" => "color: red; font-weight: bold;",
+            "L" or "LL" => "color: blue; font-weight: bold;",
+            "A" => "color: orange; font-weight: bold;",
+            _ => ""
+        };
+    }
+
+    private async Task SaveResults()
+    {
+        if (requisitionItem == null) return;
+
+        // Check if any required field is empty
+        if (parameterResults.Values.Any(r => string.IsNullOrWhiteSpace(r.ResultValue)))
+        {
+            errorMessage = "Please enter values for all parameters before saving.";
+            return;
+        }
+
+        try
+        {
+            isSaving = true;
+            errorMessage = string.Empty;
+            successMessage = string.Empty;
+
+            foreach (var param in testParameters)
+            {
+                var row = parameterResults[param.Id];
+                var created = await ResultService.EnterResultAsync(
+                    requisitionItem.TenantId,
+                    requisitionItemId,
+                    param.Id,
+                    row.ResultValue,
+                    row.ResultNumeric,
+                    generalNotes,
+                    "system" // TODO: replace with logged in user
+                );
+
+                row.ResultId = created.Id;
+                row.SavedInDb = true;
+            }
+
+            allSaved = true;
+            successMessage = "All parameter results successfully saved.";
+        }
+        catch (Exception ex)
+        {
+            errorMessage = $"Failed to save results: {ex.Message}";
+        }
+        finally
+        {
+            isSaving = false;
+        }
+    }
+
+    private async Task VerifyResults()
+    {
+        if (requisitionItem == null) return;
+
+        try
+        {
+            isVerifying = true;
+            errorMessage = string.Empty;
+
+            foreach (var param in testParameters)
+            {
+                var row = parameterResults[param.Id];
+                if (row.ResultId != Guid.Empty)
+                {
+                    await ResultService.VerifyResultAsync(row.ResultId, "system"); // TODO: replace with logged in user
+                }
+            }
+
+            NavigationManager.NavigateTo($"/lab/requisitions/{requisitionItem.RequisitionId}");
+        }
+        catch (Exception ex)
+        {
+            errorMessage = $"Verification failed: {ex.Message}";
+            isVerifying = false;
+        }
+    }
+}
+

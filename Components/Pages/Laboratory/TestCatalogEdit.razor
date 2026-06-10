@@ -1,0 +1,346 @@
+@page "/lab/catalog/edit/{id:guid}"
+@attribute [Microsoft.AspNetCore.Authorization.Authorize(Policy = PolicyNames.Permission_Lab_ViewReports)]
+@using CareSphere.Models
+@using CareSphere.Services
+@using CareSphere.Data
+@using Microsoft.EntityFrameworkCore
+@inject ILabCatalogService CatalogService
+@inject ApplicationDbContext DbContext
+@inject NavigationManager NavigationManager
+@rendermode InteractiveServer
+
+<PageTitle>Edit Lab Test Catalog - CareSphere</PageTitle>
+
+<div class="container py-4" style="max-width: 900px;">
+    <!-- Back Link -->
+    <div class="mb-3">
+        <a href="/lab/catalog" class="btn btn-link p-0 text-decoration-none link-secondary small">
+            <i class="bi bi-arrow-left"></i> Back to Test Catalog
+        </a>
+    </div>
+
+    @if (loading)
+    {
+        <div class="d-flex justify-content-center my-5">
+            <div class="spinner-border text-primary" role="status">
+                <span class="visually-hidden">Loading catalog details...</span>
+            </div>
+        </div>
+    }
+    else if (testCatalog == null)
+    {
+        <div class="alert alert-danger">
+            Test catalog item not found.
+        </div>
+    }
+    else
+    {
+        <!-- Header -->
+        <div class="mb-4">
+            <h1 class="h3 mb-1 text-dark fw-bold">Edit Lab Test Catalog</h1>
+            <p class="text-muted">Modify test details, specs, and reference ranges for @testCatalog.TestName</p>
+        </div>
+
+        <EditForm Model="testCatalog" OnValidSubmit="HandleSubmit" FormName="EditLabTestCatalog">
+            <DataAnnotationsValidator />
+            <ValidationSummary class="alert alert-danger mb-4 py-2 small" />
+
+            <!-- Catalog Details -->
+            <div class="card border-0 shadow-sm rounded-4 mb-4">
+                <div class="card-header bg-white py-3 px-4 border-bottom">
+                    <h5 class="fw-bold text-dark mb-0">Test Details</h5>
+                </div>
+                <div class="card-body p-4">
+                    <div class="row g-3">
+                        <div class="col-md-4">
+                            <label class="form-label fw-semibold text-muted small">Test Code *</label>
+                            <InputText class="form-control" @bind-Value="testCatalog.TestCode" placeholder="e.g. CBC, LFT" />
+                            <ValidationMessage For="@(() => testCatalog.TestCode)" class="text-danger small" />
+                        </div>
+
+                        <div class="col-md-8">
+                            <label class="form-label fw-semibold text-muted small">Test Name *</label>
+                            <InputText class="form-control" @bind-Value="testCatalog.TestName" placeholder="e.g. Complete Blood Count" />
+                            <ValidationMessage For="@(() => testCatalog.TestName)" class="text-danger small" />
+                        </div>
+
+                        <div class="col-md-4">
+                            <label class="form-label fw-semibold text-muted small">Category *</label>
+                            <InputSelect class="form-select" @bind-Value="testCatalog.Category">
+                                <option value="Hematology">Hematology</option>
+                                <option value="Biochemistry">Biochemistry</option>
+                                <option value="Microbiology">Microbiology</option>
+                                <option value="Immunology">Immunology</option>
+                                <option value="Pathology">Pathology</option>
+                                <option value="Radiology">Radiology</option>
+                                <option value="Other">Other</option>
+                            </InputSelect>
+                            <ValidationMessage For="@(() => testCatalog.Category)" class="text-danger small" />
+                        </div>
+
+                        <div class="col-md-4">
+                            <label class="form-label fw-semibold text-muted small">Sample Type *</label>
+                            <InputSelect class="form-select" @bind-Value="testCatalog.SampleType">
+                                <option value="Blood">Blood</option>
+                                <option value="Urine">Urine</option>
+                                <option value="Stool">Stool</option>
+                                <option value="Swab">Swab</option>
+                                <option value="Tissue">Tissue</option>
+                                <option value="CSF">CSF</option>
+                                <option value="Other">Other</option>
+                            </InputSelect>
+                            <ValidationMessage For="@(() => testCatalog.SampleType)" class="text-danger small" />
+                        </div>
+
+                        <div class="col-md-4">
+                            <label class="form-label fw-semibold text-muted small">Expected Turnaround (Hours) *</label>
+                            <InputNumber class="form-control" @bind-Value="testCatalog.TurnaroundHours" />
+                            <ValidationMessage For="@(() => testCatalog.TurnaroundHours)" class="text-danger small" />
+                        </div>
+
+                        <div class="col-md-4">
+                            <label class="form-label fw-semibold text-muted small">Price (₹) *</label>
+                            <InputNumber class="form-control" @bind-Value="testCatalog.Price" step="0.01" />
+                            <ValidationMessage For="@(() => testCatalog.Price)" class="text-danger small" />
+                        </div>
+
+                        <div class="col-md-4 d-flex align-items-end">
+                            <div class="form-check mb-2">
+                                <InputCheckbox class="form-check-input" id="isActive" @bind-Value="testCatalog.IsActive" />
+                                <label class="form-check-label fw-semibold text-dark small" for="isActive">
+                                    Active Catalog Item
+                                </label>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Parameters Details -->
+            <div class="card border-0 shadow-sm rounded-4 mb-4">
+                <div class="card-header bg-white py-3 px-4 border-bottom d-flex justify-content-between align-items-center">
+                    <h5 class="fw-bold text-dark mb-0">Test Parameters</h5>
+                    <button type="button" class="btn btn-sm btn-outline-primary" @onclick="AddParameterRow">
+                        <i class="bi bi-plus-lg me-1"></i> Add Parameter
+                    </button>
+                </div>
+                <div class="table-responsive p-0">
+                    <table class="table table-bordered align-middle mb-0 small" style="min-width: 800px;">
+                        <thead class="table-light fs-8 text-uppercase text-muted">
+                            <tr>
+                                <th style="width: 25%;">Parameter Name *</th>
+                                <th style="width: 15%;">Code</th>
+                                <th style="width: 10%;">Unit</th>
+                                <th style="width: 15%;">Data Type</th>
+                                <th style="width: 25%;">Reference Range (Low / High / Text)</th>
+                                <th style="width: 10%;">Sort Order</th>
+                                <th class="text-center" style="width: 5%;"></th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @if (!parametersList.Any())
+                            {
+                                <tr>
+                                    <td colspan="7" class="text-center py-4 text-muted">
+                                        No parameters added yet. Click "Add Parameter" to configure analytical parameters.
+                                    </td>
+                                </tr>
+                            }
+                            else
+                            {
+                                @for (int i = 0; i < parametersList.Count; i++)
+                                {
+                                    var index = i;
+                                    var param = parametersList[index];
+                                    <tr>
+                                        <td>
+                                            <input type="text" class="form-control form-control-sm" placeholder="e.g. Hemoglobin" @bind="param.ParameterName" required />
+                                        </td>
+                                        <td>
+                                            <input type="text" class="form-control form-control-sm font-monospace text-uppercase" placeholder="e.g. HB" @bind="param.ParameterCode" />
+                                        </td>
+                                        <td>
+                                            <input type="text" class="form-control form-control-sm" placeholder="e.g. g/dL" @bind="param.Unit" />
+                                        </td>
+                                        <td>
+                                            <select class="form-select form-select-sm" @bind="param.DataType">
+                                                <option value="Numeric">Numeric</option>
+                                                <option value="Text">Text</option>
+                                                <option value="Boolean">Boolean</option>
+                                            </select>
+                                        </td>
+                                        <td>
+                                            @if (param.DataType == "Numeric")
+                                            {
+                                                <div class="input-group input-group-sm">
+                                                    <input type="number" step="0.01" class="form-control" placeholder="Low" @bind="param.ReferenceRangeLow" />
+                                                    <span class="input-group-text bg-light border">-</span>
+                                                    <input type="number" step="0.01" class="form-control" placeholder="High" @bind="param.ReferenceRangeHigh" />
+                                                </div>
+                                            }
+                                            else
+                                            {
+                                                <input type="text" class="form-control form-control-sm" placeholder="e.g. Negative" @bind="param.ReferenceRangeText" />
+                                            }
+                                        </td>
+                                        <td>
+                                            <input type="number" class="form-control form-control-sm" @bind="param.SortOrder" />
+                                        </td>
+                                        <td class="text-center">
+                                            <button type="button" class="btn btn-sm btn-outline-danger border-0" @onclick="() => RemoveParameterRow(index)">
+                                                <i class="bi bi-trash"></i>
+                                            </button>
+                                        </td>
+                                    </tr>
+                                }
+                            }
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            @if (!string.IsNullOrEmpty(errorMessage))
+            {
+                <div class="alert alert-danger mb-4 py-2 small">@errorMessage</div>
+            }
+
+            <!-- Actions -->
+            <div class="d-flex gap-2">
+                <button type="submit" class="btn btn-primary px-4 shadow-sm" disabled="@isSubmitting">
+                    @if (isSubmitting)
+                    {
+                        <span class="spinner-border spinner-border-sm me-1"></span>
+                    }
+                    Save Catalog
+                </button>
+                <a href="/lab/catalog" class="btn btn-light px-4">Cancel</a>
+            </div>
+        </EditForm>
+    }
+</div>
+
+@code {
+    [Parameter]
+    public Guid id { get; set; }
+
+    private LabTestCatalog? testCatalog;
+    private List<LabTestParameter> parametersList = new();
+    private List<LabTestParameter> originalParameters = new();
+
+    private bool loading = true;
+    private bool isSubmitting = false;
+    private string errorMessage = string.Empty;
+
+    protected override async Task OnInitializedAsync()
+    {
+        try
+        {
+            loading = true;
+            testCatalog = await CatalogService.GetTestByIdAsync(id);
+            if (testCatalog != null)
+            {
+                parametersList = testCatalog.Parameters.OrderBy(p => p.SortOrder).ToList();
+                originalParameters = parametersList.Select(p => new LabTestParameter
+                {
+                    Id = p.Id,
+                    TenantId = p.TenantId,
+                    TestId = p.TestId,
+                    ParameterName = p.ParameterName,
+                    ParameterCode = p.ParameterCode,
+                    Unit = p.Unit,
+                    ReferenceRangeLow = p.ReferenceRangeLow,
+                    ReferenceRangeHigh = p.ReferenceRangeHigh,
+                    ReferenceRangeText = p.ReferenceRangeText,
+                    DataType = p.DataType,
+                    SortOrder = p.SortOrder
+                }).ToList();
+            }
+        }
+        catch (Exception ex)
+        {
+            errorMessage = $"Error loading test details: {ex.Message}";
+        }
+        finally
+        {
+            loading = false;
+        }
+    }
+
+    private void AddParameterRow()
+    {
+        parametersList.Add(new LabTestParameter
+        {
+            Id = Guid.Empty,
+            ParameterName = string.Empty,
+            DataType = "Numeric",
+            SortOrder = parametersList.Count,
+            TestId = id,
+            TenantId = testCatalog?.TenantId ?? Guid.Empty
+        });
+    }
+
+    private void RemoveParameterRow(int index)
+    {
+        if (index >= 0 && index < parametersList.Count)
+        {
+            parametersList.RemoveAt(index);
+        }
+    }
+
+    private async Task HandleSubmit()
+    {
+        if (testCatalog == null) return;
+
+        if (parametersList.Any(p => string.IsNullOrWhiteSpace(p.ParameterName)))
+        {
+            errorMessage = "Please ensure all parameter names are filled in.";
+            return;
+        }
+
+        try
+        {
+            isSubmitting = true;
+            errorMessage = string.Empty;
+
+            // 1. Update Test Catalog details
+            DbContext.LabTestCatalogs.Update(testCatalog);
+            await DbContext.SaveChangesAsync();
+
+            // 2. Remove deleted parameters from DB
+            var currentParamIds = parametersList.Where(p => p.Id != Guid.Empty).Select(p => p.Id).ToList();
+            var removedParams = originalParameters.Where(op => !currentParamIds.Contains(op.Id)).ToList();
+            foreach (var rp in removedParams)
+            {
+                var dbParam = await DbContext.LabTestParameters.FindAsync(rp.Id);
+                if (dbParam != null)
+                {
+                    DbContext.LabTestParameters.Remove(dbParam);
+                }
+            }
+            await DbContext.SaveChangesAsync();
+
+            // 3. Update existing parameters or add new ones
+            foreach (var param in parametersList)
+            {
+                if (param.Id == Guid.Empty)
+                {
+                    // Add as new parameter
+                    await CatalogService.AddParameterAsync(testCatalog.Id, param);
+                }
+                else
+                {
+                    // Update existing parameter
+                    await CatalogService.UpdateParameterAsync(param);
+                }
+            }
+
+            NavigationManager.NavigateTo("/lab/catalog");
+        }
+        catch (Exception ex)
+        {
+            errorMessage = $"Failed to save changes: {ex.Message}";
+            isSubmitting = false;
+        }
+    }
+}
+

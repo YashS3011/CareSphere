@@ -1,4 +1,5 @@
 @page "/billing/invoices"
+@attribute [Microsoft.AspNetCore.Authorization.Authorize(Policy = PolicyNames.Permission_Billing_ViewInvoices)]
 @using CareSphere.Models
 @using CareSphere.Services
 @using Microsoft.JSInterop
@@ -292,3 +293,4 @@
         _ => "bg-light text-dark"
     };
 }
+

@@ -4,11 +4,8 @@ using System.ComponentModel.DataAnnotations.Schema;
 namespace CareSphere.Models
 {
     [Table("tele_consult_sessions")]
-    public class TeleConsultSession
+    public class TeleConsultSession : BaseEntity
     {
-        [Key]
-        [Column("id")]
-        public Guid Id { get; set; }
 
         [Required]
         [Column("encounter_id")]

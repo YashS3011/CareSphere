@@ -1,0 +1,533 @@
+@page "/notifications/dashboard"
+@attribute [Microsoft.AspNetCore.Authorization.Authorize(Policy = PolicyNames.Permission_Admin_ManageTenant)]
+@rendermode InteractiveServer
+@using CareSphere.Models
+@using CareSphere.Services
+@using Microsoft.AspNetCore.Components
+@inject INotificationDashboardService DashboardService
+@inject INotificationSenderService SenderService
+@inject NavigationManager NavigationManager
+
+<PageTitle>Notifications Dashboard - CareSphere</PageTitle>
+
+<div class="container-fluid py-4">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <div>
+            <h1 class="h3 text-gray-800">Notifications & Engagement Dashboard</h1>
+            <p class="text-muted mb-0">Monitor outbound patient alerts, reminders, and delivery performance metrics.</p>
+        </div>
+        <div class="d-flex gap-2">
+            <button class="btn btn-outline-secondary btn-sm" @onclick="RefreshData">
+                <i class="bi bi-arrow-clockwise me-1"></i> Refresh
+            </button>
+            <a href="/notifications/templates" class="btn btn-primary btn-sm">
+                <i class="bi bi-file-earmark-text me-1"></i> Manage Templates
+            </a>
+        </div>
+    </div>
+
+    @if (ShowLogs == true)
+    {
+        <!-- Filtered View: Show only the logs table -->
+        <div class="card shadow-sm border-0 mb-4">
+            <div class="card-header bg-white py-3 d-flex justify-content-between align-items-center border-bottom">
+                <h5 class="m-0 font-weight-bold text-primary"><i class="bi bi-clock-history me-2"></i>Recent Notification Logs</h5>
+                <button class="btn btn-sm btn-link" @onclick="ShowFullDashboard">Back to Full Dashboard</button>
+            </div>
+            <div class="card-body">
+                @if (recentLogs == null)
+                {
+                    <div class="text-center py-5">
+                        <div class="spinner-border text-primary" role="status"></div>
+                    </div>
+                }
+                else if (!recentLogs.Any())
+                {
+                    <div class="alert alert-info text-center py-4">
+                        <i class="bi bi-info-circle fs-3 d-block mb-2"></i> No notifications logged yet.
+                    </div>
+                }
+                else
+                {
+                    <div class="table-responsive">
+                        <table class="table table-hover align-middle">
+                            <thead class="table-light">
+                                <tr>
+                                    <th>Sent At</th>
+                                    <th>Recipient</th>
+                                    <th>Channel</th>
+                                    <th>Type</th>
+                                    <th>Message Preview</th>
+                                    <th>Status</th>
+                                    <th>Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                @foreach (var log in recentLogs)
+                                {
+                                    <tr>
+                                        <td>@log.CreatedAt.ToLocalTime().ToString("g")</td>
+                                        <td>
+                                            @if (!string.IsNullOrEmpty(log.RecipientName))
+                                            {
+                                                <div><strong>@log.RecipientName</strong></div>
+                                            }
+                                            else
+                                            {
+                                                <span class="text-muted">N/A</span>
+                                            }
+                                            @if (!string.IsNullOrEmpty(log.RecipientPhone))
+                                            {
+                                                <small class="text-muted">@log.RecipientPhone</small>
+                                            }
+                                        </td>
+                                        <td>
+                                            <span class="badge @GetChannelBadgeClass(log.Channel)">@log.Channel</span>
+                                        </td>
+                                        <td>@FormatNotificationType(log.NotificationType)</td>
+                                        <td>
+                                            <span title="@log.MessageBody" class="d-inline-block text-truncate" style="max-width: 300px;">
+                                                @log.MessageBody
+                                            </span>
+                                        </td>
+                                        <td>
+                                            <span class="badge @GetStatusBadgeClass(log.Status)">@log.Status</span>
+                                        </td>
+                                        <td>
+                                            <div class="btn-group btn-group-sm">
+                                                <a href="/notifications/logs/@log.Id" class="btn btn-outline-secondary" title="View Details">
+                                                    <i class="bi bi-eye"></i>
+                                                </a>
+                                                @if (log.Status.Equals("Failed", StringComparison.OrdinalIgnoreCase))
+                                                {
+                                                    <button class="btn btn-outline-primary" @onclick="() => RetryLog(log.Id)" title="Retry Sending">
+                                                        <i class="bi bi-arrow-repeat"></i> Retry
+                                                    </button>
+                                                }
+                                            </div>
+                                        </td>
+                                    </tr>
+                                }
+                            </tbody>
+                        </table>
+                    </div>
+                }
+            </div>
+        </div>
+    }
+    else
+    {
+        <!-- Full Dashboard View -->
+        @if (stats == null)
+        {
+            <div class="text-center py-5">
+                <div class="spinner-border text-primary" role="status"></div>
+            </div>
+        }
+        else
+        {
+            <!-- KPI Section -->
+            <div class="row mb-4">
+                <div class="col-xl-3 col-md-6 mb-4">
+                    <div class="card border-0 border-start border-4 border-success shadow-sm h-100 py-2">
+                        <div class="card-body">
+                            <div class="row no-gutters align-items-center">
+                                <div class="col mr-2">
+                                    <div class="text-xs font-weight-bold text-success text-uppercase mb-1">Total Sent Today</div>
+                                    <div class="h5 mb-0 font-weight-bold text-gray-800">@stats.TotalSentToday</div>
+                                </div>
+                                <div class="col-auto">
+                                    <i class="bi bi-send-fill fs-2 text-success opacity-75"></i>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="col-xl-3 col-md-6 mb-4">
+                    <div class="card border-0 border-start border-4 border-danger shadow-sm h-100 py-2">
+                        <div class="card-body">
+                            <div class="row no-gutters align-items-center">
+                                <div class="col mr-2">
+                                    <div class="text-xs font-weight-bold text-danger text-uppercase mb-1">Total Failed Today</div>
+                                    <div class="h5 mb-0 font-weight-bold text-gray-800">@stats.TotalFailedToday</div>
+                                </div>
+                                <div class="col-auto">
+                                    <i class="bi bi-exclamation-triangle-fill fs-2 text-danger opacity-75"></i>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="col-xl-3 col-md-6 mb-4">
+                    <div class="card border-0 border-start border-4 border-info shadow-sm h-100 py-2">
+                        <div class="card-body">
+                            <div class="row no-gutters align-items-center">
+                                <div class="col mr-2">
+                                    <div class="text-xs font-weight-bold text-info text-uppercase mb-1">Pending Reminders</div>
+                                    <div class="h5 mb-0 font-weight-bold text-gray-800">@stats.TotalPendingReminders</div>
+                                </div>
+                                <div class="col-auto">
+                                    <i class="bi bi-calendar-event fs-2 text-info opacity-75"></i>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="col-xl-3 col-md-6 mb-4">
+                    <div class="card border-0 border-start border-4 border-primary shadow-sm h-100 py-2">
+                        <div class="card-body">
+                            <div class="row no-gutters align-items-center">
+                                <div class="col mr-2">
+                                    <div class="text-xs font-weight-bold text-primary text-uppercase mb-1">Delivery Success Rate</div>
+                                    <div class="h5 mb-0 font-weight-bold text-gray-800">@stats.DeliveryRatePercent%</div>
+                                </div>
+                                <div class="col-auto">
+                                    <i class="bi bi-pie-chart-fill fs-2 text-primary opacity-75"></i>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Channel Breakdown -->
+            <h5 class="mb-3 text-secondary font-weight-bold">Channel breakdown (Sent Today)</h5>
+            <div class="row mb-4">
+                <div class="col-md-3 mb-3">
+                    <div class="card shadow-sm border-0 bg-light-sms">
+                        <div class="card-body py-4 text-center">
+                            <i class="bi bi-chat-left-text fs-1 text-primary mb-2 d-block"></i>
+                            <span class="text-uppercase text-secondary small d-block">SMS Alerts</span>
+                            <h3 class="mt-2 font-weight-bold">@stats.SmsSentToday</h3>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-3 mb-3">
+                    <div class="card shadow-sm border-0 bg-light-whatsapp">
+                        <div class="card-body py-4 text-center">
+                            <i class="bi bi-whatsapp fs-1 text-success mb-2 d-block"></i>
+                            <span class="text-uppercase text-secondary small d-block">WhatsApp</span>
+                            <h3 class="mt-2 font-weight-bold">@stats.WhatsAppSentToday</h3>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-3 mb-3">
+                    <div class="card shadow-sm border-0 bg-light-voice">
+                        <div class="card-body py-4 text-center">
+                            <i class="bi bi-telephone-outbound fs-1 text-warning mb-2 d-block"></i>
+                            <span class="text-uppercase text-secondary small d-block">Voice Calls</span>
+                            <h3 class="mt-2 font-weight-bold">@stats.VoiceSentToday</h3>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-3 mb-3">
+                    <div class="card shadow-sm border-0 bg-light-inapp">
+                        <div class="card-body py-4 text-center">
+                            <i class="bi bi-app-indicator fs-1 text-info mb-2 d-block"></i>
+                            <span class="text-uppercase text-secondary small d-block">In-App Notifs</span>
+                            <h3 class="mt-2 font-weight-bold">@stats.InAppSentToday</h3>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            @if (!string.IsNullOrEmpty(alertMessage))
+            {
+                <div class="alert alert-info alert-dismissible fade show" role="alert">
+                    @alertMessage
+                    <button type="button" class="btn-close" @onclick="() => alertMessage = null"></button>
+                </div>
+            }
+
+            <!-- Recent Logs Section -->
+            <div class="card shadow-sm border-0 mb-4">
+                <div class="card-header bg-white py-3 border-bottom d-flex justify-content-between align-items-center">
+                    <h5 class="m-0 font-weight-bold text-primary"><i class="bi bi-clock-history me-2"></i>Recent Outbox Activity</h5>
+                    <button class="btn btn-sm btn-link text-decoration-none font-weight-bold" @onclick="ShowLogsOnly">View Filtered Log Sheet</button>
+                </div>
+                <div class="card-body">
+                    @if (recentLogs == null)
+                    {
+                        <div class="text-center py-4">
+                            <div class="spinner-border text-primary" role="status"></div>
+                        </div>
+                    }
+                    else if (!recentLogs.Any())
+                    {
+                        <div class="alert alert-info text-center py-4 mb-0">No outbound notifications registered today.</div>
+                    }
+                    else
+                    {
+                        <div class="table-responsive">
+                            <table class="table table-hover align-middle mb-0">
+                                <thead class="table-light">
+                                    <tr>
+                                        <th>Sent At</th>
+                                        <th>Recipient</th>
+                                        <th>Channel</th>
+                                        <th>Type</th>
+                                        <th>Message Body</th>
+                                        <th>Status</th>
+                                        <th>Action</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    @foreach (var log in recentLogs)
+                                    {
+                                        <tr>
+                                            <td>@log.CreatedAt.ToLocalTime().ToString("g")</td>
+                                            <td>
+                                                @if (!string.IsNullOrEmpty(log.RecipientName))
+                                                {
+                                                    <strong>@log.RecipientName</strong>
+                                                }
+                                                else
+                                                {
+                                                    <span class="text-muted">N/A</span>
+                                                }
+                                                @if (!string.IsNullOrEmpty(log.RecipientPhone))
+                                                {
+                                                    <br /><small class="text-muted">@log.RecipientPhone</small>
+                                                }
+                                            </td>
+                                            <td><span class="badge @GetChannelBadgeClass(log.Channel)">@log.Channel</span></td>
+                                            <td>@FormatNotificationType(log.NotificationType)</td>
+                                            <td>
+                                                <span title="@log.MessageBody" class="d-inline-block text-truncate" style="max-width: 280px;">
+                                                    @log.MessageBody
+                                                </span>
+                                            </td>
+                                            <td><span class="badge @GetStatusBadgeClass(log.Status)">@log.Status</span></td>
+                                            <td>
+                                                <div class="btn-group btn-group-sm">
+                                                    <a href="/notifications/logs/@log.Id" class="btn btn-outline-secondary">
+                                                        <i class="bi bi-eye"></i>
+                                                    </a>
+                                                    @if (log.Status.Equals("Failed", StringComparison.OrdinalIgnoreCase))
+                                                    {
+                                                        <button class="btn btn-outline-primary" @onclick="() => RetryLog(log.Id)">
+                                                            <i class="bi bi-arrow-repeat"></i>
+                                                        </button>
+                                                    }
+                                                </div>
+                                            </td>
+                                        </tr>
+                                    }
+                                </tbody>
+                            </table>
+                        </div>
+                    }
+                </div>
+            </div>
+
+            <!-- Failed Notifications Table -->
+            <div class="card shadow-sm border-0">
+                <div class="card-header bg-white py-3 border-bottom d-flex justify-content-between align-items-center">
+                    <h5 class="m-0 font-weight-bold text-danger"><i class="bi bi-exclamation-octagon me-2"></i>Failed Messages Pending Retries</h5>
+                    @if (failedLogs != null && failedLogs.Any())
+                    {
+                        <button class="btn btn-danger btn-sm" @onclick="RetryAllFailed" disabled="@isRetryingAll">
+                            @if (isRetryingAll)
+                            {
+                                <span class="spinner-border spinner-border-sm me-1"></span>
+                            }
+                            else
+                            {
+                                <i class="bi bi-arrow-repeat me-1"></i>
+                            }
+                            Retry All
+                        </button>
+                    }
+                </div>
+                <div class="card-body">
+                    @if (failedLogs == null)
+                    {
+                        <div class="text-center py-4">
+                            <div class="spinner-border text-danger" role="status"></div>
+                        </div>
+                    }
+                    else if (!failedLogs.Any())
+                    {
+                        <div class="alert alert-success text-center py-4 mb-0">
+                            <i class="bi bi-check-circle-fill me-2 fs-4 align-middle"></i> <strong>Zero failures!</strong> All scheduled items successfully dispatched.
+                        </div>
+                    }
+                    else
+                    {
+                        <div class="table-responsive">
+                            <table class="table table-hover align-middle mb-0">
+                                <thead class="table-light">
+                                    <tr>
+                                        <th>Sent At</th>
+                                        <th>Recipient</th>
+                                        <th>Channel</th>
+                                        <th>Type</th>
+                                        <th>Reason for Failure</th>
+                                        <th>Attempts</th>
+                                        <th>Action</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    @foreach (var log in failedLogs)
+                                    {
+                                        <tr>
+                                            <td>@log.CreatedAt.ToLocalTime().ToString("g")</td>
+                                            <td>
+                                                <strong>@log.RecipientName</strong><br />
+                                                <small class="text-muted">@log.RecipientPhone</small>
+                                            </td>
+                                            <td><span class="badge @GetChannelBadgeClass(log.Channel)">@log.Channel</span></td>
+                                            <td>@FormatNotificationType(log.NotificationType)</td>
+                                            <td>
+                                                <span class="text-danger small font-monospace">@log.FailureReason</span>
+                                            </td>
+                                            <td>@log.RetryCount / @log.MaxRetries</td>
+                                            <td>
+                                                <button class="btn btn-sm btn-outline-danger" @onclick="() => RetryLog(log.Id)">
+                                                    <i class="bi bi-arrow-repeat me-1"></i> Retry
+                                                </button>
+                                            </td>
+                                        </tr>
+                                    }
+                                </tbody>
+                            </table>
+                        </div>
+                    }
+                </div>
+            </div>
+        }
+    }
+</div>
+
+<style>
+    .bg-light-sms { background-color: rgba(13, 110, 253, 0.08); border: 1px solid rgba(13, 110, 253, 0.15); }
+    .bg-light-whatsapp { background-color: rgba(25, 135, 84, 0.08); border: 1px solid rgba(25, 135, 84, 0.15); }
+    .bg-light-voice { background-color: rgba(255, 193, 7, 0.08); border: 1px solid rgba(255, 193, 7, 0.15); }
+    .bg-light-inapp { background-color: rgba(13, 202, 240, 0.08); border: 1px solid rgba(13, 202, 240, 0.15); }
+    
+    .card {
+        border-radius: 8px;
+    }
+</style>
+
+@code {
+    [Parameter]
+    [SupplyParameterFromQuery]
+    public bool? ShowLogs { get; set; }
+
+    private NotificationDashboardStats? stats;
+    private List<NotificationLog>? recentLogs;
+    private List<NotificationLog>? failedLogs;
+    private string? alertMessage;
+    private bool isRetryingAll = false;
+
+    // Use default Guid.Empty tenant ID for local setup
+    private readonly Guid currentTenantId = Guid.Empty;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadDashboardData();
+    }
+
+    protected override async Task OnParametersSetAsync()
+    {
+        await LoadDashboardData();
+    }
+
+    private async Task LoadDashboardData()
+    {
+        stats = await DashboardService.GetDashboardStatsAsync(currentTenantId);
+        recentLogs = await DashboardService.GetRecentLogsAsync(currentTenantId);
+        failedLogs = await DashboardService.GetFailedLogsAsync(currentTenantId);
+    }
+
+    private async Task RefreshData()
+    {
+        await LoadDashboardData();
+        alertMessage = "Dashboard metrics refreshed successfully.";
+    }
+
+    private void ShowLogsOnly()
+    {
+        NavigationManager.NavigateTo("/notifications/dashboard?showLogs=true");
+    }
+
+    private void ShowFullDashboard()
+    {
+        NavigationManager.NavigateTo("/notifications/dashboard");
+    }
+
+    private async Task RetryLog(Guid logId)
+    {
+        var result = await SenderService.RetryLogAsync(logId);
+        if (result)
+        {
+            alertMessage = "Notification successfully retried and sent.";
+        }
+        else
+        {
+            alertMessage = "Notification retry triggered. Verify the log details for updated outcomes.";
+        }
+        await LoadDashboardData();
+    }
+
+    private async Task RetryAllFailed()
+    {
+        try
+        {
+            isRetryingAll = true;
+            await SenderService.RetryFailedNotificationsAsync();
+            alertMessage = "Bulk notification retry process triggered. Outbox logs updated.";
+        }
+        catch (Exception ex)
+        {
+            alertMessage = $"Error triggering retry: {ex.Message}";
+        }
+        finally
+        {
+            isRetryingAll = false;
+            await LoadDashboardData();
+        }
+    }
+
+    private string GetChannelBadgeClass(string channel)
+    {
+        return channel.ToLower() switch
+        {
+            "sms" => "bg-primary text-white",
+            "whatsapp" => "bg-success text-white",
+            "voice" => "bg-warning text-dark",
+            "inapp" => "bg-info text-dark",
+            _ => "bg-secondary text-white"
+        };
+    }
+
+    private string GetStatusBadgeClass(string status)
+    {
+        return status.ToLower() switch
+        {
+            "sent" or "delivered" => "bg-success text-white",
+            "failed" => "bg-danger text-white",
+            "pending" => "bg-warning text-dark",
+            "skipped" => "bg-secondary text-white",
+            _ => "bg-secondary text-white"
+        };
+    }
+
+    private string FormatNotificationType(string type)
+    {
+        return type switch
+        {
+            "AppointmentReminder" => "Appointment Reminder",
+            "FollowUpReminder" => "Follow-up Reminder",
+            "DischargeNotification" => "Discharge Notice",
+            "LabReportReady" => "Lab Report Ready",
+            "GeneralAlert" => "General Alert",
+            _ => type
+        };
+    }
+}
+

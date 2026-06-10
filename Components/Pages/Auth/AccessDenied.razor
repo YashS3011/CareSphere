@@ -1,0 +1,28 @@
+@page "/auth/access-denied"
+
+<PageTitle>Access Denied — CareSphere</PageTitle>
+
+<div class="min-vh-100 d-flex align-items-center justify-content-center bg-light">
+    <div class="text-center" style="max-width: 480px;">
+        <div class="mb-4">
+            <i class="bi bi-shield-x text-danger" style="font-size: 5rem;"></i>
+        </div>
+        <h2 class="fw-bold text-danger mb-2">Access Denied</h2>
+        <div class="alert alert-warning d-flex align-items-center" role="alert">
+            <i class="bi bi-exclamation-triangle-fill me-2 flex-shrink-0"></i>
+            <div>You do not have permission to access this page.</div>
+        </div>
+        <p class="text-muted mb-4">
+            If you believe this is an error, please contact your system administrator
+            to request the required permissions.
+        </p>
+        <div class="d-flex gap-2 justify-content-center">
+            <a href="/" class="btn btn-primary">
+                <i class="bi bi-house-fill me-2"></i>Back to Home
+            </a>
+            <a href="javascript:history.back()" class="btn btn-outline-secondary">
+                <i class="bi bi-arrow-left me-2"></i>Go Back
+            </a>
+        </div>
+    </div>
+</div>

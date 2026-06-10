@@ -1,0 +1,6 @@
+@using CareSphere.Areas.PlatformAdmin
+@using CareSphere.Areas.PlatformAdmin.Pages
+@using CareSphere.Models
+@using CareSphere.Services
+@using Microsoft.AspNetCore.Authorization
+@attribute [Authorize(Policy = "PlatformSuperAdmin")]

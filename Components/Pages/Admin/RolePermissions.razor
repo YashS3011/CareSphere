@@ -1,0 +1,157 @@
+@page "/admin/roles"
+@attribute [Microsoft.AspNetCore.Authorization.Authorize(Policy = PolicyNames.Permission_Admin_ManageRoles)]
+@inject CareSphere.Services.IPermissionService PermissionService
+@inject CareSphere.Services.ITenantService TenantService
+@inject IConfiguration Configuration
+@inject AuthenticationStateProvider AuthStateProvider
+@rendermode InteractiveServer
+
+<PageTitle>Role Permissions — CareSphere</PageTitle>
+
+<h2 class="mb-4"><i class="bi bi-shield-lock me-2 text-primary"></i>Role Permissions</h2>
+
+<div class="row g-3 mb-4">
+    @foreach (var role in AdminHelpers.GetAllRoles())
+    {
+        var roleName = role;
+        <div class="col-md-4 col-lg-3">
+            <div class="card border-0 shadow-sm h-100 position-relative">
+                <div class="card-body text-center">
+                    <div class="position-absolute top-0 end-0 m-2">
+                        @if (tenantStats != null && tenantStats.UserCountsByRole.TryGetValue(roleName, out var count))
+                        {
+                            <span class="badge bg-light text-dark shadow-sm border" title="Users with this role">
+                                <i class="bi bi-people-fill me-1 text-primary"></i>@count
+                            </span>
+                        }
+                        else
+                        {
+                            <span class="badge bg-light text-dark shadow-sm border" title="Users with this role">
+                                <i class="bi bi-people-fill me-1 text-muted"></i>0
+                            </span>
+                        }
+                    </div>
+                    <div class="rounded-circle d-inline-flex align-items-center justify-content-center mb-2 @AdminHelpers.GetRoleBgClass(roleName)"
+                         style="width: 48px; height: 48px;">
+                        <i class="bi @AdminHelpers.GetRoleIcon(roleName) text-white"></i>
+                    </div>
+                    <h6 class="fw-bold mb-1">@roleName</h6>
+                    <small class="text-muted">@AdminHelpers.GetRoleDescription(roleName)</small>
+                    <div class="mt-3">
+                        <button class="btn btn-sm btn-outline-primary w-100" @onclick="() => OpenRoleEditor(roleName)">
+                            <i class="bi bi-pencil-square me-1"></i>Manage
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    }
+</div>
+
+@if (!string.IsNullOrEmpty(selectedRole))
+{
+    <div class="card border-0 shadow">
+        <div class="card-header bg-white d-flex justify-content-between align-items-center">
+            <h5 class="mb-0"><i class="bi bi-shield-check me-2 text-primary"></i>Permissions: @selectedRole</h5>
+            <button class="btn btn-sm btn-outline-secondary" @onclick='() => selectedRole = ""'>
+                <i class="bi bi-x-lg"></i>
+            </button>
+        </div>
+        <div class="card-body">
+            @if (!string.IsNullOrEmpty(saveMessage))
+            {
+                <div class="alert alert-@(saveSuccess ? "success" : "danger") d-flex align-items-center">
+                    <i class="bi @(saveSuccess ? "bi-check-circle-fill" : "bi-exclamation-triangle-fill") me-2"></i>
+                    @saveMessage
+                </div>
+            }
+            @foreach (var module in permissionModules)
+            {
+                <h6 class="fw-bold text-secondary border-bottom pb-1 mt-3">@module.Key</h6>
+                <div class="row g-2 mb-2">
+                    @foreach (var perm in module.Value)
+                    {
+                        var p = perm;
+                        <div class="col-md-4">
+                            <div class="form-check">
+                                <input class="form-check-input" type="checkbox" id="role_perm_@perm.Replace('.','_')"
+                                       checked="@rolePermissionStates.GetValueOrDefault(perm, false)"
+                                       @onchange="e => rolePermissionStates[p] = (bool)e.Value!" />
+                                <label class="form-check-label small" for="role_perm_@perm.Replace('.','_')">@perm</label>
+                            </div>
+                        </div>
+                    }
+                </div>
+            }
+            <div class="mt-4 d-flex gap-2">
+                <button class="btn btn-primary" @onclick="SaveRolePermissions" disabled="@isSaving">
+                    @if (isSaving) { <span class="spinner-border spinner-border-sm me-2"></span> }
+                    <i class="bi bi-floppy me-2"></i>Save Permissions
+                </button>
+                <button class="btn btn-outline-secondary" @onclick='() => selectedRole = ""'>Cancel</button>
+            </div>
+        </div>
+    </div>
+}
+
+@code {
+    private CareSphere.Services.TenantStats? tenantStats;
+
+    protected override async Task OnInitializedAsync()
+    {
+        tenantStats = await TenantService.GetTenantStatsAsync(GetTenantId());
+    }
+
+    private static readonly Dictionary<string, List<string>> permissionModules = new()
+    {
+        ["Patients"] = new() { CareSpherePermissions.Patients_View, CareSpherePermissions.Patients_Create, CareSpherePermissions.Patients_Edit, CareSpherePermissions.Patients_Delete },
+        ["Beds"] = new() { CareSpherePermissions.Beds_View, CareSpherePermissions.Beds_Manage, CareSpherePermissions.Beds_Allocate },
+        ["Doctor/EMR"] = new() { CareSpherePermissions.Encounters_View, CareSpherePermissions.Encounters_Create, CareSpherePermissions.SoapNotes_Write, CareSpherePermissions.SoapNotes_Finalize, CareSpherePermissions.Prescriptions_Write, CareSpherePermissions.Prescriptions_Cancel, CareSpherePermissions.TeleConsult_Start },
+        ["Pharmacy"] = new() { CareSpherePermissions.Pharmacy_ViewStock, CareSpherePermissions.Pharmacy_Dispense, CareSpherePermissions.Pharmacy_ManageInventory, CareSpherePermissions.Pharmacy_OtcSale, CareSpherePermissions.Pharmacy_ManagePO },
+        ["Laboratory"] = new() { CareSpherePermissions.Lab_OrderTests, CareSpherePermissions.Lab_CollectSample, CareSpherePermissions.Lab_EnterResults, CareSpherePermissions.Lab_VerifyResults, CareSpherePermissions.Lab_ViewReports },
+        ["Billing"] = new() { CareSpherePermissions.Billing_ViewInvoices, CareSpherePermissions.Billing_CreateInvoices, CareSpherePermissions.Billing_RecordPayments, CareSpherePermissions.Billing_ManageClaims },
+        ["Admin"] = new() { CareSpherePermissions.Admin_ManageUsers, CareSpherePermissions.Admin_ManageRoles, CareSpherePermissions.Admin_ViewAuditLog, CareSpherePermissions.Admin_ManageTenant },
+    };
+
+    private string selectedRole = "";
+    private Dictionary<string, bool> rolePermissionStates = new();
+    private string? saveMessage;
+    private bool saveSuccess;
+    private bool isSaving;
+
+    private async Task OpenRoleEditor(string role)
+    {
+        selectedRole = role;
+        saveMessage = null;
+        var tenantId = GetTenantId();
+        var perms = await PermissionService.GetRolePermissionsAsync(tenantId, role);
+
+        rolePermissionStates.Clear();
+        foreach (var module in permissionModules.Values)
+            foreach (var perm in module)
+                rolePermissionStates[perm] = perms.Contains(perm);
+    }
+
+    private async Task SaveRolePermissions()
+    {
+        isSaving = true;
+        saveMessage = null;
+
+        var authState = await AuthStateProvider.GetAuthenticationStateAsync();
+        var actorId = authState.User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value ?? "admin";
+        var tenantId = GetTenantId();
+        var selectedPerms = rolePermissionStates.Where(kv => kv.Value).Select(kv => kv.Key).ToList();
+
+        var result = await PermissionService.UpdateRolePermissionsAsync(tenantId, selectedRole, selectedPerms, actorId);
+        saveSuccess = result.Success;
+        saveMessage = result.Success ? "Role permissions saved successfully." : result.Error ?? "Save failed.";
+        isSaving = false;
+    }
+
+    private Guid GetTenantId()
+    {
+        var str = Configuration["App:DefaultTenantId"] ?? "00000000-0000-0000-0000-000000000001";
+        return Guid.TryParse(str, out var id) ? id : Guid.Empty;
+    }
+
+}

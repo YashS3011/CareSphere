@@ -4,11 +4,8 @@ using System.ComponentModel.DataAnnotations.Schema;
 namespace CareSphere.Models
 {
     [Table("wards")]
-    public class Ward
+    public class Ward : BaseEntity
     {
-        [Key]
-        [Column("id")]
-        public Guid Id { get; set; }
 
         [Required]
         [MaxLength(100)]
@@ -30,9 +27,6 @@ namespace CareSphere.Models
 
         [Column("tenant_id")]
         public Guid TenantId { get; set; } = Guid.Empty;
-
-        [Column("created_at")]
-        public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
 
         // Navigation property
         public ICollection<Bed> Beds { get; set; } = new List<Bed>();

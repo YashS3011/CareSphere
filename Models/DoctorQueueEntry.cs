@@ -4,11 +4,8 @@ using System.ComponentModel.DataAnnotations.Schema;
 namespace CareSphere.Models
 {
     [Table("doctor_queue_entries")]
-    public class DoctorQueueEntry
+    public class DoctorQueueEntry : BaseEntity
     {
-        [Key]
-        [Column("id")]
-        public Guid Id { get; set; }
 
         [Required]
         [Column("doctor_id")]

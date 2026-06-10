@@ -1,0 +1,30 @@
+@page "/auth/logout"
+@inject CareSphere.Services.IAuthService AuthService
+@inject NavigationManager NavigationManager
+@inject AuthenticationStateProvider AuthStateProvider
+
+<PageTitle>Signing out — CareSphere</PageTitle>
+
+<div class="min-vh-100 d-flex align-items-center justify-content-center">
+    <div class="text-center">
+        <div class="spinner-border text-primary mb-3" role="status"></div>
+        <p class="text-muted">Signing you out...</p>
+    </div>
+</div>
+
+@code {
+    protected override async Task OnInitializedAsync()
+    {
+        try
+        {
+            var authState = await AuthStateProvider.GetAuthenticationStateAsync();
+            var userId = authState.User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value;
+
+            if (!string.IsNullOrEmpty(userId))
+                await AuthService.LogoutAsync(userId, "");
+        }
+        catch { /* Ignore errors during logout */ }
+
+        NavigationManager.NavigateTo("/auth/login", forceLoad: true);
+    }
+}

@@ -1,0 +1,235 @@
+@page "/notifications/templates/create"
+@attribute [Microsoft.AspNetCore.Authorization.Authorize(Policy = PolicyNames.Permission_Admin_ManageTenant)]
+@rendermode InteractiveServer
+@using CareSphere.Models
+@using CareSphere.Services
+@inject INotificationTemplateService TemplateService
+@inject NavigationManager NavigationManager
+
+<PageTitle>Create Template - CareSphere</PageTitle>
+
+<div class="container-fluid py-4">
+    <div class="row justify-content-center">
+        <div class="col-lg-8 col-md-10">
+            <div class="d-flex align-items-center mb-4">
+                <a href="/notifications/templates" class="btn btn-outline-secondary btn-sm me-3">
+                    <i class="bi bi-arrow-left"></i> Back
+                </a>
+                <h1 class="h3 text-gray-800 m-0">Create Notification Template</h1>
+            </div>
+
+            <div class="card shadow-sm border-0 mb-4">
+                <div class="card-body p-4">
+                    <EditForm Model="@formModel" FormName="createTemplate" OnValidSubmit="HandleValidSubmit">
+                        <DataAnnotationsValidator />
+                        <ValidationSummary class="alert alert-danger" />
+
+                        <div class="mb-3">
+                            <label class="form-label font-weight-bold">Template Name *</label>
+                            <InputText class="form-control" @bind-Value="formModel.TemplateName" placeholder="e.g. Appointment Reminder English SMS" />
+                            <ValidationMessage For="@(() => formModel.TemplateName)" />
+                        </div>
+
+                        <div class="row">
+                            <div class="col-md-4 mb-3">
+                                <label class="form-label font-weight-bold">Notification Type *</label>
+                                <InputSelect class="form-select" @bind-Value="formModel.NotificationType">
+                                    <option value="AppointmentReminder">Appointment Reminder</option>
+                                    <option value="FollowUpReminder">Follow-up Reminder</option>
+                                    <option value="DischargeNotification">Discharge Notification</option>
+                                    <option value="LabReportReady">Lab Report Ready</option>
+                                    <option value="GeneralAlert">General Alert</option>
+                                </InputSelect>
+                                <ValidationMessage For="@(() => formModel.NotificationType)" />
+                            </div>
+
+                            <div class="col-md-4 mb-3">
+                                <label class="form-label font-weight-bold">Channel *</label>
+                                <InputSelect class="form-select" @bind-Value="formModel.Channel">
+                                    <option value="SMS">SMS</option>
+                                    <option value="WhatsApp">WhatsApp</option>
+                                    <option value="Voice">Voice</option>
+                                    <option value="InApp">InApp</option>
+                                </InputSelect>
+                                <ValidationMessage For="@(() => formModel.Channel)" />
+                            </div>
+
+                            <div class="col-md-4 mb-3">
+                                <label class="form-label font-weight-bold">Language *</label>
+                                <InputSelect class="form-select" @bind-Value="formModel.Language">
+                                    <option value="en">English (en)</option>
+                                    <option value="hi">Hindi (hi)</option>
+                                    <option value="ta">Tamil (ta)</option>
+                                    <option value="te">Telugu (te)</option>
+                                    <option value="kn">Kannada (kn)</option>
+                                    <option value="ml">Malayalam (ml)</option>
+                                    <option value="bn">Bengali (bn)</option>
+                                    <option value="mr">Marathi (mr)</option>
+                                    <option value="gu">Gujarati (gu)</option>
+                                    <option value="pa">Punjabi (pa)</option>
+                                </InputSelect>
+                                <ValidationMessage For="@(() => formModel.Language)" />
+                            </div>
+                        </div>
+
+                        <!-- Placeholders Tip Card -->
+                        <div class="alert alert-light border mb-3">
+                            <h6 class="alert-heading font-weight-bold text-secondary mb-1">
+                                <i class="bi bi-info-circle me-1"></i> Placeholders available for selected type:
+                            </h6>
+                            <div class="d-flex flex-wrap gap-2 mt-2">
+                                @foreach (var p in GetPlaceholders(formModel.NotificationType))
+                                {
+                                    <span class="badge bg-secondary font-monospace" style="cursor: pointer;" @onclick="() => InsertPlaceholder(p)">@p</span>
+                                }
+                            </div>
+                            <small class="text-muted d-block mt-2">Click a badge to append it to the body script.</small>
+                        </div>
+
+                        <div class="mb-3">
+                            <label class="form-label font-weight-bold">Template Body *</label>
+                            <InputTextArea class="form-control" rows="5" @bind-Value="formModel.TemplateBody" 
+                                           placeholder="Enter the template text content incorporating placeholders..." />
+                            <ValidationMessage For="@(() => formModel.TemplateBody)" />
+                        </div>
+
+                        <!-- Preview section -->
+                        <div class="mb-4">
+                            <button type="button" class="btn btn-outline-secondary btn-sm" @onclick="GeneratePreview">
+                                <i class="bi bi-eye me-1"></i> Preview Message
+                            </button>
+
+                            @if (!string.IsNullOrEmpty(renderedPreview))
+                            {
+                                <div class="card mt-3 bg-light border-start border-primary border-4 shadow-sm">
+                                    <div class="card-header py-2 bg-light border-0">
+                                        <small class="text-uppercase text-secondary font-weight-bold">Mock Preview Output</small>
+                                    </div>
+                                    <div class="card-body py-2">
+                                        <p class="mb-0 fs-6">@renderedPreview</p>
+                                    </div>
+                                </div>
+                            }
+                        </div>
+
+                        <div class="d-flex gap-2">
+                            <button type="submit" class="btn btn-primary" disabled="@isSaving">
+                                @if (isSaving)
+                                {
+                                    <span class="spinner-border spinner-border-sm me-1"></span>
+                                }
+                                Create Template
+                            </button>
+                            <a href="/notifications/templates" class="btn btn-secondary">Cancel</a>
+                        </div>
+
+                        @if (!string.IsNullOrEmpty(errorMessage))
+                        {
+                            <div class="alert alert-danger mt-3 mb-0">@errorMessage</div>
+                        }
+                    </EditForm>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+@code {
+    [SupplyParameterFromForm]
+    public TemplateFormModel formModel { get; set; } = new();
+
+    public class TemplateFormModel
+    {
+        [System.ComponentModel.DataAnnotations.Required(ErrorMessage = "Template Name is required")]
+        public string TemplateName { get; set; } = string.Empty;
+
+        [System.ComponentModel.DataAnnotations.Required]
+        public string NotificationType { get; set; } = "AppointmentReminder";
+
+        [System.ComponentModel.DataAnnotations.Required]
+        public string Channel { get; set; } = "SMS";
+
+        [System.ComponentModel.DataAnnotations.Required]
+        public string Language { get; set; } = "en";
+
+        [System.ComponentModel.DataAnnotations.Required(ErrorMessage = "Template Body content is required")]
+        public string TemplateBody { get; set; } = string.Empty;
+    }
+
+    private string? renderedPreview;
+    private string? errorMessage;
+    private bool isSaving = false;
+    private readonly Guid currentTenantId = Guid.Empty;
+
+    private List<string> GetPlaceholders(string type)
+    {
+        return type switch
+        {
+            "AppointmentReminder" => new List<string> { "{PatientName}", "{DoctorName}", "{AppointmentDate}", "{Time}", "{HospitalName}" },
+            "FollowUpReminder" => new List<string> { "{PatientName}", "{DoctorName}", "{HospitalName}" },
+            "DischargeNotification" => new List<string> { "{PatientName}", "{DischargeDate}", "{HospitalName}" },
+            "LabReportReady" => new List<string> { "{PatientName}", "{RequisitionNumber}", "{HospitalName}" },
+            _ => new List<string> { "{PatientName}", "{HospitalName}" }
+        };
+    }
+
+    private void InsertPlaceholder(string p)
+    {
+        formModel.TemplateBody += p;
+    }
+
+    private async Task GeneratePreview()
+    {
+        if (string.IsNullOrWhiteSpace(formModel.TemplateBody))
+        {
+            renderedPreview = "Template body is empty. Write text first.";
+            return;
+        }
+
+        var mockData = new Dictionary<string, string>
+        {
+            { "PatientName", "Mr. John Doe" },
+            { "DoctorName", "Dr. Jane Smith" },
+            { "AppointmentDate", "15 Jun 2026" },
+            { "Time", "10:15 AM" },
+            { "RequisitionNumber", "REQ-10954" },
+            { "DischargeDate", "12 Jun 2026" },
+            { "HospitalName", "CareSphere Hospital" }
+        };
+
+        renderedPreview = await TemplateService.RenderTemplateAsync(formModel.TemplateBody, mockData);
+    }
+
+    private async Task HandleValidSubmit()
+    {
+        try
+        {
+            isSaving = true;
+            errorMessage = null;
+
+            var newTemplate = new NotificationTemplate
+            {
+                TenantId = currentTenantId,
+                TemplateName = formModel.TemplateName,
+                NotificationType = formModel.NotificationType,
+                Channel = formModel.Channel,
+                Language = formModel.Language,
+                TemplateBody = formModel.TemplateBody,
+                IsActive = true
+            };
+
+            await TemplateService.CreateTemplateAsync(newTemplate);
+            NavigationManager.NavigateTo("/notifications/templates");
+        }
+        catch (Microsoft.AspNetCore.Components.NavigationException)
+        {
+            throw; // expected redirect
+        }
+        catch (Exception ex)
+        {
+            errorMessage = ex.Message;
+            isSaving = false;
+        }
+    }
+}
+

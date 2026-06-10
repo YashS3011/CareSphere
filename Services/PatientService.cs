@@ -38,10 +38,12 @@ namespace CareSphere.Services
             patient.Id = Guid.NewGuid();
             patient.CreatedAt = DateTime.UtcNow;
             
-            // Auto-generate MRN: MRN-YYYYMMDD-XXXX
-            var datePart = DateTime.UtcNow.ToString("yyyyMMdd");
-            var randomPart = new Random().Next(1000, 9999);
-            patient.Mrn = $"MRN-{datePart}-{randomPart}";
+            // Auto-generate MRN: MRN-YYYYMMDD-XXXX (replaced with postgres sequence)
+            var seq = await _context.Database
+                .SqlQuery<long>($"SELECT nextval('mrn_seq') AS value")
+                .FirstAsync();
+            string mrn = $"MRN-{DateTime.UtcNow:yyyyMMdd}-{seq:D6}";
+            patient.Mrn = mrn;
 
             _context.Patients.Add(patient);
             await _context.SaveChangesAsync();

@@ -1,0 +1,260 @@
+@page "/notifications/reminders"
+@attribute [Microsoft.AspNetCore.Authorization.Authorize(Policy = PolicyNames.Permission_Admin_ManageTenant)]
+@rendermode InteractiveServer
+@using CareSphere.Models
+@using CareSphere.Services
+@inject IAppointmentReminderService ReminderService
+@inject NavigationManager NavigationManager
+@inject CareSphere.Data.ApplicationDbContext DbContext
+
+<PageTitle>Scheduled Reminders - CareSphere</PageTitle>
+
+<div class="container-fluid py-4">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <div>
+            <h1 class="h3 text-gray-800">Scheduled Reminders</h1>
+            <p class="text-muted mb-0">Track and manage upcoming automated reminders before they are dispatched to patients.</p>
+        </div>
+        <button class="btn btn-outline-secondary btn-sm" @onclick="RefreshData">
+            <i class="bi bi-arrow-clockwise me-1"></i> Refresh
+        </button>
+    </div>
+
+    @if (!string.IsNullOrEmpty(alertMessage))
+    {
+        <div class="alert alert-info alert-dismissible fade show" role="alert">
+            @alertMessage
+            <button type="button" class="btn-close" @onclick="() => alertMessage = null"></button>
+        </div>
+    }
+
+    <!-- Filtering Bar -->
+    <div class="card shadow-sm border-0 mb-4 bg-light">
+        <div class="card-body py-3">
+            <div class="row align-items-center">
+                <div class="col-md-4 mb-2 mb-md-0">
+                    <label class="form-label small text-uppercase font-weight-bold text-muted mb-1">Filter by Type</label>
+                    <select class="form-select form-select-sm" @bind="selectedType">
+                        <option value="">All Types</option>
+                        <option value="TwentyFourHour">24-Hour Notice</option>
+                        <option value="TwoHour">2-Hour Notice</option>
+                        <option value="FollowUp">Follow-up Reminder</option>
+                    </select>
+                </div>
+                <div class="col-md-4 mb-2 mb-md-0">
+                    <label class="form-label small text-uppercase font-weight-bold text-muted mb-1">Filter by Channel</label>
+                    <select class="form-select form-select-sm" @bind="selectedChannel">
+                        <option value="">All Channels</option>
+                        <option value="SMS">SMS</option>
+                        <option value="WhatsApp">WhatsApp</option>
+                        <option value="Voice">Voice</option>
+                        <option value="InApp">InApp</option>
+                    </select>
+                </div>
+                <div class="col-md-4 d-flex align-items-end justify-content-md-end pt-2">
+                    <button class="btn btn-primary btn-sm me-2" @onclick="ApplyFilters">Apply Filters</button>
+                    <button class="btn btn-secondary btn-sm" @onclick="ClearFilters">Clear</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Reminders List -->
+    <div class="card shadow-sm border-0">
+        <div class="card-body p-0">
+            @if (filteredReminders == null)
+            {
+                <div class="text-center py-5">
+                    <div class="spinner-border text-primary" role="status"></div>
+                </div>
+            }
+            else if (!filteredReminders.Any())
+            {
+                <div class="alert alert-info text-center py-5 mb-0 border-0">
+                    <i class="bi bi-info-circle fs-3 d-block mb-2"></i> No upcoming scheduled reminders match the criteria.
+                </div>
+            }
+            else
+            {
+                <div class="table-responsive">
+                    <table class="table table-hover align-middle mb-0">
+                        <thead class="table-light">
+                            <tr>
+                                <th class="ps-4">Patient</th>
+                                <th>Doctor</th>
+                                <th>Appointment Date</th>
+                                <th>Reminder Type</th>
+                                <th>Channel</th>
+                                <th>Scheduled Send Time</th>
+                                <th>Status</th>
+                                <th class="pe-4 text-end">Action</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @foreach (var reminder in filteredReminders)
+                            {
+                                <tr>
+                                    <td class="ps-4">
+                                        <strong>@($"{reminder.Patient.FirstName} {reminder.Patient.LastName}")</strong>
+                                        <div class="text-muted small">Phone: @reminder.Patient.Phone</div>
+                                    </td>
+                                    <td>
+                                        @if (reminder.Doctor != null)
+                                        {
+                                            <span>Dr. @($"{reminder.Doctor.FirstName} {reminder.Doctor.LastName}")</span>
+                                        }
+                                        else
+                                        {
+                                            <span class="text-muted">Medical Staff</span>
+                                        }
+                                    </td>
+                                    <td>@reminder.AppointmentDate.ToLocalTime().ToString("g")</td>
+                                    <td>
+                                        <span class="badge bg-light text-dark border">
+                                            @FormatReminderType(reminder.ReminderType)
+                                        </span>
+                                    </td>
+                                    <td>
+                                        <span class="badge @GetChannelBadgeClass(reminder.Channel)">@reminder.Channel</span>
+                                    </td>
+                                    <td>@reminder.ScheduledAt.ToLocalTime().ToString("g")</td>
+                                    <td>
+                                        <span class="badge @GetStatusBadgeClass(reminder.Status)">@reminder.Status</span>
+                                    </td>
+                                    <td class="pe-4 text-end">
+                                        @if (reminder.Status.Equals("Scheduled", StringComparison.OrdinalIgnoreCase))
+                                        {
+                                            <button class="btn btn-sm btn-outline-danger" @onclick="() => CancelReminder(reminder)">
+                                                <i class="bi bi-x-circle me-1"></i> Cancel
+                                            </button>
+                                        }
+                                        else
+                                        {
+                                            <span class="text-muted small">None</span>
+                                        }
+                                    </td>
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+                </div>
+            }
+        </div>
+    </div>
+</div>
+
+@code {
+    private List<AppointmentReminder>? allReminders;
+    private List<AppointmentReminder>? filteredReminders;
+    private string selectedType = "";
+    private string selectedChannel = "";
+    private string? alertMessage;
+    private readonly Guid currentTenantId = Guid.Empty;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadReminders();
+    }
+
+    private async Task LoadReminders()
+    {
+        allReminders = await ReminderService.GetScheduledRemindersAsync(currentTenantId);
+        ApplyFilters();
+    }
+
+    private async Task RefreshData()
+    {
+        await LoadReminders();
+        alertMessage = "Scheduled reminders refreshed.";
+    }
+
+    private void ApplyFilters()
+    {
+        if (allReminders == null) return;
+
+        var query = allReminders.AsQueryable();
+
+        if (!string.IsNullOrEmpty(selectedType))
+        {
+            query = query.Where(r => r.ReminderType.Equals(selectedType, StringComparison.OrdinalIgnoreCase));
+        }
+
+        if (!string.IsNullOrEmpty(selectedChannel))
+        {
+            query = query.Where(r => r.Channel.Equals(selectedChannel, StringComparison.OrdinalIgnoreCase));
+        }
+
+        filteredReminders = query.ToList();
+    }
+
+    private void ClearFilters()
+    {
+        selectedType = "";
+        selectedChannel = "";
+        ApplyFilters();
+    }
+
+    private async Task CancelReminder(AppointmentReminder reminder)
+    {
+        // Cancel logic
+        if (reminder.AppointmentId.HasValue)
+        {
+            await ReminderService.CancelReminderAsync(reminder.AppointmentId.Value);
+            alertMessage = "Appointment reminder sequence successfully cancelled.";
+        }
+        else
+        {
+            // If no appointmentId (like followups), set status of this reminder row directly
+            var row = await DbContext.AppointmentReminders.FindAsync(reminder.Id);
+            if (row != null)
+            {
+                row.Status = "Cancelled";
+                await DbContext.SaveChangesAsync();
+            }
+            alertMessage = "Single reminder successfully cancelled.";
+        }
+        await LoadReminders();
+    }
+
+    private IServiceProvider ServiceProviderScope()
+    {
+        // helper to get DB context directly for fallback updates
+        var factory = (IServiceProvider)NavigationManager.GetType().GetProperty("Services")?.GetValue(NavigationManager)!;
+        return factory;
+    }
+
+    private string GetChannelBadgeClass(string channel)
+    {
+        return channel.ToLower() switch
+        {
+            "sms" => "bg-primary text-white",
+            "whatsapp" => "bg-success text-white",
+            "voice" => "bg-warning text-dark",
+            "inapp" => "bg-info text-dark",
+            _ => "bg-secondary text-white"
+        };
+    }
+
+    private string GetStatusBadgeClass(string status)
+    {
+        return status.ToLower() switch
+        {
+            "scheduled" => "bg-warning text-dark",
+            "sent" => "bg-success text-white",
+            "cancelled" => "bg-secondary text-white",
+            _ => "bg-secondary text-white"
+        };
+    }
+
+    private string FormatReminderType(string type)
+    {
+        return type switch
+        {
+            "TwentyFourHour" => "24-Hour Notice",
+            "TwoHour" => "2-Hour Notice",
+            "FollowUp" => "Follow-up",
+            _ => type
+        };
+    }
+}
+

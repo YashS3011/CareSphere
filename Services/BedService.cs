@@ -7,10 +7,12 @@ namespace CareSphere.Services
     public class BedService : IBedService
     {
         private readonly ApplicationDbContext _context;
+        private readonly IDischargeNotificationService _dischargeNotificationService;
 
-        public BedService(ApplicationDbContext context)
+        public BedService(ApplicationDbContext context, IDischargeNotificationService dischargeNotificationService)
         {
             _context = context;
+            _dischargeNotificationService = dischargeNotificationService;
         }
 
         // --- Ward Methods ---
@@ -212,7 +214,6 @@ namespace CareSphere.Services
             if (allotment == null || allotment.Status != "Active")
                 throw new InvalidOperationException("Invalid or inactive allotment.");
 
-            // Output logic: On Discharge: allotment status -> Discharged, bed status -> Available
             allotment.Status = "Discharged";
             allotment.DischargeNotes = dischargeNotes;
             allotment.DischargeDate = dischargeDate;
@@ -226,6 +227,17 @@ namespace CareSphere.Services
             }
 
             await _context.SaveChangesAsync();
+
+            try
+            {
+                var pref = await _context.PatientPreferences.FirstOrDefaultAsync(p => p.PatientId == allotment.PatientId);
+                var lang = pref?.PreferredLanguage ?? "en";
+                await _dischargeNotificationService.SendDischargeNotificationAsync(allotment.TenantId, allotment.PatientId, allotment.Id, dischargeDate, lang);
+            }
+            catch (Exception)
+            {
+                // Ignore notification failures so the discharge workflow does not break in the critical path
+            }
         }
 
         public async Task TransferPatientAsync(Guid allotmentId, Guid newBedId, string reason)

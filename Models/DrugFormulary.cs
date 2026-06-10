@@ -4,11 +4,8 @@ using System.ComponentModel.DataAnnotations.Schema;
 namespace CareSphere.Models
 {
     [Table("drug_formulary")]
-    public class DrugFormulary
+    public class DrugFormulary : BaseEntity
     {
-        [Key]
-        [Column("id")]
-        public Guid Id { get; set; }
 
         [Required]
         [MaxLength(50)]

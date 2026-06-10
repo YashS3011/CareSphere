@@ -4,11 +4,8 @@ using System.ComponentModel.DataAnnotations.Schema;
 namespace CareSphere.Models
 {
     [Table("soap_notes")]
-    public class SoapNote
+    public class SoapNote : BaseEntity
     {
-        [Key]
-        [Column("id")]
-        public Guid Id { get; set; }
 
         [Required]
         [Column("encounter_id")]
@@ -34,9 +31,6 @@ namespace CareSphere.Models
         [MaxLength(50)]
         [Column("status")]
         public string Status { get; set; } = "Draft"; // Draft | Final
-
-        [Column("created_at")]
-        public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
 
         [Column("finalized_at")]
         public DateTime? FinalizedAt { get; set; }

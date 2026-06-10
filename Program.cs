@@ -1,6 +1,12 @@
+using CareSphere;
+using CareSphere.Authorization;
 using CareSphere.Components;
 using CareSphere.Data;
+using CareSphere.Infrastructure;
+using CareSphere.Models;
 using CareSphere.Services;
+using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 
 //AppContext.SetSwitch("Npgsql.EnableLegacyTimestampBehavior", true);
@@ -10,18 +16,101 @@ var builder = WebApplication.CreateBuilder(args);
 // Add services to the container.
 builder.Services.AddRazorComponents()
     .AddInteractiveServerComponents();
+builder.Services.AddControllers();
+
+// HttpContext accessor (needed for user ID in services)
+builder.Services.AddHttpContextAccessor();
+builder.Services.AddScoped<ITenantContext, TenantContext>();
+
+// In-memory cache (used by PermissionService)
+builder.Services.AddMemoryCache();
 
 // Configure EF Core with PostgreSQL
 builder.Services.AddDbContext<ApplicationDbContext>(options =>
     options.UseNpgsql(builder.Configuration.GetConnectionString("DefaultConnection")),
     ServiceLifetime.Transient, ServiceLifetime.Transient);
 
-// Register Services
+// ─── ASP.NET Core Identity ──────────────────────────────────────────────────
+builder.Services.AddIdentity<ApplicationUser, IdentityRole>(options =>
+    {
+        options.Password.RequireDigit = true;
+        options.Password.RequiredLength = 8;
+        options.Password.RequireUppercase = true;
+        options.Password.RequireNonAlphanumeric = false;
+        options.Lockout.MaxFailedAccessAttempts = 5;
+        options.Lockout.DefaultLockoutTimeSpan = TimeSpan.FromMinutes(15);
+        options.User.RequireUniqueEmail = true;
+    })
+    .AddEntityFrameworkStores<ApplicationDbContext>()
+    .AddDefaultTokenProviders();
+
+// ─── Cookie Authentication ───────────────────────────────────────────────────
+builder.Services.ConfigureApplicationCookie(options =>
+{
+    options.LoginPath = "/auth/login";
+    options.LogoutPath = "/auth/logout";
+    options.AccessDeniedPath = "/auth/access-denied";
+    options.ExpireTimeSpan = TimeSpan.FromHours(8);
+    options.SlidingExpiration = true;
+});
+
+// ─── Authorization Policies ──────────────────────────────────────────────────
+builder.Services.AddAuthorization(options =>
+{
+    options.AddPolicy("PlatformSuperAdmin",
+        p => p.RequireClaim("role", "platform_super_admin"));
+
+    // Patient
+    options.AddPolicy(PolicyNames.Permission_Patients_View,   p => p.Requirements.Add(new PermissionRequirement(CareSpherePermissions.Patients_View)));
+    options.AddPolicy(PolicyNames.Permission_Patients_Create, p => p.Requirements.Add(new PermissionRequirement(CareSpherePermissions.Patients_Create)));
+    options.AddPolicy(PolicyNames.Permission_Patients_Edit,   p => p.Requirements.Add(new PermissionRequirement(CareSpherePermissions.Patients_Edit)));
+    options.AddPolicy(PolicyNames.Permission_Patients_Delete, p => p.Requirements.Add(new PermissionRequirement(CareSpherePermissions.Patients_Delete)));
+    // Beds
+    options.AddPolicy(PolicyNames.Permission_Beds_View,    p => p.Requirements.Add(new PermissionRequirement(CareSpherePermissions.Beds_View)));
+    options.AddPolicy(PolicyNames.Permission_Beds_Manage,  p => p.Requirements.Add(new PermissionRequirement(CareSpherePermissions.Beds_Manage)));
+    options.AddPolicy(PolicyNames.Permission_Beds_Allocate,p => p.Requirements.Add(new PermissionRequirement(CareSpherePermissions.Beds_Allocate)));
+    // Doctor / EMR
+    options.AddPolicy(PolicyNames.Permission_Encounters_View,     p => p.Requirements.Add(new PermissionRequirement(CareSpherePermissions.Encounters_View)));
+    options.AddPolicy(PolicyNames.Permission_Encounters_Create,   p => p.Requirements.Add(new PermissionRequirement(CareSpherePermissions.Encounters_Create)));
+    options.AddPolicy(PolicyNames.Permission_SoapNotes_Write,     p => p.Requirements.Add(new PermissionRequirement(CareSpherePermissions.SoapNotes_Write)));
+    options.AddPolicy(PolicyNames.Permission_SoapNotes_Finalize,  p => p.Requirements.Add(new PermissionRequirement(CareSpherePermissions.SoapNotes_Finalize)));
+    options.AddPolicy(PolicyNames.Permission_Prescriptions_Write, p => p.Requirements.Add(new PermissionRequirement(CareSpherePermissions.Prescriptions_Write)));
+    options.AddPolicy(PolicyNames.Permission_Prescriptions_Cancel,p => p.Requirements.Add(new PermissionRequirement(CareSpherePermissions.Prescriptions_Cancel)));
+    options.AddPolicy(PolicyNames.Permission_TeleConsult_Start,   p => p.Requirements.Add(new PermissionRequirement(CareSpherePermissions.TeleConsult_Start)));
+    // Pharmacy
+    options.AddPolicy(PolicyNames.Permission_Pharmacy_ViewStock,      p => p.Requirements.Add(new PermissionRequirement(CareSpherePermissions.Pharmacy_ViewStock)));
+    options.AddPolicy(PolicyNames.Permission_Pharmacy_Dispense,       p => p.Requirements.Add(new PermissionRequirement(CareSpherePermissions.Pharmacy_Dispense)));
+    options.AddPolicy(PolicyNames.Permission_Pharmacy_ManageInventory,p => p.Requirements.Add(new PermissionRequirement(CareSpherePermissions.Pharmacy_ManageInventory)));
+    options.AddPolicy(PolicyNames.Permission_Pharmacy_OtcSale,        p => p.Requirements.Add(new PermissionRequirement(CareSpherePermissions.Pharmacy_OtcSale)));
+    options.AddPolicy(PolicyNames.Permission_Pharmacy_ManagePO,       p => p.Requirements.Add(new PermissionRequirement(CareSpherePermissions.Pharmacy_ManagePO)));
+    // Lab
+    options.AddPolicy(PolicyNames.Permission_Lab_OrderTests,    p => p.Requirements.Add(new PermissionRequirement(CareSpherePermissions.Lab_OrderTests)));
+    options.AddPolicy(PolicyNames.Permission_Lab_CollectSample, p => p.Requirements.Add(new PermissionRequirement(CareSpherePermissions.Lab_CollectSample)));
+    options.AddPolicy(PolicyNames.Permission_Lab_EnterResults,  p => p.Requirements.Add(new PermissionRequirement(CareSpherePermissions.Lab_EnterResults)));
+    options.AddPolicy(PolicyNames.Permission_Lab_VerifyResults, p => p.Requirements.Add(new PermissionRequirement(CareSpherePermissions.Lab_VerifyResults)));
+    options.AddPolicy(PolicyNames.Permission_Lab_ViewReports,   p => p.Requirements.Add(new PermissionRequirement(CareSpherePermissions.Lab_ViewReports)));
+    // Billing
+    options.AddPolicy(PolicyNames.Permission_Billing_ViewInvoices,   p => p.Requirements.Add(new PermissionRequirement(CareSpherePermissions.Billing_ViewInvoices)));
+    options.AddPolicy(PolicyNames.Permission_Billing_CreateInvoices, p => p.Requirements.Add(new PermissionRequirement(CareSpherePermissions.Billing_CreateInvoices)));
+    options.AddPolicy(PolicyNames.Permission_Billing_RecordPayments, p => p.Requirements.Add(new PermissionRequirement(CareSpherePermissions.Billing_RecordPayments)));
+    options.AddPolicy(PolicyNames.Permission_Billing_ManageClaims,   p => p.Requirements.Add(new PermissionRequirement(CareSpherePermissions.Billing_ManageClaims)));
+    // Admin
+    options.AddPolicy(PolicyNames.Permission_Admin_ManageUsers,  p => p.Requirements.Add(new PermissionRequirement(CareSpherePermissions.Admin_ManageUsers)));
+    options.AddPolicy(PolicyNames.Permission_Admin_ManageRoles,  p => p.Requirements.Add(new PermissionRequirement(CareSpherePermissions.Admin_ManageRoles)));
+    options.AddPolicy(PolicyNames.Permission_Admin_ViewAuditLog, p => p.Requirements.Add(new PermissionRequirement(CareSpherePermissions.Admin_ViewAuditLog)));
+    options.AddPolicy(PolicyNames.Permission_Admin_ManageTenant, p => p.Requirements.Add(new PermissionRequirement(CareSpherePermissions.Admin_ManageTenant)));
+});
+
+// Register PermissionAuthorizationHandler as scoped
+builder.Services.AddScoped<IAuthorizationHandler, PermissionAuthorizationHandler>();
+
+// ─── Core Services ────────────────────────────────────────────────────────────
 builder.Services.AddTransient<IPatientService, PatientService>();
 builder.Services.AddTransient<IBedService, BedService>();
 
 // Doctor Workflow & EMR Services
 builder.Services.AddTransient<IAuditService, AuditService>();
+builder.Services.AddTransient<IAuditLogService, AuditLogService>();
 builder.Services.AddTransient<IDoctorService, DoctorService>();
 builder.Services.AddTransient<IQueueService, QueueService>();
 builder.Services.AddTransient<IEncounterService, EncounterService>();
@@ -48,28 +137,81 @@ builder.Services.AddTransient<IOtcSaleService, OtcSaleService>();
 builder.Services.AddTransient<IExpiryAlertService, ExpiryAlertService>();
 builder.Services.AddHostedService<CareSphere.BackgroundServices.ExpiryAlertBackgroundService>();
 
+// Laboratory Management Services
+builder.Services.AddTransient<ILabCatalogService, LabCatalogService>();
+builder.Services.AddTransient<ILabRequisitionService, LabRequisitionService>();
+builder.Services.AddTransient<ILabSampleService, LabSampleService>();
+builder.Services.AddTransient<ILabResultService, LabResultService>();
+builder.Services.AddTransient<ILabReportService, LabReportService>();
+builder.Services.AddTransient<ILabNotificationService, LabNotificationService>();
+builder.Services.AddHostedService<CareSphere.BackgroundServices.LabNotificationBackgroundService>();
+
+// Notifications & Patient Engagement Services
+builder.Services.AddTransient<IServiceBusService, ServiceBusService>();
+builder.Services.AddTransient<INotificationTemplateService, NotificationTemplateService>();
+builder.Services.AddTransient<INotificationSenderService, NotificationSenderService>();
+builder.Services.AddTransient<IAppointmentReminderService, AppointmentReminderService>();
+builder.Services.AddTransient<IDischargeNotificationService, DischargeNotificationService>();
+builder.Services.AddTransient<IPatientPreferenceService, PatientPreferenceService>();
+builder.Services.AddTransient<INotificationDashboardService, NotificationDashboardService>();
+
+// Notifications Background Services
+builder.Services.AddHostedService<CareSphere.BackgroundServices.AppointmentReminderBackgroundService>();
+builder.Services.AddHostedService<CareSphere.BackgroundServices.ServiceBusOutboxBackgroundService>();
+builder.Services.AddHostedService<CareSphere.BackgroundServices.NotificationRetryBackgroundService>();
+builder.Services.AddHostedService<CareSphere.BackgroundServices.ServiceBusConsumerService>();
+
+// ─── Admin & Access Control Services ─────────────────────────────────────────
+builder.Services.AddScoped<IPermissionService, PermissionService>();
+builder.Services.AddScoped<IAuthService, AuthService>();
+builder.Services.AddScoped<IUserService, UserService>();
+builder.Services.AddTransient<ITenantService, TenantService>();
+builder.Services.AddScoped<IImpersonationService, ImpersonationService>();
+builder.Services.AddScoped<UserTimeZoneService>();
+builder.Services.AddScoped<SupabaseAuthService>();
+builder.Services.AddScoped<DatabaseSeeder>();
+
+// ─── SSO Configuration ────────────────────────────────────────────────────────
+// Note: Dynamic SSO registration requires restarting the application after
+// configuration changes in the current implementation.
+// SAML support requires the Sustainsys.Saml2 NuGet package — add when SAML is needed.
+ConfigureSsoProviders(builder);
+
 // QuestPDF License registration
 QuestPDF.Settings.License = QuestPDF.Infrastructure.LicenseType.Community;
 
 var app = builder.Build();
 
-// Seed Database
-// using (var scope = app.Services.CreateScope())
-// {
-//     var services = scope.ServiceProvider;
-//     try
-//     {
-//         var context = services.GetRequiredService<ApplicationDbContext>();
-//         CareSphere.Data.DbInitializer.Initialize(context);
-//     }
-//     catch (Exception ex)
-//     {
-//         var logger = services.GetRequiredService<ILogger<Program>>();
-//         logger.LogError(ex, "An error occurred seeding the database.");
-//     }
-// }
+// ─── Seed database at startup ─────────────────────────────────────────────────
+using (var scope = app.Services.CreateScope())
+{
+    var services = scope.ServiceProvider;
+    try
+    {
+        var defaultTenantIdStr = builder.Configuration["App:DefaultTenantId"] ?? "00000000-0000-0000-0000-000000000001";
+        var defaultTenantId = Guid.Parse(defaultTenantIdStr);
+        TenantContext.BypassTenantId = defaultTenantId;
 
-// Configure the HTTP request pipeline.
+        // Apply any pending EF Core migrations
+        var context = services.GetRequiredService<ApplicationDbContext>();
+        await context.Database.MigrateAsync();
+
+        // Seed roles, SuperAdmin, tenant settings, and role permissions
+        var seeder = services.GetRequiredService<DatabaseSeeder>();
+        await seeder.SeedAsync();
+    }
+    catch (Exception ex)
+    {
+        var logger = services.GetRequiredService<ILogger<Program>>();
+        logger.LogError(ex, "An error occurred during database seeding.");
+    }
+    finally
+    {
+        TenantContext.BypassTenantId = null;
+    }
+}
+
+// ─── HTTP Pipeline ─────────────────────────────────────────────────────────────
 if (!app.Environment.IsDevelopment())
 {
     app.UseExceptionHandler("/Error", createScopeForErrors: true);
@@ -78,13 +220,99 @@ if (!app.Environment.IsDevelopment())
 
 //app.UseHttpsRedirection();
 
+// Supabase JWT middleware — must come before UseAuthentication
+app.UseMiddleware<SupabaseJwtMiddleware>();
+
+app.UseAuthentication();
+
+// Global Tenant Status Lockout Middleware
+app.Use(async (context, next) =>
+{
+    if (context.User.Identity?.IsAuthenticated == true)
+    {
+        var tenantIdClaim = context.User.FindFirst("caresphere/tenant_id")?.Value;
+        if (Guid.TryParse(tenantIdClaim, out var tenantId) && tenantId != Guid.Empty)
+        {
+            var isImpersonating = context.User.HasClaim("impersonation_session", "true");
+            if (!isImpersonating)
+            {
+                var db = context.RequestServices.GetRequiredService<ApplicationDbContext>();
+                var settings = await db.TenantSettings.IgnoreQueryFilters().FirstOrDefaultAsync(t => t.TenantId == tenantId);
+                if (settings != null && !settings.IsActive)
+                {
+                    var signInManager = context.RequestServices.GetRequiredService<SignInManager<ApplicationUser>>();
+                    await signInManager.SignOutAsync();
+                    context.Response.Cookies.Delete("impersonation_token");
+                    context.Response.Redirect("/auth/login?error=tenant_frozen");
+                    return;
+                }
+            }
+        }
+    }
+    await next();
+});
+
+app.UseAuthorization();
+
 app.UseAntiforgery();
 
 app.MapStaticAssets();
+app.MapControllers();
 app.MapRazorComponents<App>()
     .AddInteractiveServerRenderMode();
 
-
-
 app.Run();
 
+
+// ─── SSO Provider Registration ────────────────────────────────────────────────
+static void ConfigureSsoProviders(WebApplicationBuilder builder)
+{
+    // Reads SSO configuration from all tenants in the database at startup.
+    // Note: dynamic SSO registration requires app restart after config changes.
+    // SAML support: add Sustainsys.Saml2 NuGet package when needed.
+
+    var ssoSection = builder.Configuration.GetSection("Sso");
+
+    // Google SSO
+    var googleClientId = ssoSection["Google:ClientId"];
+    var googleClientSecret = ssoSection["Google:ClientSecret"];
+    if (!string.IsNullOrEmpty(googleClientId) && !string.IsNullOrEmpty(googleClientSecret))
+    {
+        builder.Services.AddAuthentication()
+            .AddGoogle(options =>
+            {
+                options.ClientId = googleClientId;
+                options.ClientSecret = googleClientSecret;
+            });
+    }
+
+    // Microsoft SSO
+    var msClientId = ssoSection["Microsoft:ClientId"];
+    var msClientSecret = ssoSection["Microsoft:ClientSecret"];
+    if (!string.IsNullOrEmpty(msClientId) && !string.IsNullOrEmpty(msClientSecret))
+    {
+        builder.Services.AddAuthentication()
+            .AddMicrosoftAccount(options =>
+            {
+                options.ClientId = msClientId;
+                options.ClientSecret = msClientSecret;
+            });
+    }
+
+    // Generic OIDC SSO
+    var oidcAuthority = ssoSection["Oidc:Authority"];
+    var oidcClientId = ssoSection["Oidc:ClientId"];
+    var oidcClientSecret = ssoSection["Oidc:ClientSecret"];
+    if (!string.IsNullOrEmpty(oidcAuthority) && !string.IsNullOrEmpty(oidcClientId))
+    {
+        builder.Services.AddAuthentication()
+            .AddOpenIdConnect("oidc", options =>
+            {
+                options.Authority = oidcAuthority;
+                options.ClientId = oidcClientId;
+                options.ClientSecret = oidcClientSecret;
+                options.ResponseType = "code";
+                options.SaveTokens = true;
+            });
+    }
+}

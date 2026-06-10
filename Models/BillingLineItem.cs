@@ -5,11 +5,8 @@ using System.ComponentModel.DataAnnotations.Schema;
 namespace CareSphere.Models
 {
     [Table("billing_line_items")]
-    public class BillingLineItem
+    public class BillingLineItem : BaseEntity
     {
-        [Key]
-        [Column("id")]
-        public Guid Id { get; set; }
 
         [Column("tenant_id")]
         public Guid TenantId { get; set; }

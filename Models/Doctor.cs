@@ -4,11 +4,8 @@ using System.ComponentModel.DataAnnotations.Schema;
 namespace CareSphere.Models
 {
     [Table("doctors")]
-    public class Doctor
+    public class Doctor : BaseEntity
     {
-        [Key]
-        [Column("id")]
-        public Guid Id { get; set; }
 
         [Required]
         [MaxLength(100)]
@@ -44,9 +41,6 @@ namespace CareSphere.Models
 
         [Column("tenant_id")]
         public Guid TenantId { get; set; } = Guid.Empty;
-
-        [Column("created_at")]
-        public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
 
         [NotMapped]
         public string FullName => $"{FirstName} {LastName}";

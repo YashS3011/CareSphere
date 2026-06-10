@@ -1,0 +1,167 @@
+@page "/admin/users/create"
+@attribute [Microsoft.AspNetCore.Authorization.Authorize(Policy = PolicyNames.Permission_Admin_ManageUsers)]
+@inject CareSphere.Services.IUserService UserService
+@inject CareSphere.Services.IDoctorService DoctorService
+@inject IConfiguration Configuration
+@inject NavigationManager NavigationManager
+@rendermode InteractiveServer
+
+<PageTitle>Create User — CareSphere</PageTitle>
+
+<div class="d-flex align-items-center mb-4">
+    <a href="/admin/users" class="btn btn-outline-secondary btn-sm me-3">
+        <i class="bi bi-arrow-left"></i>
+    </a>
+    <h2 class="mb-0"><i class="bi bi-person-plus me-2 text-primary"></i>Create User</h2>
+</div>
+
+<div class="card border-0 shadow-sm" style="max-width: 700px;">
+    <div class="card-body p-4">
+        @if (!string.IsNullOrEmpty(errorMessage))
+        {
+            <div class="alert alert-danger d-flex align-items-center" role="alert">
+                <i class="bi bi-exclamation-triangle-fill me-2"></i>
+                <div>@errorMessage</div>
+            </div>
+        }
+
+        <EditForm Model="@model" OnValidSubmit="HandleCreate">
+            <DataAnnotationsValidator />
+
+            <div class="row g-3">
+                <div class="col-md-6">
+                    <label class="form-label fw-semibold">Full Name *</label>
+                    <InputText class="form-control" @bind-Value="model.FullName" placeholder="Dr. Priya Sharma" />
+                    <ValidationMessage For="@(() => model.FullName)" class="text-danger small" />
+                </div>
+
+                <div class="col-md-6">
+                    <label class="form-label fw-semibold">Email Address *</label>
+                    <InputText class="form-control" type="email" @bind-Value="model.Email" placeholder="priya@hospital.com" />
+                    <ValidationMessage For="@(() => model.Email)" class="text-danger small" />
+                </div>
+
+                <div class="col-md-6">
+                    <label class="form-label fw-semibold">Password *</label>
+                    <InputText class="form-control" type="password" @bind-Value="model.Password" placeholder="Min. 8 characters" />
+                    <ValidationMessage For="@(() => model.Password)" class="text-danger small" />
+                </div>
+
+                <div class="col-md-6">
+                    <label class="form-label fw-semibold">Confirm Password *</label>
+                    <InputText class="form-control" type="password" @bind-Value="model.ConfirmPassword" placeholder="Repeat password" />
+                    <ValidationMessage For="@(() => model.ConfirmPassword)" class="text-danger small" />
+                </div>
+
+                <div class="col-md-6">
+                    <label class="form-label fw-semibold">Role *</label>
+                    <InputSelect class="form-select" @bind-Value="model.Role" @onchange="OnRoleChanged">
+                        <option value="">— Select Role —</option>
+                        @foreach (var role in AdminHelpers.GetAllRoles())
+                        {
+                            <option value="@role">@role</option>
+                        }
+                    </InputSelect>
+                    <ValidationMessage For="@(() => model.Role)" class="text-danger small" />
+                </div>
+
+                <div class="col-md-6">
+                    <label class="form-label fw-semibold">Department</label>
+                    <InputText class="form-control" @bind-Value="model.Department" placeholder="e.g. Cardiology" />
+                </div>
+
+                @if (model.Role == CareSphereRoles.Doctor)
+                {
+                    <div class="col-12">
+                        <label class="form-label fw-semibold">Link to Doctor Record</label>
+                        <InputSelect class="form-select" @bind-Value="model.DoctorId">
+                            <option value="">— No linked doctor record —</option>
+                            @foreach (var doc in doctors)
+                            {
+                                <option value="@doc.Id">@doc.FullName (@doc.Specialization)</option>
+                            }
+                        </InputSelect>
+                        <div class="form-text">Optional: link this account to an existing doctor record.</div>
+                    </div>
+                }
+
+                <div class="col-12 d-flex gap-2 mt-2">
+                    <button type="submit" class="btn btn-primary" disabled="@isLoading">
+                        @if (isLoading)
+                        {
+                            <span class="spinner-border spinner-border-sm me-2"></span>
+                        }
+                        <i class="bi bi-person-plus me-2"></i>Create User
+                    </button>
+                    <a href="/admin/users" class="btn btn-outline-secondary">Cancel</a>
+                </div>
+            </div>
+        </EditForm>
+    </div>
+</div>
+
+@code {
+    private UserCreateModel model = new();
+    private string? errorMessage;
+    private bool isLoading = false;
+    private List<CareSphere.Models.Doctor> doctors = new();
+
+    protected override async Task OnInitializedAsync()
+    {
+        doctors = await DoctorService.GetAllDoctorsAsync();
+    }
+
+    private void OnRoleChanged()
+    {
+        if (model.Role != CareSphereRoles.Doctor)
+            model.DoctorId = null;
+    }
+
+    private async Task HandleCreate()
+    {
+        if (model.Password != model.ConfirmPassword)
+        {
+            errorMessage = "Passwords do not match.";
+            return;
+        }
+
+        isLoading = true;
+        errorMessage = null;
+
+        try
+        {
+            var tenantIdStr = Configuration["App:DefaultTenantId"] ?? "00000000-0000-0000-0000-000000000001";
+            var tenantId = Guid.Parse(tenantIdStr);
+
+            Guid? doctorId = string.IsNullOrEmpty(model.DoctorId) ? null : Guid.Parse(model.DoctorId);
+
+            var result = await UserService.CreateUserAsync(
+                tenantId, model.FullName, model.Email, model.Password,
+                model.Role, model.Department, doctorId);
+
+            if (result.Success)
+                NavigationManager.NavigateTo("/admin/users");
+            else
+                errorMessage = string.Join("; ", result.Errors);
+        }
+        catch (Exception ex)
+        {
+            errorMessage = "An unexpected error occurred.";
+        }
+        finally
+        {
+            isLoading = false;
+        }
+    }
+
+    private class UserCreateModel
+    {
+        [System.ComponentModel.DataAnnotations.Required] public string FullName { get; set; } = "";
+        [System.ComponentModel.DataAnnotations.Required][System.ComponentModel.DataAnnotations.EmailAddress] public string Email { get; set; } = "";
+        [System.ComponentModel.DataAnnotations.Required][System.ComponentModel.DataAnnotations.MinLength(8)] public string Password { get; set; } = "";
+        [System.ComponentModel.DataAnnotations.Required] public string ConfirmPassword { get; set; } = "";
+        [System.ComponentModel.DataAnnotations.Required] public string Role { get; set; } = "";
+        public string? Department { get; set; }
+        public string? DoctorId { get; set; }
+    }
+}

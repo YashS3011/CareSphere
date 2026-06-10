@@ -1,0 +1,276 @@
+@page "/admin/users/edit/{id}"
+@attribute [Microsoft.AspNetCore.Authorization.Authorize(Policy = PolicyNames.Permission_Admin_ManageUsers)]
+@inject CareSphere.Services.IUserService UserService
+@inject CareSphere.Services.IPermissionService PermissionService
+@inject CareSphere.Services.IDoctorService DoctorService
+@inject IConfiguration Configuration
+@inject NavigationManager NavigationManager
+@inject AuthenticationStateProvider AuthStateProvider
+@rendermode InteractiveServer
+
+<PageTitle>Edit User — CareSphere</PageTitle>
+
+<div class="d-flex align-items-center mb-4">
+    <a href="/admin/users" class="btn btn-outline-secondary btn-sm me-3">
+        <i class="bi bi-arrow-left"></i>
+    </a>
+    <h2 class="mb-0"><i class="bi bi-person-gear me-2 text-primary"></i>Edit User</h2>
+</div>
+
+@if (user == null)
+{
+    <div class="d-flex justify-content-center py-5">
+        <div class="spinner-border text-primary" role="status"></div>
+    </div>
+}
+else
+{
+    <!-- Tab navigation -->
+    <ul class="nav nav-tabs mb-4">
+        <li class="nav-item">
+            <button class="nav-link @(activeTab == "details" ? "active" : "")" @onclick='() => activeTab = "details"'>
+                <i class="bi bi-person me-2"></i>Details
+            </button>
+        </li>
+        <li class="nav-item">
+            <button class="nav-link @(activeTab == "permissions" ? "active" : "")" @onclick='() => LoadPermissions()'>
+                <i class="bi bi-shield-check me-2"></i>Permissions
+            </button>
+        </li>
+    </ul>
+
+    @if (!string.IsNullOrEmpty(successMessage))
+    {
+        <div class="alert alert-success alert-dismissible">
+            <i class="bi bi-check-circle me-2"></i>@successMessage
+            <button type="button" class="btn-close" @onclick='() => successMessage = null'></button>
+        </div>
+    }
+    @if (!string.IsNullOrEmpty(errorMessage))
+    {
+        <div class="alert alert-danger">@errorMessage</div>
+    }
+
+    <!-- Details Tab -->
+    @if (activeTab == "details")
+    {
+        <div class="card border-0 shadow-sm" style="max-width: 700px;">
+            <div class="card-body p-4">
+                <EditForm Model="@editModel" OnValidSubmit="HandleUpdate">
+                    <DataAnnotationsValidator />
+                    <div class="row g-3">
+                        <div class="col-md-6">
+                            <label class="form-label fw-semibold">Full Name *</label>
+                            <InputText class="form-control" @bind-Value="editModel.FullName" />
+                            <ValidationMessage For="@(() => editModel.FullName)" class="text-danger small" />
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label fw-semibold">Email</label>
+                            <input type="email" class="form-control bg-light" value="@user.Email" disabled />
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label fw-semibold">Department</label>
+                            <InputText class="form-control" @bind-Value="editModel.Department" placeholder="e.g. Cardiology" />
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label fw-semibold">Preferred Language</label>
+                            <InputSelect class="form-select" @bind-Value="editModel.PreferredLanguage">
+                                @foreach (var lang in AdminHelpers.GetSupportedLanguages())
+                                {
+                                    <option value="@lang.Key">@lang.Value</option>
+                                }
+                            </InputSelect>
+                        </div>
+                        @if (user.Role == CareSphereRoles.Doctor)
+                        {
+                            <div class="col-12">
+                                <label class="form-label fw-semibold">Linked Doctor Record</label>
+                                <InputSelect class="form-select" @bind-Value="editModel.DoctorId">
+                                    <option value="">— None —</option>
+                                    @foreach (var doc in doctors)
+                                    {
+                                        <option value="@doc.Id">@doc.FullName (@doc.Specialization)</option>
+                                    }
+                                </InputSelect>
+                            </div>
+                        }
+                        <div class="col-12">
+                            <div class="form-check form-switch">
+                                <InputCheckbox class="form-check-input" id="isActive" @bind-Value="editModel.IsActive" />
+                                <label class="form-check-label" for="isActive">Account is Active</label>
+                            </div>
+                        </div>
+                        <div class="col-12 d-flex gap-2 mt-2">
+                            <button type="submit" class="btn btn-primary" disabled="@isLoading">
+                                @if (isLoading) { <span class="spinner-border spinner-border-sm me-2"></span> }
+                                <i class="bi bi-floppy me-2"></i>Save Changes
+                            </button>
+                            <a href="/admin/users" class="btn btn-outline-secondary">Cancel</a>
+                        </div>
+                    </div>
+                </EditForm>
+            </div>
+        </div>
+    }
+
+    <!-- Permissions Tab -->
+    @if (activeTab == "permissions")
+    {
+        <div class="card border-0 shadow-sm">
+            <div class="card-body">
+                <p class="text-muted small mb-3">
+                    <i class="bi bi-info-circle me-1"></i>
+                    Checked = explicitly granted. Unchecked = explicitly revoked. Dash (—) = inherited from role default.
+                </p>
+                @foreach (var module in permissionModules)
+                {
+                    <h6 class="fw-bold text-secondary mt-3 mb-2 border-bottom pb-1">@module.Key</h6>
+                    <div class="row g-2">
+                        @foreach (var perm in module.Value)
+                        {
+                            var permKey = perm;
+                            <div class="col-md-4">
+                                <div class="form-check">
+                                    <input class="form-check-input" type="checkbox"
+                                           id="perm_@perm.Replace('.','_')"
+                                           checked="@permissionStates.GetValueOrDefault(perm, false)"
+                                           @onchange="e => OnPermissionChanged(permKey, (bool)e.Value!)" />
+                                    <label class="form-check-label small" for="perm_@perm.Replace('.','_')">@perm</label>
+                                </div>
+                            </div>
+                        }
+                    </div>
+                }
+                <div class="mt-4">
+                    <button class="btn btn-primary" @onclick="SavePermissions" disabled="@isSavingPermissions">
+                        @if (isSavingPermissions) { <span class="spinner-border spinner-border-sm me-2"></span> }
+                        <i class="bi bi-shield-check me-2"></i>Save Permissions
+                    </button>
+                </div>
+            </div>
+        </div>
+    }
+}
+
+@code {
+    [Parameter] public string Id { get; set; } = "";
+
+    private CareSphere.Models.ApplicationUser? user;
+    private EditUserModel editModel = new();
+    private string activeTab = "details";
+    private string? errorMessage;
+    private string? successMessage;
+    private bool isLoading = false;
+    private bool isSavingPermissions = false;
+    private List<CareSphere.Models.Doctor> doctors = new();
+    private Dictionary<string, bool> permissionStates = new();
+    private Dictionary<string, List<string>> changedPermissions = new();
+
+    private static readonly Dictionary<string, List<string>> permissionModules = new()
+    {
+        ["Patients"] = new() { CareSpherePermissions.Patients_View, CareSpherePermissions.Patients_Create, CareSpherePermissions.Patients_Edit, CareSpherePermissions.Patients_Delete },
+        ["Beds"] = new() { CareSpherePermissions.Beds_View, CareSpherePermissions.Beds_Manage, CareSpherePermissions.Beds_Allocate },
+        ["Doctor/EMR"] = new() { CareSpherePermissions.Encounters_View, CareSpherePermissions.Encounters_Create, CareSpherePermissions.SoapNotes_Write, CareSpherePermissions.SoapNotes_Finalize, CareSpherePermissions.Prescriptions_Write, CareSpherePermissions.Prescriptions_Cancel, CareSpherePermissions.TeleConsult_Start },
+        ["Pharmacy"] = new() { CareSpherePermissions.Pharmacy_ViewStock, CareSpherePermissions.Pharmacy_Dispense, CareSpherePermissions.Pharmacy_ManageInventory, CareSpherePermissions.Pharmacy_OtcSale, CareSpherePermissions.Pharmacy_ManagePO },
+        ["Laboratory"] = new() { CareSpherePermissions.Lab_OrderTests, CareSpherePermissions.Lab_CollectSample, CareSpherePermissions.Lab_EnterResults, CareSpherePermissions.Lab_VerifyResults, CareSpherePermissions.Lab_ViewReports },
+        ["Billing"] = new() { CareSpherePermissions.Billing_ViewInvoices, CareSpherePermissions.Billing_CreateInvoices, CareSpherePermissions.Billing_RecordPayments, CareSpherePermissions.Billing_ManageClaims },
+        ["Admin"] = new() { CareSpherePermissions.Admin_ManageUsers, CareSpherePermissions.Admin_ManageRoles, CareSpherePermissions.Admin_ViewAuditLog, CareSpherePermissions.Admin_ManageTenant },
+    };
+
+    protected override async Task OnInitializedAsync()
+    {
+        user = await UserService.GetUserByIdAsync(Id);
+        doctors = await DoctorService.GetAllDoctorsAsync();
+
+        if (user != null)
+        {
+            editModel = new EditUserModel
+            {
+                FullName = user.FullName,
+                Department = user.Department,
+                IsActive = user.IsActive,
+                PreferredLanguage = user.PreferredLanguage,
+                DoctorId = user.DoctorId?.ToString(),
+            };
+        }
+    }
+
+    private async Task LoadPermissions()
+    {
+        activeTab = "permissions";
+        if (user == null) return;
+
+        var tenantId = GetTenantId();
+        var effectivePerms = await PermissionService.GetUserPermissionsAsync(tenantId, user.Id);
+
+        permissionStates.Clear();
+        foreach (var module in permissionModules.Values)
+            foreach (var perm in module)
+                permissionStates[perm] = effectivePerms.Contains(perm);
+
+        changedPermissions.Clear();
+    }
+
+    private void OnPermissionChanged(string permission, bool granted)
+    {
+        permissionStates[permission] = granted;
+        if (granted)
+            changedPermissions[permission] = new List<string> { "grant" };
+        else
+            changedPermissions[permission] = new List<string> { "revoke" };
+    }
+
+    private async Task SavePermissions()
+    {
+        if (user == null) return;
+        isSavingPermissions = true;
+        successMessage = null;
+
+        var tenantId = GetTenantId();
+        var authState = await AuthStateProvider.GetAuthenticationStateAsync();
+        var actorId = authState.User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value ?? "admin";
+
+        foreach (var (perm, actions) in changedPermissions)
+        {
+            if (actions.Contains("grant"))
+                await PermissionService.GrantPermissionAsync(tenantId, user.Id, perm, actorId);
+            else
+                await PermissionService.RevokePermissionAsync(tenantId, user.Id, perm);
+        }
+
+        changedPermissions.Clear();
+        successMessage = "Permissions saved successfully.";
+        isSavingPermissions = false;
+    }
+
+    private async Task HandleUpdate()
+    {
+        if (user == null) return;
+        isLoading = true;
+        errorMessage = null;
+
+        Guid? doctorId = string.IsNullOrEmpty(editModel.DoctorId) ? null : Guid.Parse(editModel.DoctorId);
+        var result = await UserService.UpdateUserAsync(user.Id, editModel.FullName, editModel.Department, editModel.IsActive, editModel.PreferredLanguage, doctorId);
+
+        isLoading = false;
+        if (result.Success)
+            successMessage = "User updated successfully.";
+        else
+            errorMessage = string.Join("; ", result.Errors);
+    }
+
+    private Guid GetTenantId()
+    {
+        var str = Configuration["App:DefaultTenantId"] ?? "00000000-0000-0000-0000-000000000001";
+        return Guid.TryParse(str, out var id) ? id : Guid.Empty;
+    }
+
+    private class EditUserModel
+    {
+        [System.ComponentModel.DataAnnotations.Required] public string FullName { get; set; } = "";
+        public string? Department { get; set; }
+        public bool IsActive { get; set; } = true;
+        public string PreferredLanguage { get; set; } = "en";
+        public string? DoctorId { get; set; }
+    }
+}

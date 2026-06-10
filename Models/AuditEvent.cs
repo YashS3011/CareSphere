@@ -34,8 +34,15 @@ namespace CareSphere.Models
         [Column("ip_address")]
         public string? IpAddress { get; set; }
 
+        [MaxLength(200)]
+        [Column("device")]
+        public string? Device { get; set; }
+
         [Column("timestamp")]
         public DateTime Timestamp { get; set; } = DateTime.UtcNow;
+
+        [Column("details")]
+        public string? Details { get; set; }
 
         [Column("tenant_id")]
         public Guid TenantId { get; set; } = Guid.Empty;

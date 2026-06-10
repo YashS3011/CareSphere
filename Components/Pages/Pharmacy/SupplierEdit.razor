@@ -1,4 +1,5 @@
 @page "/pharmacy/suppliers/edit/{id:guid}"
+@attribute [Microsoft.AspNetCore.Authorization.Authorize(Policy = PolicyNames.Permission_Pharmacy_ViewStock)]
 @using CareSphere.Models
 @using CareSphere.Services
 @inject ISupplierService SupplierService
@@ -141,3 +142,4 @@
         }
     }
 }
+

@@ -4,11 +4,8 @@ using System.ComponentModel.DataAnnotations.Schema;
 namespace CareSphere.Models
 {
     [Table("pharmacy_batches")]
-    public class PharmacyBatch
+    public class PharmacyBatch : BaseEntity
     {
-        [Key]
-        [Column("id")]
-        public Guid Id { get; set; }
 
         [Column("tenant_id")]
         public Guid TenantId { get; set; } = Guid.Empty;
@@ -52,9 +49,6 @@ namespace CareSphere.Models
 
         [Column("is_active")]
         public bool IsActive { get; set; } = true;
-
-        [Column("created_at")]
-        public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
 
         // Navigation properties
         [ForeignKey("ItemId")]

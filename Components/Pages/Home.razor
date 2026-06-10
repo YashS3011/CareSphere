@@ -1,4 +1,6 @@
-﻿@page "/"
+@page "/"
+@page "/dashboard"
+@attribute [Microsoft.AspNetCore.Authorization.Authorize]
 @inject CareSphere.Services.IPatientService PatientService
 @rendermode InteractiveServer
 

@@ -1,4 +1,6 @@
-﻿@inherits LayoutComponentBase
+@inherits LayoutComponentBase
+@inject IJSRuntime JS
+@inject CareSphere.Services.UserTimeZoneService UserTimeZone
 
 <div class="page">
     <div class="sidebar">
@@ -6,7 +8,13 @@
     </div>
 
     <main>
+        <ImpersonationBanner />
         <div class="top-row px-4">
+            <AuthorizeView>
+                <Authorized>
+                    <NotificationsPanel RecipientType="Doctor" RecipientId="00000000-0000-0000-0000-000000000000" />
+                </Authorized>
+            </AuthorizeView>
             <a href="https://learn.microsoft.com/aspnet/core/" target="_blank">About</a>
         </div>
 
@@ -21,3 +29,22 @@
     <a href="." class="reload">Reload</a>
     <span class="dismiss">🗙</span>
 </div>
+
+@code {
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender && !UserTimeZone.TimeZoneOffset.HasValue)
+        {
+            try
+            {
+                var offset = await JS.InvokeAsync<int>("getBrowserTimezoneOffset");
+                UserTimeZone.TimeZoneOffset = offset;
+                StateHasChanged();
+            }
+            catch
+            {
+                // Silence JS errors during early/non-interactive rendering
+            }
+        }
+    }
+}

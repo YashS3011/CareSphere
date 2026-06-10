@@ -4,11 +4,8 @@ using System.ComponentModel.DataAnnotations.Schema;
 namespace CareSphere.Models
 {
     [Table("purchase_orders")]
-    public class PurchaseOrder
+    public class PurchaseOrder : BaseEntity
     {
-        [Key]
-        [Column("id")]
-        public Guid Id { get; set; }
 
         [Column("tenant_id")]
         public Guid TenantId { get; set; } = Guid.Empty;
@@ -44,12 +41,6 @@ namespace CareSphere.Models
         [MaxLength(100)]
         [Column("created_by_user_id")]
         public string CreatedByUserId { get; set; } = "system";
-
-        [Column("created_at")]
-        public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
-
-        [Column("updated_at")]
-        public DateTime? UpdatedAt { get; set; }
 
         // Navigation properties
         [ForeignKey("SupplierId")]

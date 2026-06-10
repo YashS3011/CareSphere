@@ -1,4 +1,5 @@
 @page "/pharmacy/grn/create"
+@attribute [Microsoft.AspNetCore.Authorization.Authorize(Policy = PolicyNames.Permission_Pharmacy_ViewStock)]
 @using CareSphere.Models
 @using CareSphere.Services
 @using CareSphere.Components
@@ -403,7 +404,7 @@
             return;
         }
 
-        if (grn.Items.Any(i => i.ExpiryDate <= DateTime.UtcNow))
+        if (grn.Items.Any(i => i.ExpiryDate.Date <= DateTime.UtcNow.Date))
         {
             errorMessage = "Expiry dates must be in the future.";
             return;
@@ -429,3 +430,4 @@
         }
     }
 }
+

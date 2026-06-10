@@ -6,11 +6,8 @@ using System.ComponentModel.DataAnnotations.Schema;
 namespace CareSphere.Models
 {
     [Table("insurance_claims")]
-    public class InsuranceClaim
+    public class InsuranceClaim : BaseEntity
     {
-        [Key]
-        [Column("id")]
-        public Guid Id { get; set; }
 
         [Column("tenant_id")]
         public Guid TenantId { get; set; }
@@ -88,11 +85,6 @@ namespace CareSphere.Models
         public string? Notes { get; set; }
 
         [Required]
-        [Column("created_at")]
-        public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
-
-        [Column("updated_at")]
-        public DateTime? UpdatedAt { get; set; }
 
         // Navigation properties
         [ForeignKey("InvoiceId")]

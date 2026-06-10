@@ -1,6 +1,8 @@
 @page "/encounters/{Id:guid}"
+@attribute [Microsoft.AspNetCore.Authorization.Authorize(Policy = PolicyNames.Permission_Encounters_View)]
 @using CareSphere.Models
 @inject CareSphere.Services.IEncounterService EncounterService
+@inject CareSphere.Services.ILabRequisitionService LabRequisitionService
 @rendermode InteractiveServer
 
 <PageTitle>Encounter Workspace - CareSphere</PageTitle>
@@ -112,6 +114,62 @@ else if (encounter != null)
     @* Prescriptions Section *@
     <PrescriptionPanel EncounterId="encounter.Id" PatientId="encounter.PatientId" DoctorId="encounter.DoctorId" />
 
+    @* Lab Orders Section *@
+    <div class="card mb-4">
+        <div class="card-header bg-primary text-white d-flex justify-content-between align-items-center">
+            <h5 class="mb-0"><i class="bi bi-flask me-2"></i>Lab Orders</h5>
+            <a href="/lab/requisitions/create?encounterId=@encounter.Id&patientId=@encounter.PatientId" class="btn btn-sm btn-light">
+                <i class="bi bi-plus-lg me-1"></i> Order Lab Tests
+            </a>
+        </div>
+        <div class="card-body">
+            @if (labRequisitions == null)
+            {
+                <p><em>Loading lab orders...</em></p>
+            }
+            else if (!labRequisitions.Any())
+            {
+                <p class="text-muted mb-0">No lab orders recorded for this encounter.</p>
+            }
+            else
+            {
+                <div class="table-responsive">
+                    <table class="table align-middle mb-0 small">
+                        <thead class="table-light fs-8 text-uppercase text-muted">
+                            <tr>
+                                <th>Requisition #</th>
+                                <th>Tests Ordered</th>
+                                <th>Priority</th>
+                                <th>Status</th>
+                                <th>Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @foreach (var req in labRequisitions)
+                            {
+                                <tr>
+                                    <td class="fw-bold font-monospace">@req.RequisitionNumber</td>
+                                    <td>
+                                        @string.Join(", ", req.Items.Select(i => i.Test.TestName))
+                                    </td>
+                                    <td>
+                                        <span class="badge @GetPriorityClass(req.Priority)">@req.Priority</span>
+                                    </td>
+                                    <td>
+                                        <span class="badge bg-light text-dark border">@req.Status</span>
+                                    </td>
+                                    <td>
+                                        <a href="/lab/requisitions/@req.Id" class="btn btn-xs btn-outline-primary py-0 px-2 fs-8">View</a>
+                                    </td>
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+                </div>
+            }
+        </div>
+    </div>
+
     @* Tele-Consult Section *@
     <TeleConsultPanel EncounterId="encounter.Id" DoctorId="encounter.DoctorId" PatientId="encounter.PatientId" />
 }
@@ -124,6 +182,8 @@ else if (encounter != null)
     private bool isNotFound = false;
     private string statusMessage = string.Empty;
 
+    private List<LabRequisition>? labRequisitions;
+
     protected override async Task OnInitializedAsync()
     {
         encounter = await EncounterService.GetEncounterByIdAsync(Id);
@@ -131,6 +191,20 @@ else if (encounter != null)
         {
             isNotFound = true;
         }
+        else
+        {
+            labRequisitions = await LabRequisitionService.GetRequisitionsByEncounterAsync(Guid.Empty, Id);
+        }
+    }
+
+    private string GetPriorityClass(string priority)
+    {
+        return priority switch
+        {
+            "Stat" => "bg-danger text-white",
+            "Urgent" => "bg-warning text-dark",
+            _ => "bg-success text-white"
+        };
     }
 
     private async Task UpdateStatus(string newStatus)
@@ -148,3 +222,4 @@ else if (encounter != null)
         }
     }
 }
+

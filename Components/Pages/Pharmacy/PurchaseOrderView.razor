@@ -1,4 +1,5 @@
 @page "/pharmacy/purchase-orders/{id:guid}"
+@attribute [Microsoft.AspNetCore.Authorization.Authorize(Policy = PolicyNames.Permission_Pharmacy_ManagePO)]
 @using CareSphere.Models
 @using CareSphere.Services
 @inject IPurchaseOrderService PoService
@@ -247,3 +248,4 @@
         };
     }
 }
+

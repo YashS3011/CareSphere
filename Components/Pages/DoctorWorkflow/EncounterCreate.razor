@@ -1,4 +1,5 @@
 @page "/encounters/create"
+@attribute [Microsoft.AspNetCore.Authorization.Authorize(Policy = PolicyNames.Permission_Encounters_Create)]
 @using CareSphere.Models
 @inject CareSphere.Services.IEncounterService EncounterService
 @inject CareSphere.Services.IPatientService PatientService
@@ -163,3 +164,4 @@
         }
     }
 }
+

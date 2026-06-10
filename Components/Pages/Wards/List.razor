@@ -1,4 +1,5 @@
 @page "/wards"
+@attribute [Microsoft.AspNetCore.Authorization.Authorize]
 @inject CareSphere.Services.IBedService BedService
 @inject NavigationManager NavigationManager
 
@@ -132,3 +133,4 @@ else
         }
     }
 }
+

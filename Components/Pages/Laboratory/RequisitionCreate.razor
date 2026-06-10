@@ -1,0 +1,337 @@
+@page "/lab/requisitions/create"
+@attribute [Microsoft.AspNetCore.Authorization.Authorize(Policy = PolicyNames.Permission_Lab_OrderTests)]
+@using CareSphere.Models
+@using CareSphere.Services
+@using CareSphere.Data
+@using Microsoft.EntityFrameworkCore
+@inject ILabRequisitionService RequisitionService
+@inject ILabCatalogService CatalogService
+@inject ApplicationDbContext DbContext
+@inject NavigationManager NavigationManager
+@rendermode InteractiveServer
+
+<PageTitle>Create Lab Requisition - CareSphere</PageTitle>
+
+<div class="container py-4" style="max-width: 900px;">
+    <!-- Back Link -->
+    <div class="mb-3">
+        <a href="/lab/requisitions" class="btn btn-link p-0 text-decoration-none link-secondary small">
+            <i class="bi bi-arrow-left"></i> Back to Requisitions
+        </a>
+    </div>
+
+    <!-- Header -->
+    <div class="mb-4">
+        <h1 class="h3 mb-1 text-dark fw-bold">Order Lab Tests</h1>
+        <p class="text-muted">Create a new laboratory requisition for a patient and assign tests</p>
+    </div>
+
+    <EditForm Model="requisitionModel" OnValidSubmit="HandleSubmit" FormName="CreateLabRequisition">
+        <DataAnnotationsValidator />
+        <ValidationSummary class="alert alert-danger mb-4 py-2 small" />
+
+        <div class="row g-4">
+            <!-- Left Side: Metadata and Dropdowns -->
+            <div class="col-md-6">
+                <div class="card border-0 shadow-sm rounded-4 mb-4">
+                    <div class="card-header bg-white py-3 px-4 border-bottom">
+                        <h5 class="fw-bold text-dark mb-0">Requisition Details</h5>
+                    </div>
+                    <div class="card-body p-4">
+                        <div class="d-flex flex-column gap-3">
+                            <!-- Patient Selector -->
+                            <div>
+                                <label class="form-label fw-semibold text-muted small">Patient *</label>
+                                <select class="form-select" @bind="selectedPatientId" @bind:after="PatientChanged">
+                                    <option value="">Select Patient</option>
+                                    @if (patients != null)
+                                    {
+                                        @foreach (var patient in patients)
+                                        {
+                                            <option value="@patient.Id">@patient.FirstName @patient.LastName (@patient.Mrn)</option>
+                                        }
+                                    }
+                                </select>
+                            </div>
+
+                            <!-- Encounter Selector -->
+                            <div>
+                                <label class="form-label fw-semibold text-muted small">Encounter (Optional)</label>
+                                <select class="form-select" @bind="selectedEncounterId">
+                                    <option value="">Select Encounter</option>
+                                    @if (filteredEncounters != null)
+                                    {
+                                        @foreach (var encounter in filteredEncounters)
+                                        {
+                                            <option value="@encounter.Id">@encounter.EncounterType - @encounter.AdmissionDate.ToLocalTime().ToString("d")</option>
+                                        }
+                                    }
+                                </select>
+                            </div>
+
+                            <!-- Doctor Selector -->
+                            <div>
+                                <label class="form-label fw-semibold text-muted small">Ordering Doctor *</label>
+                                <select class="form-select" @bind="selectedDoctorId">
+                                    <option value="">Select Doctor</option>
+                                    @if (doctors != null)
+                                    {
+                                        @foreach (var doctor in doctors)
+                                        {
+                                            <option value="@doctor.Id">Dr. @doctor.FirstName @doctor.LastName (@doctor.Specialization)</option>
+                                        }
+                                    }
+                                </select>
+                            </div>
+
+                            <!-- Priority Selector -->
+                            <div>
+                                <label class="form-label fw-semibold text-muted small">Priority *</label>
+                                <InputSelect class="form-select" @bind-Value="requisitionModel.Priority">
+                                    <option value="Routine">Routine</option>
+                                    <option value="Urgent">Urgent</option>
+                                    <option value="Stat">Stat</option>
+                                </InputSelect>
+                            </div>
+
+                            <!-- Clinical Notes -->
+                            <div>
+                                <label class="form-label fw-semibold text-muted small">Clinical Notes / Indications</label>
+                                <InputTextArea class="form-control" @bind-Value="requisitionModel.ClinicalNotes" rows="3" placeholder="e.g. Suspected anemia, follow-up..." />
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Right Side: Test Selector -->
+            <div class="col-md-6">
+                <div class="card border-0 shadow-sm rounded-4 mb-4">
+                    <div class="card-header bg-white py-3 px-4 border-bottom">
+                        <h5 class="fw-bold text-dark mb-0">Select Tests</h5>
+                    </div>
+                    <div class="card-body p-4">
+                        <!-- Test Search -->
+                        <div class="mb-3">
+                            <input type="text" class="form-control" placeholder="Search tests by name or code..." @bind="testSearchQuery" @bind:event="oninput" />
+                        </div>
+
+                        <!-- Tests grouped by Category -->
+                        <div style="max-height: 350px; overflow-y: auto;">
+                            @if (groupedActiveTests != null)
+                            {
+                                @foreach (var categoryGroup in FilteredGroupedActiveTests())
+                                {
+                                    <div class="mb-3">
+                                        <div class="fw-bold text-muted small uppercase mb-1">@categoryGroup.Key</div>
+                                        @foreach (var test in categoryGroup)
+                                        {
+                                            <div class="form-check my-1">
+                                                <input class="form-check-input" type="checkbox" id="test_@test.Id" checked="@selectedTestIds.Contains(test.Id)" @onchange="(e) => ToggleTest(test.Id, e.Value)" />
+                                                <label class="form-check-label text-dark small" for="test_@test.Id">
+                                                    @test.TestName <span class="font-monospace text-muted text-uppercase" style="font-size: 0.75rem;">(@test.TestCode)</span>
+                                                </label>
+                                            </div>
+                                        }
+                                    </div>
+                                }
+                            }
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Selected Tests Summary -->
+                <div class="card border-0 shadow-sm rounded-4 mb-4 bg-light">
+                    <div class="card-body p-3">
+                        <div class="fw-bold text-dark mb-2 small">Selected Tests Summary</div>
+                        @if (!selectedTestIds.Any())
+                        {
+                            <div class="text-muted small">No tests selected.</div>
+                        }
+                        else
+                        {
+                            <ul class="list-group list-group-flush rounded-3 border">
+                                @foreach (var testId in selectedTestIds)
+                                {
+                                    var testObj = activeTests?.FirstOrDefault(t => t.Id == testId);
+                                    if (testObj != null)
+                                    {
+                                        <li class="list-group-item d-flex justify-content-between align-items-center py-1 px-2 small">
+                                            <span>@testObj.TestName</span>
+                                            <button type="button" class="btn btn-sm text-danger border-0 p-0" @onclick="() => selectedTestIds.Remove(testId)">
+                                                <i class="bi bi-x-circle-fill"></i>
+                                            </button>
+                                        </li>
+                                    }
+                                }
+                            </ul>
+                        }
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        @if (!string.IsNullOrEmpty(errorMessage))
+        {
+            <div class="alert alert-danger mb-4 py-2 small">@errorMessage</div>
+        }
+
+        <!-- Actions -->
+        <div class="d-flex gap-2">
+            <button type="submit" class="btn btn-primary px-4 shadow-sm" disabled="@isSubmitting">
+                @if (isSubmitting)
+                {
+                    <span class="spinner-border spinner-border-sm me-1"></span>
+                }
+                Submit Order
+            </button>
+            <a href="/lab/requisitions" class="btn btn-light px-4">Cancel</a>
+        </div>
+    </EditForm>
+</div>
+
+@code {
+    [Parameter]
+    [SupplyParameterFromQuery]
+    public Guid? patientId { get; set; }
+
+    [Parameter]
+    [SupplyParameterFromQuery]
+    public Guid? encounterId { get; set; }
+
+    private LabRequisition requisitionModel = new() { Priority = "Routine", TenantId = Guid.Empty, RequisitionNumber = "TEMP" };
+
+    private List<Patient>? patients;
+    private List<Encounter>? allEncounters;
+    private List<Encounter>? filteredEncounters;
+    private List<Doctor>? doctors;
+    private List<LabTestCatalog>? activeTests;
+    private ILookup<string, LabTestCatalog>? groupedActiveTests;
+
+    private Guid? selectedPatientId;
+    private Guid? selectedEncounterId;
+    private Guid? selectedDoctorId;
+
+    private List<Guid> selectedTestIds = new();
+    private string testSearchQuery = string.Empty;
+
+    private bool isSubmitting = false;
+    private string errorMessage = string.Empty;
+
+    protected override async Task OnInitializedAsync()
+    {
+        try
+        {
+            patients = await DbContext.Patients.OrderBy(p => p.FirstName).ToListAsync();
+            allEncounters = await DbContext.Encounters.OrderByDescending(e => e.AdmissionDate).ToListAsync();
+            doctors = await DbContext.Doctors.Where(d => d.IsActive).OrderBy(d => d.FirstName).ToListAsync();
+
+            activeTests = await CatalogService.GetAllTestsAsync(Guid.Empty, null, null, true);
+            groupedActiveTests = activeTests.ToLookup(t => t.Category);
+
+            // Pre-select patient/encounter from query parameters if supplied
+            if (patientId.HasValue && patientId.Value != Guid.Empty)
+            {
+                selectedPatientId = patientId.Value;
+                PatientChanged();
+            }
+
+            if (encounterId.HasValue && encounterId.Value != Guid.Empty)
+            {
+                selectedEncounterId = encounterId.Value;
+            }
+        }
+        catch (Exception ex)
+        {
+            errorMessage = $"Error initializing order form: {ex.Message}";
+        }
+    }
+
+    private void PatientChanged()
+    {
+        selectedEncounterId = null;
+        if (selectedPatientId.HasValue)
+        {
+            filteredEncounters = allEncounters?.Where(e => e.PatientId == selectedPatientId.Value).ToList();
+        }
+        else
+        {
+            filteredEncounters = null;
+        }
+    }
+
+    private void ToggleTest(Guid id, object? isChecked)
+    {
+        bool checkedState = isChecked is bool b && b;
+        if (checkedState)
+        {
+            if (!selectedTestIds.Contains(id))
+            {
+                selectedTestIds.Add(id);
+            }
+        }
+        else
+        {
+            selectedTestIds.Remove(id);
+        }
+    }
+
+    private IEnumerable<IGrouping<string, LabTestCatalog>> FilteredGroupedActiveTests()
+    {
+        if (activeTests == null) return Enumerable.Empty<IGrouping<string, LabTestCatalog>>();
+
+        var filtered = activeTests.AsEnumerable();
+        if (!string.IsNullOrWhiteSpace(testSearchQuery))
+        {
+            var lowerQuery = testSearchQuery.ToLower();
+            filtered = filtered.Where(t => t.TestName.ToLower().Contains(lowerQuery) || t.TestCode.ToLower().Contains(lowerQuery));
+        }
+
+        return filtered.GroupBy(t => t.Category);
+    }
+
+    private async Task HandleSubmit()
+    {
+        if (!selectedPatientId.HasValue || selectedPatientId == Guid.Empty)
+        {
+            errorMessage = "Please select a patient.";
+            return;
+        }
+
+        if (!selectedDoctorId.HasValue || selectedDoctorId == Guid.Empty)
+        {
+            errorMessage = "Please select an ordering doctor.";
+            return;
+        }
+
+        if (!selectedTestIds.Any())
+        {
+            errorMessage = "Please select at least one test.";
+            return;
+        }
+
+        try
+        {
+            isSubmitting = true;
+            errorMessage = string.Empty;
+
+            var createdReq = await RequisitionService.CreateRequisitionAsync(
+                Guid.Empty,
+                selectedPatientId.Value,
+                selectedEncounterId,
+                selectedDoctorId.Value,
+                requisitionModel.Priority,
+                requisitionModel.ClinicalNotes,
+                selectedTestIds
+            );
+
+            NavigationManager.NavigateTo($"/lab/requisitions/{createdReq.Id}");
+        }
+        catch (Exception ex)
+        {
+            errorMessage = $"Failed to place order: {ex.Message}";
+            isSubmitting = false;
+        }
+    }
+}
+

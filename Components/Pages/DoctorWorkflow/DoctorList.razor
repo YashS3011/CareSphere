@@ -1,4 +1,5 @@
 @page "/doctors"
+@attribute [Microsoft.AspNetCore.Authorization.Authorize(Policy = PolicyNames.Permission_Encounters_View)]
 @inject CareSphere.Services.IDoctorService DoctorService
 @inject NavigationManager NavigationManager
 @rendermode InteractiveServer
@@ -140,3 +141,4 @@ else
         showDeleteConfirm = false;
     }
 }
+

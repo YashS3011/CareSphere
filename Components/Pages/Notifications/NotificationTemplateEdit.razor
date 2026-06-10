@@ -1,0 +1,252 @@
+@page "/notifications/templates/edit/{id:guid}"
+@attribute [Microsoft.AspNetCore.Authorization.Authorize(Policy = PolicyNames.Permission_Admin_ManageTenant)]
+@rendermode InteractiveServer
+@using CareSphere.Models
+@using CareSphere.Services
+@inject INotificationTemplateService TemplateService
+@inject NavigationManager NavigationManager
+
+<PageTitle>Edit Template - CareSphere</PageTitle>
+
+<div class="container-fluid py-4">
+    <div class="row justify-content-center">
+        <div class="col-lg-8 col-md-10">
+            <div class="d-flex align-items-center mb-4">
+                <a href="/notifications/templates" class="btn btn-outline-secondary btn-sm me-3">
+                    <i class="bi bi-arrow-left"></i> Back
+                </a>
+                <h1 class="h3 text-gray-800 m-0">Edit Notification Template</h1>
+            </div>
+
+            @if (template == null)
+            {
+                <div class="text-center py-5">
+                    <div class="spinner-border text-primary" role="status"></div>
+                </div>
+            }
+            else
+            {
+                <div class="card shadow-sm border-0 mb-4">
+                    <div class="card-body p-4">
+                        <EditForm Model="@formModel" FormName="editTemplate" OnValidSubmit="HandleValidSubmit">
+                            <DataAnnotationsValidator />
+                            <ValidationSummary class="alert alert-danger" />
+
+                            <div class="mb-3">
+                                <label class="form-label font-weight-bold">Template Name</label>
+                                <input class="form-control" value="@template.TemplateName" disabled />
+                                <small class="text-muted">Template names and types cannot be changed once created to preserve logging references.</small>
+                            </div>
+
+                            <div class="row">
+                                <div class="col-md-4 mb-3">
+                                    <label class="form-label font-weight-bold">Notification Type</label>
+                                    <input class="form-control" value="@FormatNotificationType(template.NotificationType)" disabled />
+                                </div>
+
+                                <div class="col-md-4 mb-3">
+                                    <label class="form-label font-weight-bold">Channel</label>
+                                    <input class="form-control" value="@template.Channel" disabled />
+                                </div>
+
+                                <div class="col-md-4 mb-3">
+                                    <label class="form-label font-weight-bold">Language</label>
+                                    <input class="form-control" value="@FormatLanguage(template.Language)" disabled />
+                                </div>
+                            </div>
+
+                            <!-- Placeholders Tip Card -->
+                            <div class="alert alert-light border mb-3">
+                                <h6 class="alert-heading font-weight-bold text-secondary mb-1">
+                                    <i class="bi bi-info-circle me-1"></i> Placeholders available:
+                                </h6>
+                                <div class="d-flex flex-wrap gap-2 mt-2">
+                                    @foreach (var p in GetPlaceholders(template.NotificationType))
+                                    {
+                                        <span class="badge bg-secondary font-monospace" style="cursor: pointer;" @onclick="() => InsertPlaceholder(p)">@p</span>
+                                    }
+                                </div>
+                                <small class="text-muted d-block mt-2">Click a badge to append it to the body script.</small>
+                            </div>
+
+                            <div class="mb-3">
+                                <label class="form-label font-weight-bold">Template Body *</label>
+                                <InputTextArea class="form-control" rows="5" @bind-Value="formModel.TemplateBody" />
+                                <ValidationMessage For="@(() => formModel.TemplateBody)" />
+                            </div>
+
+                            <div class="mb-3 form-check">
+                                <InputCheckbox class="form-check-input" @bind-Value="formModel.IsActive" id="isActiveCheck" />
+                                <label class="form-check-label" for="isActiveCheck">
+                                    Is Active
+                                </label>
+                            </div>
+
+                            <!-- Preview section -->
+                            <div class="mb-4">
+                                <button type="button" class="btn btn-outline-secondary btn-sm" @onclick="GeneratePreview">
+                                    <i class="bi bi-eye me-1"></i> Preview Message
+                                </button>
+
+                                @if (!string.IsNullOrEmpty(renderedPreview))
+                                {
+                                    <div class="card mt-3 bg-light border-start border-primary border-4 shadow-sm">
+                                        <div class="card-header py-2 bg-light border-0">
+                                            <small class="text-uppercase text-secondary font-weight-bold">Mock Preview Output</small>
+                                        </div>
+                                        <div class="card-body py-2">
+                                            <p class="mb-0 fs-6">@renderedPreview</p>
+                                        </div>
+                                    </div>
+                                }
+                            </div>
+
+                            <div class="d-flex gap-2">
+                                <button type="submit" class="btn btn-primary" disabled="@isSaving">
+                                    @if (isSaving)
+                                    {
+                                        <span class="spinner-border spinner-border-sm me-1"></span>
+                                    }
+                                    Save Changes
+                                </button>
+                                <a href="/notifications/templates" class="btn btn-secondary">Cancel</a>
+                            </div>
+
+                            @if (!string.IsNullOrEmpty(errorMessage))
+                            {
+                                <div class="alert alert-danger mt-3 mb-0">@errorMessage</div>
+                            }
+                        </EditForm>
+                    </div>
+                </div>
+            }
+        </div>
+    </div>
+</div>
+
+@code {
+    [Parameter]
+    public Guid Id { get; set; }
+
+    [SupplyParameterFromForm]
+    public TemplateEditModel formModel { get; set; } = new();
+
+    public class TemplateEditModel
+    {
+        [System.ComponentModel.DataAnnotations.Required(ErrorMessage = "Template Body content is required")]
+        public string TemplateBody { get; set; } = string.Empty;
+
+        public bool IsActive { get; set; } = true;
+    }
+
+    private NotificationTemplate? template;
+    private string? renderedPreview;
+    private string? errorMessage;
+    private bool isSaving = false;
+    private readonly Guid currentTenantId = Guid.Empty;
+
+    protected override async Task OnInitializedAsync()
+    {
+        // Fetch all templates to find this specific one
+        var all = await TemplateService.GetAllTemplatesAsync(currentTenantId);
+        template = all.SelectMany(g => g.Value).FirstOrDefault(t => t.Id == Id);
+
+        if (template != null)
+        {
+            formModel.TemplateBody = template.TemplateBody;
+            formModel.IsActive = template.IsActive;
+        }
+    }
+
+    private List<string> GetPlaceholders(string type)
+    {
+        return type switch
+        {
+            "AppointmentReminder" => new List<string> { "{PatientName}", "{DoctorName}", "{AppointmentDate}", "{Time}", "{HospitalName}" },
+            "FollowUpReminder" => new List<string> { "{PatientName}", "{DoctorName}", "{HospitalName}" },
+            "DischargeNotification" => new List<string> { "{PatientName}", "{DischargeDate}", "{HospitalName}" },
+            "LabReportReady" => new List<string> { "{PatientName}", "{RequisitionNumber}", "{HospitalName}" },
+            _ => new List<string> { "{PatientName}", "{HospitalName}" }
+        };
+    }
+
+    private void InsertPlaceholder(string p)
+    {
+        formModel.TemplateBody += p;
+    }
+
+    private async Task GeneratePreview()
+    {
+        if (string.IsNullOrWhiteSpace(formModel.TemplateBody))
+        {
+            renderedPreview = "Template body is empty. Write text first.";
+            return;
+        }
+
+        var mockData = new Dictionary<string, string>
+        {
+            { "PatientName", "Mr. John Doe" },
+            { "DoctorName", "Dr. Jane Smith" },
+            { "AppointmentDate", "15 Jun 2026" },
+            { "Time", "10:15 AM" },
+            { "RequisitionNumber", "REQ-10954" },
+            { "DischargeDate", "12 Jun 2026" },
+            { "HospitalName", "CareSphere Hospital" }
+        };
+
+        renderedPreview = await TemplateService.RenderTemplateAsync(formModel.TemplateBody, mockData);
+    }
+
+    private async Task HandleValidSubmit()
+    {
+        try
+        {
+            isSaving = true;
+            errorMessage = null;
+
+            await TemplateService.UpdateTemplateAsync(Id, formModel.TemplateBody, formModel.IsActive);
+            NavigationManager.NavigateTo("/notifications/templates");
+        }
+        catch (Microsoft.AspNetCore.Components.NavigationException)
+        {
+            throw; // expected redirect
+        }
+        catch (Exception ex)
+        {
+            errorMessage = ex.Message;
+            isSaving = false;
+        }
+    }
+
+    private string FormatLanguage(string lang)
+    {
+        return lang switch
+        {
+            "en" => "English",
+            "hi" => "Hindi (हिंदी)",
+            "ta" => "Tamil (தமிழ்)",
+            "te" => "Telugu (తెలుగు)",
+            "kn" => "Kannada (ಕನ್ನಡ)",
+            "ml" => "Malayalam (മലയാളം)",
+            "bn" => "Bengali (বাংলা)",
+            "mr" => "Marathi (മરાठी)",
+            "gu" => "Gujarati (ગુજરાતી)",
+            "pa" => "Punjabi (ਪੰਜਾਬી)",
+            _ => lang
+        };
+    }
+
+    private string FormatNotificationType(string type)
+    {
+        return type switch
+        {
+            "AppointmentReminder" => "Appointment Reminder",
+            "FollowUpReminder" => "Follow-up Reminder",
+            "DischargeNotification" => "Discharge Notice",
+            "LabReportReady" => "Lab Report Ready",
+            "GeneralAlert" => "General Alert",
+            _ => type
+        };
+    }
+}
+

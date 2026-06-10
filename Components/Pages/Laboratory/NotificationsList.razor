@@ -1,0 +1,136 @@
+@page "/lab/notifications"
+@attribute [Microsoft.AspNetCore.Authorization.Authorize(Policy = PolicyNames.Permission_Lab_ViewReports)]
+@using CareSphere.Models
+@using CareSphere.Services
+@inject ILabNotificationService NotificationService
+@inject NavigationManager NavigationManager
+@rendermode InteractiveServer
+
+<PageTitle>Lab Notifications - CareSphere</PageTitle>
+
+<div class="container py-4" style="max-width: 800px;">
+    <!-- Header -->
+    <div class="mb-4 d-flex justify-content-between align-items-center">
+        <div>
+            <h1 class="h3 mb-1 text-dark fw-bold"><i class="bi bi-bell-fill me-2 text-danger"></i>Lab Notifications</h1>
+            <p class="text-muted mb-0">Manage alert logs, report notifications, and clinical reminders</p>
+        </div>
+        @if (notifications != null && notifications.Any())
+        {
+            <button class="btn btn-outline-secondary btn-sm" @onclick="MarkAllAsRead">Mark All as Read</button>
+        }
+    </div>
+
+    @if (loading)
+    {
+        <div class="d-flex justify-content-center my-5">
+            <div class="spinner-border text-primary" role="status">
+                <span class="visually-hidden">Loading notifications...</span>
+            </div>
+        </div>
+    }
+    else
+    {
+        <div class="card border-0 shadow-sm rounded-4">
+            <div class="card-body p-0">
+                @if (notifications == null || !notifications.Any())
+                {
+                    <div class="text-center py-5 text-muted">
+                        <i class="bi bi-bell-slash fs-1 d-block mb-2"></i>
+                        No unread notifications.
+                    </div>
+                }
+                else
+                {
+                    <div class="list-group list-group-flush rounded-4">
+                        @foreach (var notif in notifications)
+                        {
+                            <div class="list-group-item list-group-item-action p-3 d-flex justify-content-between align-items-center">
+                                <div class="pe-3">
+                                    <h6 class="mb-1 fw-bold text-dark">@notif.Title</h6>
+                                    <p class="mb-1 text-muted small">@notif.Message</p>
+                                    <small class="text-muted font-monospace" style="font-size: 0.72rem;">@notif.CreatedAt.ToLocalTime().ToString("f")</small>
+                                </div>
+                                <div class="d-flex gap-2">
+                                    @if (notif.ResourceType == "LabReport")
+                                    {
+                                        <a href="/lab/reports/@notif.ResourceId" class="btn btn-xs btn-outline-primary py-1 px-3 fs-8">View Report</a>
+                                    }
+                                    <button class="btn btn-xs btn-success py-1 px-3 fs-8" @onclick="() => MarkAsRead(notif.Id)"><i class="bi bi-check2 me-1"></i>Dismiss</button>
+                                </div>
+                            </div>
+                        }
+                    </div>
+                }
+            </div>
+        </div>
+    }
+</div>
+
+@code {
+    private bool loading = true;
+    private List<InAppNotification>? notifications;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadNotifications();
+    }
+
+    private async Task LoadNotifications()
+    {
+        try
+        {
+            loading = true;
+            notifications = await NotificationService.GetUnreadNotificationsAsync("Doctor", "00000000-0000-0000-0000-000000000000");
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error loading notifications list: {ex.Message}");
+        }
+        finally
+        {
+            loading = false;
+        }
+    }
+
+    private async Task MarkAsRead(Guid id)
+    {
+        try
+        {
+            await NotificationService.MarkNotificationReadAsync(id);
+            await LoadNotifications();
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error dismissing notification: {ex.Message}");
+        }
+    }
+
+    private async Task MarkAllAsRead()
+    {
+        if (notifications == null) return;
+        try
+        {
+            foreach (var notif in notifications)
+            {
+                await NotificationService.MarkNotificationReadAsync(notif.Id);
+            }
+            await LoadNotifications();
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error dismissing all notifications: {ex.Message}");
+        }
+    }
+}
+
+<style>
+    .fs-8 { font-size: 0.8rem !important; }
+    .btn-xs {
+        padding: 0.25rem 0.5rem;
+        font-size: 0.75rem;
+        line-height: 1.5;
+        border-radius: 0.2rem;
+    }
+</style>
+

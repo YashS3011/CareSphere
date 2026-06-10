@@ -1,3 +1,7 @@
+@inject AuthenticationStateProvider AuthStateProvider
+@inject CareSphere.Services.ITenantService TenantService
+@inject IConfiguration Configuration
+
 <div class="top-row ps-3 navbar navbar-dark bg-primary text-white">
     <div class="container-fluid">
         <a class="navbar-brand fw-bold" href=""><i class="bi bi-heart-pulse-fill me-2"></i>CareSphere</a>
@@ -8,137 +12,292 @@
 
 <div class="nav-scrollable" onclick="document.querySelector('.navbar-toggler').click()">
     <nav class="nav flex-column mt-3">
-        <div class="nav-item px-3">
-            <NavLink class="nav-link" href="" Match="NavLinkMatch.All">
-                <i class="bi bi-speedometer2 me-3" aria-hidden="true"></i> Dashboard
-            </NavLink>
-        </div>
 
-        <div class="nav-item px-3">
-            <NavLink class="nav-link" href="patients">
-                <i class="bi bi-people-fill me-3" aria-hidden="true"></i> Patients
-            </NavLink>
-        </div>
+        <!-- User profile header -->
+        <AuthorizeView>
+            <Authorized>
+                <div class="px-3 mb-3 py-2 bg-primary bg-opacity-10 rounded mx-2">
+                    <div class="d-flex align-items-center">
+                        <div class="bg-primary bg-opacity-25 rounded-circle d-flex align-items-center justify-content-center me-2"
+                             style="width: 36px; height: 36px; flex-shrink: 0;">
+                            <i class="bi bi-person-fill text-primary"></i>
+                        </div>
+                        <div style="min-width: 0;">
+                            <div class="fw-semibold small text-truncate">
+                                @(CurrentUserHelper.GetFullName(context.User) ?? context.User.Identity?.Name ?? "User")
+                            </div>
+                            <span class="badge bg-primary" style="font-size: 0.65rem;">
+                                @(CurrentUserHelper.GetUserRole(context.User) ?? "")
+                            </span>
+                        </div>
+                    </div>
+                </div>
+            </Authorized>
+        </AuthorizeView>
 
-        <div class="nav-item px-3">
-            <NavLink class="nav-link" href="beds/dashboard">
-                <i class="bi bi-hospital me-3" aria-hidden="true"></i> Bed Dashboard
-            </NavLink>
-        </div>
+        <!-- Dashboard — any authenticated user -->
+        <AuthorizeView>
+            <Authorized>
+                <div class="nav-item px-3">
+                    <NavLink class="nav-link" href="" Match="NavLinkMatch.All">
+                        <i class="bi bi-speedometer2 me-3" aria-hidden="true"></i> Dashboard
+                    </NavLink>
+                </div>
+            </Authorized>
+        </AuthorizeView>
 
-        <div class="nav-item px-3">
-            <NavLink class="nav-link" href="wards">
-                <i class="bi bi-building me-3" aria-hidden="true"></i> Wards Master
-            </NavLink>
-        </div>
+        <!-- Patient section -->
+        <AuthorizeView>
+            <Authorized>
+                <div class="nav-item px-3">
+                    <NavLink class="nav-link" href="patients">
+                        <i class="bi bi-people-fill me-3" aria-hidden="true"></i> Patients
+                    </NavLink>
+                </div>
+            </Authorized>
+        </AuthorizeView>
 
-        <div class="nav-item px-3">
-            <NavLink class="nav-link" href="beds">
-                <i class="bi bi-bed me-3" aria-hidden="true"></i> Beds Master
-            </NavLink>
-        </div>
-
-        <div class="nav-item px-3">
-            <NavLink class="nav-link" href="allotments">
-                <i class="bi bi-journal-medical me-3" aria-hidden="true"></i> Allotments
-            </NavLink>
-        </div>
-
-        <hr class="mx-3 my-2" />
-
-        <div class="nav-item px-3">
-            <NavLink class="nav-link" href="doctors">
-                <i class="bi bi-person-badge me-3" aria-hidden="true"></i> Doctors
-            </NavLink>
-        </div>
-
-        <div class="nav-item px-3">
-            @* Note: Using placeholder GUID until auth is added. Replace with logged-in doctor's ID. *@
-            <NavLink class="nav-link" href="doctor/queue/00000000-0000-0000-0000-000000000000">
-                <i class="bi bi-clock me-3" aria-hidden="true"></i> Queue
-            </NavLink>
-        </div>
-
-        <div class="nav-item px-3">
-            <NavLink class="nav-link" href="encounters">
-                <i class="bi bi-clipboard2-pulse me-3" aria-hidden="true"></i> Encounters
-            </NavLink>
-        </div>
-
-        <hr class="mx-3 my-2" />
-
-        <div class="nav-item px-3">
-            <NavLink class="nav-link" href="billing/dashboard">
-                <i class="bi bi-wallet2 me-3" aria-hidden="true"></i> Billing Dashboard
-            </NavLink>
-        </div>
-
-        <div class="nav-item px-3">
-            <NavLink class="nav-link" href="billing/invoices">
-                <i class="bi bi-file-earmark-spreadsheet me-3" aria-hidden="true"></i> Invoices
-            </NavLink>
-        </div>
-
-        <div class="nav-item px-3">
-            <NavLink class="nav-link" href="billing/claims">
-                <i class="bi bi-shield-check me-3" aria-hidden="true"></i> Claims
-            </NavLink>
-        </div>
+        <!-- Bed / Ward section -->
+        <AuthorizeView>
+            <Authorized>
+                <div class="nav-item px-3">
+                    <NavLink class="nav-link" href="beds/dashboard">
+                        <i class="bi bi-hospital me-3" aria-hidden="true"></i> Bed Dashboard
+                    </NavLink>
+                </div>
+                <div class="nav-item px-3">
+                    <NavLink class="nav-link" href="wards">
+                        <i class="bi bi-building me-3" aria-hidden="true"></i> Wards Master
+                    </NavLink>
+                </div>
+                <div class="nav-item px-3">
+                    <NavLink class="nav-link" href="beds">
+                        <i class="bi bi-bed me-3" aria-hidden="true"></i> Beds Master
+                    </NavLink>
+                </div>
+                <div class="nav-item px-3">
+                    <NavLink class="nav-link" href="allotments">
+                        <i class="bi bi-journal-medical me-3" aria-hidden="true"></i> Allotments
+                    </NavLink>
+                </div>
+            </Authorized>
+        </AuthorizeView>
 
         <hr class="mx-3 my-2" />
 
-        <div class="nav-item px-3">
-            <NavLink class="nav-link" href="pharmacy/dashboard">
-                <i class="bi bi-capsule me-3" aria-hidden="true"></i> Pharmacy Dashboard
-            </NavLink>
-        </div>
+        <!-- Doctor section -->
+        <AuthorizeView>
+            <Authorized>
+                <div class="nav-item px-3">
+                    <NavLink class="nav-link" href="doctors">
+                        <i class="bi bi-person-badge me-3" aria-hidden="true"></i> Doctors
+                    </NavLink>
+                </div>
+                <div class="nav-item px-3">
+                    <NavLink class="nav-link" href="doctor/queue/00000000-0000-0000-0000-000000000000">
+                        <i class="bi bi-clock me-3" aria-hidden="true"></i> Queue
+                    </NavLink>
+                </div>
+                <div class="nav-item px-3">
+                    <NavLink class="nav-link" href="encounters">
+                        <i class="bi bi-clipboard2-pulse me-3" aria-hidden="true"></i> Encounters
+                    </NavLink>
+                </div>
+            </Authorized>
+        </AuthorizeView>
 
-        <div class="nav-item px-3">
-            <NavLink class="nav-link" href="pharmacy/items">
-                <i class="bi bi-box-seam me-3" aria-hidden="true"></i> Pharmacy Items
-            </NavLink>
-        </div>
+        <hr class="mx-3 my-2" />
 
-        <div class="nav-item px-3">
-            <NavLink class="nav-link" href="pharmacy/suppliers">
-                <i class="bi bi-truck me-3" aria-hidden="true"></i> Suppliers
-            </NavLink>
-        </div>
+        <!-- Billing section -->
+        <AuthorizeView Policy="@PolicyNames.Permission_Billing_ViewInvoices">
+            <Authorized>
+                <div class="nav-item px-3">
+                    <NavLink class="nav-link" href="billing/dashboard">
+                        <i class="bi bi-wallet2 me-3" aria-hidden="true"></i> Billing Dashboard
+                    </NavLink>
+                </div>
+                <div class="nav-item px-3">
+                    <NavLink class="nav-link" href="billing/invoices">
+                        <i class="bi bi-file-earmark-spreadsheet me-3" aria-hidden="true"></i> Invoices
+                    </NavLink>
+                </div>
+                <div class="nav-item px-3">
+                    <NavLink class="nav-link" href="billing/claims">
+                        <i class="bi bi-shield-check me-3" aria-hidden="true"></i> Claims
+                    </NavLink>
+                </div>
+            </Authorized>
+        </AuthorizeView>
 
-        <div class="nav-item px-3">
-            <NavLink class="nav-link" href="pharmacy/purchase-orders">
-                <i class="bi bi-cart4 me-3" aria-hidden="true"></i> Purchase Orders
-            </NavLink>
-        </div>
+        <hr class="mx-3 my-2" />
 
-        <div class="nav-item px-3">
-            <NavLink class="nav-link" href="pharmacy/grn">
-                <i class="bi bi-box-arrow-in-down me-3" aria-hidden="true"></i> GRN (Receipts)
-            </NavLink>
-        </div>
+        <!-- Pharmacy section -->
+        <AuthorizeView Policy="@PolicyNames.Permission_Pharmacy_ViewStock">
+            <Authorized>
+                <div class="nav-item px-3">
+                    <NavLink class="nav-link" href="pharmacy/dashboard">
+                        <i class="bi bi-capsule me-3" aria-hidden="true"></i> Pharmacy Dashboard
+                    </NavLink>
+                </div>
+                <div class="nav-item px-3">
+                    <NavLink class="nav-link" href="pharmacy/items">
+                        <i class="bi bi-box-seam me-3" aria-hidden="true"></i> Pharmacy Items
+                    </NavLink>
+                </div>
+                <div class="nav-item px-3">
+                    <NavLink class="nav-link" href="pharmacy/suppliers">
+                        <i class="bi bi-truck me-3" aria-hidden="true"></i> Suppliers
+                    </NavLink>
+                </div>
+                <div class="nav-item px-3">
+                    <NavLink class="nav-link" href="pharmacy/purchase-orders">
+                        <i class="bi bi-cart4 me-3" aria-hidden="true"></i> Purchase Orders
+                    </NavLink>
+                </div>
+                <div class="nav-item px-3">
+                    <NavLink class="nav-link" href="pharmacy/grn">
+                        <i class="bi bi-box-arrow-in-down me-3" aria-hidden="true"></i> GRN (Receipts)
+                    </NavLink>
+                </div>
+                <div class="nav-item px-3">
+                    <NavLink class="nav-link" href="pharmacy/dispense">
+                        <i class="bi bi-prescription2 me-3" aria-hidden="true"></i> Dispense Rx
+                    </NavLink>
+                </div>
+                <div class="nav-item px-3">
+                    <NavLink class="nav-link" href="pharmacy/otc-sale">
+                        <i class="bi bi-shop me-3" aria-hidden="true"></i> OTC Sale (POS)
+                    </NavLink>
+                </div>
+                <div class="nav-item px-3">
+                    <NavLink class="nav-link" href="pharmacy/expiry-alerts">
+                        <i class="bi bi-exclamation-triangle me-3" aria-hidden="true"></i> Expiry Alerts
+                    </NavLink>
+                </div>
+                <div class="nav-item px-3">
+                    <NavLink class="nav-link" href="pharmacy/stock-ledger">
+                        <i class="bi bi-journal-text me-3" aria-hidden="true"></i> Stock Ledger
+                    </NavLink>
+                </div>
+            </Authorized>
+        </AuthorizeView>
 
-        <div class="nav-item px-3">
-            <NavLink class="nav-link" href="pharmacy/dispense">
-                <i class="bi bi-prescription2 me-3" aria-hidden="true"></i> Dispense Rx
-            </NavLink>
-        </div>
+        <hr class="mx-3 my-2" />
 
-        <div class="nav-item px-3">
-            <NavLink class="nav-link" href="pharmacy/otc-sale">
-                <i class="bi bi-shop me-3" aria-hidden="true"></i> OTC Sale (POS)
-            </NavLink>
-        </div>
+        <!-- Laboratory section -->
+        <AuthorizeView Policy="@PolicyNames.Permission_Lab_ViewReports">
+            <Authorized>
+                <div class="nav-item px-3">
+                    <NavLink class="nav-link" href="lab/dashboard">
+                        <i class="bi bi-flask me-3" aria-hidden="true"></i> Lab Dashboard
+                    </NavLink>
+                </div>
+                <div class="nav-item px-3">
+                    <NavLink class="nav-link" href="lab/catalog">
+                        <i class="bi bi-book me-3" aria-hidden="true"></i> Test Catalog
+                    </NavLink>
+                </div>
+                <div class="nav-item px-3">
+                    <NavLink class="nav-link" href="lab/requisitions">
+                        <i class="bi bi-receipt me-3" aria-hidden="true"></i> Requisitions
+                    </NavLink>
+                </div>
+                <div class="nav-item px-3">
+                    <NavLink class="nav-link" href="lab/notifications">
+                        <i class="bi bi-bell me-3" aria-hidden="true"></i> Notifications
+                    </NavLink>
+                </div>
+            </Authorized>
+        </AuthorizeView>
 
-        <div class="nav-item px-3">
-            <NavLink class="nav-link" href="pharmacy/expiry-alerts">
-                <i class="bi bi-exclamation-triangle me-3" aria-hidden="true"></i> Expiry Alerts
-            </NavLink>
-        </div>
+        <hr class="mx-3 my-2" />
 
-        <div class="nav-item px-3">
-            <NavLink class="nav-link" href="pharmacy/stock-ledger">
-                <i class="bi bi-journal-text me-3" aria-hidden="true"></i> Stock Ledger
-            </NavLink>
-        </div>
+        <!-- Notifications section -->
+        <AuthorizeView Policy="@PolicyNames.Permission_Admin_ManageTenant">
+            <Authorized>
+                <div class="nav-item px-3">
+                    <NavLink class="nav-link" href="notifications/dashboard">
+                        <i class="bi bi-bell-fill me-3" aria-hidden="true"></i> Notif Dashboard
+                    </NavLink>
+                </div>
+                <div class="nav-item px-3">
+                    <NavLink class="nav-link" href="notifications/templates">
+                        <i class="bi bi-file-earmark-text-fill me-3" aria-hidden="true"></i> Alert Templates
+                    </NavLink>
+                </div>
+                <div class="nav-item px-3">
+                    <NavLink class="nav-link" href="notifications/reminders">
+                        <i class="bi bi-calendar-check-fill me-3" aria-hidden="true"></i> Alert Reminders
+                    </NavLink>
+                </div>
+                <div class="nav-item px-3">
+                    <NavLink class="nav-link" href="notifications/dashboard?showLogs=true">
+                        <i class="bi bi-clock-history me-3" aria-hidden="true"></i> Outbox Logs
+                    </NavLink>
+                </div>
+            </Authorized>
+        </AuthorizeView>
+
+        <hr class="mx-3 my-2" />
+
+        <!-- Admin section -->
+        <AuthorizeView Policy="@PolicyNames.Permission_Admin_ManageUsers">
+            <Authorized>
+                <div class="nav-item px-3">
+                    <small class="text-muted px-1 fw-semibold text-uppercase" style="font-size: 0.7rem;">Administration</small>
+                </div>
+                <div class="nav-item px-3">
+                    <NavLink class="nav-link" href="admin/dashboard">
+                        <i class="bi bi-shield-check me-3" aria-hidden="true"></i> Admin Dashboard
+                    </NavLink>
+                </div>
+                <div class="nav-item px-3">
+                    <NavLink class="nav-link" href="admin/users">
+                        <i class="bi bi-people me-3" aria-hidden="true"></i> Users
+                    </NavLink>
+                </div>
+                <div class="nav-item px-3">
+                    <NavLink class="nav-link" href="admin/roles">
+                        <i class="bi bi-shield-lock me-3" aria-hidden="true"></i> Role Permissions
+                    </NavLink>
+                </div>
+                <div class="nav-item px-3">
+                    <NavLink class="nav-link" href="admin/audit-log">
+                        <i class="bi bi-journal-check me-3" aria-hidden="true"></i> Audit Log
+                    </NavLink>
+                </div>
+                <div class="nav-item px-3">
+                    <NavLink class="nav-link" href="admin/sessions">
+                        <i class="bi bi-display me-3" aria-hidden="true"></i> Sessions
+                    </NavLink>
+                </div>
+                <div class="nav-item px-3">
+                    <NavLink class="nav-link" href="admin/tenant-settings">
+                        <i class="bi bi-gear-fill me-3" aria-hidden="true"></i> Tenant Settings
+                    </NavLink>
+                </div>
+            </Authorized>
+        </AuthorizeView>
+
+        <hr class="mx-3 my-2" />
+
+        <!-- Logout -->
+        <AuthorizeView>
+            <Authorized>
+                <div class="nav-item px-3 mb-3">
+                    <a class="nav-link text-danger" href="/auth/logout">
+                        <i class="bi bi-box-arrow-right me-3" aria-hidden="true"></i> Sign Out
+                    </a>
+                </div>
+            </Authorized>
+            <NotAuthorized>
+                <div class="nav-item px-3 mb-3">
+                    <a class="nav-link" href="/auth/login">
+                        <i class="bi bi-box-arrow-in-right me-3" aria-hidden="true"></i> Sign In
+                    </a>
+                </div>
+            </NotAuthorized>
+        </AuthorizeView>
+
     </nav>
 </div>

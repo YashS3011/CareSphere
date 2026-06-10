@@ -1,0 +1,307 @@
+@page "/admin/dashboard"
+@attribute [Microsoft.AspNetCore.Authorization.Authorize(Policy = PolicyNames.Permission_Admin_ManageUsers)]
+@inject CareSphere.Services.ITenantService TenantService
+@inject CareSphere.Services.IAuditLogService AuditLogService
+@inject CareSphere.Data.ApplicationDbContext DbContext
+@inject CareSphere.Services.UserTimeZoneService UserTimeZone
+@inject IConfiguration Configuration
+@inject AuthenticationStateProvider AuthStateProvider
+@using Microsoft.EntityFrameworkCore
+@using CareSphere.Components.Pages.Admin
+@rendermode InteractiveServer
+
+<PageTitle>Admin Dashboard — CareSphere</PageTitle>
+
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <h2><i class="bi bi-speedometer2 me-2 text-primary"></i>Admin Dashboard</h2>
+    <span class="badge bg-primary fs-6">@stats?.SubscriptionTier Tier</span>
+</div>
+
+@if (stats == null)
+{
+    <div class="d-flex justify-content-center py-5">
+        <div class="spinner-border text-primary" role="status"></div>
+    </div>
+}
+else
+{
+    <!-- KPI Cards Row 1 -->
+    <div class="row g-3 mb-3">
+        <div class="col-md-4 col-lg-2">
+            <div class="card border-0 bg-primary text-white h-100">
+                <div class="card-body text-center">
+                    <i class="bi bi-people-fill fs-2 mb-2"></i>
+                    <h3 class="fw-bold mb-0">@stats.TotalUsers</h3>
+                    <small>Total Users</small>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-4 col-lg-2">
+            <div class="card border-0 bg-success text-white h-100">
+                <div class="card-body text-center">
+                    <i class="bi bi-person-check-fill fs-2 mb-2"></i>
+                    <h3 class="fw-bold mb-0">@stats.ActiveUsers</h3>
+                    <small>Active Users</small>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-4 col-lg-2">
+            <div class="card border-0 bg-info text-white h-100">
+                <div class="card-body text-center">
+                    <i class="bi bi-heart-pulse-fill fs-2 mb-2"></i>
+                    <h3 class="fw-bold mb-0">@stats.TotalPatients</h3>
+                    <small>Total Patients</small>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-4 col-lg-2">
+            <div class="card border-0 bg-secondary text-white h-100">
+                <div class="card-body text-center">
+                    <i class="bi bi-hospital fs-2 mb-2"></i>
+                    <h3 class="fw-bold mb-0">@stats.TotalBeds</h3>
+                    <small>Total Beds</small>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-4 col-lg-2">
+            <div class="card border-0 bg-warning text-dark h-100">
+                <div class="card-body text-center">
+                    <i class="bi bi-bed fs-2 mb-2"></i>
+                    <h3 class="fw-bold mb-0">@stats.AvailableBeds</h3>
+                    <small>Available Beds</small>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-4 col-lg-2">
+            <div class="card border-0 bg-dark text-white h-100">
+                <div class="card-body text-center">
+                    <i class="bi bi-gem fs-2 mb-2"></i>
+                    <h5 class="fw-bold mb-0">@stats.SubscriptionTier</h5>
+                    <small>Subscription</small>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- KPI Cards Row 2 — New dynamic stats -->
+    <div class="row g-3 mb-4">
+        <div class="col-md-3">
+            <div class="card border-0 shadow-sm h-100">
+                <div class="card-body text-center">
+                    <i class="bi bi-person-badge fs-2 mb-2 text-primary"></i>
+                    <h3 class="fw-bold mb-0">@stats.TotalDoctors</h3>
+                    <small class="text-muted">Doctors</small>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card border-0 shadow-sm h-100">
+                <div class="card-body text-center">
+                    <i class="bi bi-clipboard2-pulse fs-2 mb-2 text-success"></i>
+                    <h3 class="fw-bold mb-0">@stats.ActiveEncountersToday</h3>
+                    <small class="text-muted">Encounters Today</small>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card border-0 shadow-sm h-100">
+                <div class="card-body text-center">
+                    <i class="bi bi-display fs-2 mb-2 text-info"></i>
+                    <h3 class="fw-bold mb-0">@stats.ActiveSessions</h3>
+                    <small class="text-muted">Active Sessions</small>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card border-0 shadow-sm h-100">
+                <div class="card-body text-center">
+                    <i class="bi bi-journal-check fs-2 mb-2 text-warning"></i>
+                    <h3 class="fw-bold mb-0">@stats.TotalAuditEvents24h</h3>
+                    <small class="text-muted">Audit Events (24h)</small>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Quick Links -->
+    <div class="row g-3 mb-4">
+        <div class="col-md-3">
+            <a href="/admin/users" class="card border-0 shadow-sm text-decoration-none h-100">
+                <div class="card-body d-flex align-items-center">
+                    <i class="bi bi-people fs-4 text-primary me-3"></i>
+                    <div>
+                        <h6 class="mb-0 fw-semibold">User Management</h6>
+                        <small class="text-muted">@stats.TotalUsers users</small>
+                    </div>
+                </div>
+            </a>
+        </div>
+        <div class="col-md-3">
+            <a href="/admin/roles" class="card border-0 shadow-sm text-decoration-none h-100">
+                <div class="card-body d-flex align-items-center">
+                    <i class="bi bi-shield-lock fs-4 text-warning me-3"></i>
+                    <div>
+                        <h6 class="mb-0 fw-semibold">Role Permissions</h6>
+                        <small class="text-muted">@stats.UserCountsByRole.Count roles configured</small>
+                    </div>
+                </div>
+            </a>
+        </div>
+        <div class="col-md-3">
+            <a href="/admin/audit-log" class="card border-0 shadow-sm text-decoration-none h-100">
+                <div class="card-body d-flex align-items-center">
+                    <i class="bi bi-journal-check fs-4 text-success me-3"></i>
+                    <div>
+                        <h6 class="mb-0 fw-semibold">Audit Log</h6>
+                        <small class="text-muted">@stats.TotalAuditEvents24h events today</small>
+                    </div>
+                </div>
+            </a>
+        </div>
+        <div class="col-md-3">
+            <a href="/admin/sessions" class="card border-0 shadow-sm text-decoration-none h-100">
+                <div class="card-body d-flex align-items-center">
+                    <i class="bi bi-display fs-4 text-danger me-3"></i>
+                    <div>
+                        <h6 class="mb-0 fw-semibold">Active Sessions</h6>
+                        <small class="text-muted">@stats.ActiveSessions sessions</small>
+                    </div>
+                </div>
+            </a>
+        </div>
+    </div>
+
+    <div class="row g-4">
+        <!-- Recent Sessions -->
+        <div class="col-lg-6">
+            <div class="card border-0 shadow-sm">
+                <div class="card-header bg-white d-flex align-items-center">
+                    <i class="bi bi-clock-history text-primary me-2"></i>
+                    <strong>Recent Logins</strong>
+                </div>
+                <div class="card-body p-0">
+                    @if (recentSessions == null || !recentSessions.Any())
+                    {
+                        <p class="text-muted p-3">No recent sessions.</p>
+                    }
+                    else
+                    {
+                        <div class="table-responsive">
+                            <table class="table table-sm table-hover mb-0">
+                                <thead class="table-light">
+                                    <tr>
+                                        <th>User</th>
+                                        <th>IP</th>
+                                        <th>Device</th>
+                                        <th>Login Time</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    @foreach (var session in recentSessions)
+                                    {
+                                        <tr>
+                                            <td class="small fw-semibold">@GetUserName(session.UserId)</td>
+                                            <td class="small">@(session.IpAddress ?? "—")</td>
+                                            <td class="small">@(session.DeviceInfo ?? "—")</td>
+                                            <td class="small">@UserTimeZone.ToLocal(session.CreatedAt).ToString("dd MMM HH:mm")</td>
+                                        </tr>
+                                    }
+                                </tbody>
+                            </table>
+                        </div>
+                    }
+                </div>
+            </div>
+        </div>
+
+        <!-- Recent Audit Events -->
+        <div class="col-lg-6">
+            <div class="card border-0 shadow-sm">
+                <div class="card-header bg-white d-flex align-items-center">
+                    <i class="bi bi-journal-text text-warning me-2"></i>
+                    <strong>Recent Audit Events</strong>
+                </div>
+                <div class="card-body p-0">
+                    @if (recentAuditEvents == null || !recentAuditEvents.Any())
+                    {
+                        <p class="text-muted p-3">No recent audit events.</p>
+                    }
+                    else
+                    {
+                        <div class="table-responsive">
+                            <table class="table table-sm table-hover mb-0">
+                                <thead class="table-light">
+                                    <tr>
+                                        <th>User</th>
+                                        <th>Action</th>
+                                        <th>Resource</th>
+                                        <th>Time</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    @foreach (var evt in recentAuditEvents)
+                                    {
+                                        <tr>
+                                            <td class="small fw-semibold">@GetUserName(evt.UserId)</td>
+                                            <td><span class="badge bg-info text-dark small">@evt.Action</span></td>
+                                            <td class="small">@evt.ResourceType</td>
+                                            <td class="small">@UserTimeZone.ToLocal(evt.Timestamp).ToString("dd MMM HH:mm")</td>
+                                        </tr>
+                                    }
+                                </tbody>
+                            </table>
+                        </div>
+                    }
+                </div>
+            </div>
+        </div>
+    </div>
+}
+
+@code {
+    private CareSphere.Services.TenantStats? stats;
+    private List<CareSphere.Models.UserSession>? recentSessions;
+    private List<CareSphere.Models.AuditEvent>? recentAuditEvents;
+    private Dictionary<string, string> userNameCache = new();
+
+    protected override async Task OnInitializedAsync()
+    {
+        var tenantId = GetTenantId();
+        stats = await TenantService.GetTenantStatsAsync(tenantId);
+
+        recentSessions = await DbContext.UserSessions
+            .Where(s => s.TenantId == tenantId)
+            .OrderByDescending(s => s.CreatedAt)
+            .Take(10)
+            .ToListAsync();
+
+        var auditResult = await AuditLogService.GetAuditLogsAsync(tenantId, pageSize: 10);
+        recentAuditEvents = auditResult.Items;
+
+        // Resolve user names for both sessions and audit events
+        var allUserIds = new HashSet<string>();
+        if (recentSessions != null)
+            foreach (var s in recentSessions) allUserIds.Add(s.UserId);
+        if (recentAuditEvents != null)
+            foreach (var e in recentAuditEvents) allUserIds.Add(e.UserId);
+
+        foreach (var uid in allUserIds)
+        {
+            var user = await DbContext.Users
+                .Cast<CareSphere.Models.ApplicationUser>()
+                .FirstOrDefaultAsync(u => u.Id == uid);
+            userNameCache[uid] = user?.FullName ?? uid.Substring(0, Math.Min(8, uid.Length)) + "...";
+        }
+    }
+
+    private string GetUserName(string userId)
+    {
+        return userNameCache.TryGetValue(userId, out var name) ? name : userId.Substring(0, Math.Min(8, userId.Length)) + "...";
+    }
+
+    private Guid GetTenantId()
+    {
+        var tenantIdStr = Configuration["App:DefaultTenantId"] ?? "00000000-0000-0000-0000-000000000001";
+        return Guid.TryParse(tenantIdStr, out var id) ? id : Guid.Empty;
+    }
+}

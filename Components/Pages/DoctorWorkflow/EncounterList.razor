@@ -1,4 +1,5 @@
 @page "/encounters"
+@attribute [Microsoft.AspNetCore.Authorization.Authorize(Policy = PolicyNames.Permission_Encounters_View)]
 @using CareSphere.Models
 @inject CareSphere.Services.IEncounterService EncounterService
 @inject NavigationManager NavigationManager
@@ -142,3 +143,4 @@ else
         encounters = await EncounterService.GetAllEncountersAsync(SearchTerm, StatusFilter, TypeFilter);
     }
 }
+

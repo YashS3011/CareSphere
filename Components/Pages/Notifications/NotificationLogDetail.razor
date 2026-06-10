@@ -1,0 +1,232 @@
+@page "/notifications/logs/{id:guid}"
+@attribute [Microsoft.AspNetCore.Authorization.Authorize(Policy = PolicyNames.Permission_Admin_ManageTenant)]
+@rendermode InteractiveServer
+@using CareSphere.Models
+@using CareSphere.Services
+@inject CareSphere.Data.ApplicationDbContext DbContext
+@inject INotificationSenderService SenderService
+@inject NavigationManager NavigationManager
+
+<PageTitle>Notification Log Detail - CareSphere</PageTitle>
+
+<div class="container-fluid py-4">
+    <div class="row justify-content-center">
+        <div class="col-lg-8 col-md-10">
+            <div class="d-flex align-items-center mb-4">
+                <a href="/notifications/dashboard" class="btn btn-outline-secondary btn-sm me-3">
+                    <i class="bi bi-arrow-left"></i> Dashboard
+                </a>
+                <h1 class="h3 text-gray-800 m-0">Notification Log Details</h1>
+            </div>
+
+            @if (log == null)
+            {
+                <div class="text-center py-5">
+                    <div class="spinner-border text-primary" role="status"></div>
+                </div>
+            }
+            else
+            {
+                <div class="card shadow-sm border-0 mb-4">
+                    <div class="card-header bg-white py-3 border-bottom d-flex justify-content-between align-items-center">
+                        <div>
+                            <h5 class="m-0 font-weight-bold text-primary">
+                                <i class="bi bi-info-circle me-2"></i> Log ID: @log.Id
+                            </h5>
+                            <span class="badge @GetChannelBadgeClass(log.Channel) mt-1">@log.Channel</span>
+                            <span class="badge @GetStatusBadgeClass(log.Status) mt-1">@log.Status</span>
+                        </div>
+                        @if (log.Status.Equals("Failed", StringComparison.OrdinalIgnoreCase))
+                        {
+                            <button class="btn btn-primary btn-sm" @onclick="RetryNow" disabled="@isRetrying">
+                                @if (isRetrying)
+                                {
+                                    <span class="spinner-border spinner-border-sm me-1"></span>
+                                }
+                                else
+                                {
+                                    <i class="bi bi-arrow-repeat me-1"></i>
+                                }
+                                Retry Now
+                            </button>
+                        }
+                    </div>
+                    <div class="card-body p-4">
+                        @if (!string.IsNullOrEmpty(alertMessage))
+                        {
+                            <div class="alert alert-info mb-4">@alertMessage</div>
+                        }
+
+                        <div class="row mb-4">
+                            <div class="col-md-6 mb-3">
+                                <label class="text-uppercase text-secondary small font-weight-bold d-block">Recipient Name</label>
+                                <strong>@(log.RecipientName ?? "N/A")</strong>
+                            </div>
+                            <div class="col-md-6 mb-3">
+                                <label class="text-uppercase text-secondary small font-weight-bold d-block">Phone Number</label>
+                                <span>@(log.RecipientPhone ?? "N/A")</span>
+                            </div>
+                        </div>
+
+                        <div class="row mb-4">
+                            <div class="col-md-6 mb-3">
+                                <label class="text-uppercase text-secondary small font-weight-bold d-block">Alert Type</label>
+                                <span>@FormatNotificationType(log.NotificationType)</span>
+                            </div>
+                            <div class="col-md-6 mb-3">
+                                <label class="text-uppercase text-secondary small font-weight-bold d-block">Language Code</label>
+                                <span class="badge bg-light text-dark border">@log.Language</span>
+                            </div>
+                        </div>
+
+                        <div class="row mb-4">
+                            <div class="col-md-6 mb-3">
+                                <label class="text-uppercase text-secondary small font-weight-bold d-block">Created At</label>
+                                <span>@log.CreatedAt.ToLocalTime().ToString("f")</span>
+                            </div>
+                            <div class="col-md-6 mb-3">
+                                <label class="text-uppercase text-secondary small font-weight-bold d-block">Sent At</label>
+                                <span>@(log.SentAt.HasValue ? log.SentAt.Value.ToLocalTime().ToString("f") : "Not Sent Yet")</span>
+                            </div>
+                        </div>
+
+                        <hr />
+
+                        <div class="mb-4">
+                            <label class="text-uppercase text-secondary small font-weight-bold d-block mb-1">Message Body</label>
+                            <div class="p-3 bg-light border rounded">
+                                <p class="mb-0 fs-6 whitespace-pre-line">@log.MessageBody</p>
+                            </div>
+                        </div>
+
+                        <hr />
+
+                        <h6 class="font-weight-bold text-secondary mb-3"><i class="bi bi-gear me-1"></i> Provider Diagnostics</h6>
+
+                        <div class="row mb-3">
+                            <div class="col-md-6 mb-2">
+                                <label class="text-uppercase text-secondary small font-weight-bold d-block">Twilio / Provider Message SID</label>
+                                <span class="font-monospace text-dark">@(log.ProviderMessageId ?? "N/A")</span>
+                            </div>
+                            <div class="col-md-6 mb-2">
+                                <label class="text-uppercase text-secondary small font-weight-bold d-block">Provider Response Code</label>
+                                <span>@(log.ProviderResponse ?? "N/A")</span>
+                            </div>
+                        </div>
+
+                        <div class="row mb-3">
+                            <div class="col-md-6 mb-2">
+                                <label class="text-uppercase text-secondary small font-weight-bold d-block">Retry Count</label>
+                                <span>@log.RetryCount / @log.MaxRetries Attempts</span>
+                            </div>
+                            <div class="col-md-6 mb-2">
+                                <label class="text-uppercase text-secondary small font-weight-bold d-block">Azure Service Bus Message ID</label>
+                                <span class="font-monospace">@(log.ServiceBusMessageId ?? "N/A")</span>
+                            </div>
+                        </div>
+
+                        @if (!string.IsNullOrEmpty(log.FailureReason))
+                        {
+                            <div class="alert alert-danger mb-0 mt-3">
+                                <h6 class="alert-heading font-weight-bold"><i class="bi bi-x-circle me-1"></i> Failure Reason:</h6>
+                                <p class="mb-0 font-monospace small">@log.FailureReason</p>
+                            </div>
+                        }
+                    </div>
+                </div>
+            }
+        </div>
+    </div>
+</div>
+
+<style>
+    .whitespace-pre-line {
+        white-space: pre-line;
+    }
+</style>
+
+@code {
+    [Parameter]
+    public Guid Id { get; set; }
+
+    private NotificationLog? log;
+    private string? alertMessage;
+    private bool isRetrying = false;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadLog();
+    }
+
+    private async Task LoadLog()
+    {
+        log = await DbContext.NotificationLogs.FindAsync(Id);
+    }
+
+    private async Task RetryNow()
+    {
+        if (log == null) return;
+        try
+        {
+            isRetrying = true;
+            alertMessage = null;
+
+            var result = await SenderService.RetryLogAsync(log.Id);
+            if (result)
+            {
+                alertMessage = "Notification retried successfully. Message delivered.";
+            }
+            else
+            {
+                alertMessage = "Retry operation triggered, check updated details below.";
+            }
+        }
+        catch (Exception ex)
+        {
+            alertMessage = $"Error: {ex.Message}";
+        }
+        finally
+        {
+            isRetrying = false;
+            await LoadLog();
+        }
+    }
+
+    private string GetChannelBadgeClass(string channel)
+    {
+        return channel.ToLower() switch
+        {
+            "sms" => "bg-primary text-white",
+            "whatsapp" => "bg-success text-white",
+            "voice" => "bg-warning text-dark",
+            "inapp" => "bg-info text-dark",
+            _ => "bg-secondary text-white"
+        };
+    }
+
+    private string GetStatusBadgeClass(string status)
+    {
+        return status.ToLower() switch
+        {
+            "sent" or "delivered" => "bg-success text-white",
+            "failed" => "bg-danger text-white",
+            "pending" => "bg-warning text-dark",
+            "skipped" => "bg-secondary text-white",
+            _ => "bg-secondary text-white"
+        };
+    }
+
+    private string FormatNotificationType(string type)
+    {
+        return type switch
+        {
+            "AppointmentReminder" => "Appointment Reminder",
+            "FollowUpReminder" => "Follow-up Reminder",
+            "DischargeNotification" => "Discharge Notice",
+            "LabReportReady" => "Lab Report Ready",
+            "GeneralAlert" => "General Alert",
+            _ => type
+        };
+    }
+}
+

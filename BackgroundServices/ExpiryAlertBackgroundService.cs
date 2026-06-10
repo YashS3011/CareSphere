@@ -42,14 +42,23 @@ namespace CareSphere.BackgroundServices
 
                         // Discover all active tenants that have pharmacy items
                         var tenantIds = await context.PharmacyItems
+                            .IgnoreQueryFilters()
                             .Select(pi => pi.TenantId)
                             .Distinct()
                             .ToListAsync(stoppingToken);
 
                         foreach (var tenantId in tenantIds)
                         {
-                            _logger.LogInformation($"Running expiry check for Tenant: {tenantId}");
-                            await expiryService.CheckAndGenerateExpiryAlertsAsync(tenantId);
+                            try
+                            {
+                                CareSphere.Infrastructure.TenantContext.BypassTenantId = tenantId;
+                                _logger.LogInformation($"Running expiry check for Tenant: {tenantId}");
+                                await expiryService.CheckAndGenerateExpiryAlertsAsync(tenantId);
+                            }
+                            finally
+                            {
+                                CareSphere.Infrastructure.TenantContext.BypassTenantId = null;
+                            }
                         }
                     }
                 }

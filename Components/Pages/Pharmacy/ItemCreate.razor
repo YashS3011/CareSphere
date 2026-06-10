@@ -1,4 +1,5 @@
 @page "/pharmacy/items/create"
+@attribute [Microsoft.AspNetCore.Authorization.Authorize(Policy = PolicyNames.Permission_Pharmacy_ViewStock)]
 @using CareSphere.Models
 @using CareSphere.Services
 @using CareSphere.Components
@@ -181,3 +182,4 @@
         }
     }
 }
+

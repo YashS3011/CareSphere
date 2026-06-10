@@ -15,11 +15,30 @@ namespace CareSphere.Services
             _auditService = auditService;
         }
 
+        /// <summary>
+        /// Ensures a DateTime has Kind=Utc. If Kind is Unspecified or Local, converts to UTC.
+        /// </summary>
+        private static DateTime NormalizeToUtc(DateTime dt)
+        {
+            return dt.Kind switch
+            {
+                DateTimeKind.Utc => dt,
+                DateTimeKind.Local => dt.ToUniversalTime(),
+                _ => DateTime.SpecifyKind(dt, DateTimeKind.Utc) // Unspecified → treat as UTC
+            };
+        }
+
+        private static DateTime? NormalizeToUtc(DateTime? dt)
+        {
+            return dt.HasValue ? NormalizeToUtc(dt.Value) : null;
+        }
+
         public async Task<GoodsReceivedNote> CreateGrnAsync(GoodsReceivedNote grn)
         {
             grn.Id = Guid.NewGuid();
             grn.CreatedAt = DateTime.UtcNow;
             grn.Status = "Draft";
+            grn.ReceivedDate = NormalizeToUtc(grn.ReceivedDate);
 
             // Generate GRN Number: GRN-YYYYMMDD-XXXX
             var todayStr = DateTime.UtcNow.ToString("yyyyMMdd");
@@ -33,9 +52,8 @@ namespace CareSphere.Services
                 item.Id = Guid.NewGuid();
                 item.GrnId = grn.Id;
                 item.TenantId = grn.TenantId;
-                item.TotalAmount = (item.ReceivedQuantity + item.FreeQuantity) * item.PurchasePrice; // free quantity doesn't add purchase cost, but let's calculate based on standard accounting rules:
-                // Wait! Typically free_quantity is free, so total_amount = received_quantity * purchase_price.
-                // Let's compute: total_amount = received_quantity * purchase_price.
+                item.ExpiryDate = NormalizeToUtc(item.ExpiryDate);
+                item.ManufactureDate = NormalizeToUtc(item.ManufactureDate);
                 item.TotalAmount = item.ReceivedQuantity * item.PurchasePrice;
                 total += item.TotalAmount;
             }
@@ -120,7 +138,7 @@ namespace CareSphere.Services
 
             existing.SupplierId = grn.SupplierId;
             existing.PoId = grn.PoId;
-            existing.ReceivedDate = grn.ReceivedDate;
+            existing.ReceivedDate = NormalizeToUtc(grn.ReceivedDate);
             existing.InvoiceNumber = grn.InvoiceNumber;
             existing.Notes = grn.Notes;
 
@@ -141,8 +159,8 @@ namespace CareSphere.Services
                 {
                     existingItem.ItemId = inputItem.ItemId;
                     existingItem.BatchNumber = inputItem.BatchNumber;
-                    existingItem.ManufactureDate = inputItem.ManufactureDate;
-                    existingItem.ExpiryDate = inputItem.ExpiryDate;
+                    existingItem.ManufactureDate = NormalizeToUtc(inputItem.ManufactureDate);
+                    existingItem.ExpiryDate = NormalizeToUtc(inputItem.ExpiryDate);
                     existingItem.ReceivedQuantity = inputItem.ReceivedQuantity;
                     existingItem.FreeQuantity = inputItem.FreeQuantity;
                     existingItem.PurchasePrice = inputItem.PurchasePrice;
@@ -154,6 +172,8 @@ namespace CareSphere.Services
                     inputItem.Id = Guid.NewGuid();
                     inputItem.GrnId = existing.Id;
                     inputItem.TenantId = existing.TenantId;
+                    inputItem.ExpiryDate = NormalizeToUtc(inputItem.ExpiryDate);
+                    inputItem.ManufactureDate = NormalizeToUtc(inputItem.ManufactureDate);
                     existing.Items.Add(inputItem);
                 }
             }
@@ -210,9 +230,9 @@ namespace CareSphere.Services
                         batch.CurrentStock += totalReceived;
                         batch.PurchasePrice = grnItem.PurchasePrice;
                         batch.SellingPrice = grnItem.SellingPrice;
-                        batch.ExpiryDate = grnItem.ExpiryDate; // Update expiry if changed
+                        batch.ExpiryDate = NormalizeToUtc(grnItem.ExpiryDate); // Update expiry if changed
                         if (grnItem.ManufactureDate.HasValue)
-                            batch.ManufactureDate = grnItem.ManufactureDate;
+                            batch.ManufactureDate = NormalizeToUtc(grnItem.ManufactureDate);
 
                         _context.PharmacyBatches.Update(batch);
                     }
@@ -226,8 +246,8 @@ namespace CareSphere.Services
                             ItemId = grnItem.ItemId,
                             BatchNumber = grnItem.BatchNumber,
                             SupplierId = grn.SupplierId,
-                            ManufactureDate = grnItem.ManufactureDate,
-                            ExpiryDate = grnItem.ExpiryDate,
+                            ManufactureDate = NormalizeToUtc(grnItem.ManufactureDate),
+                            ExpiryDate = NormalizeToUtc(grnItem.ExpiryDate),
                             PurchasePrice = grnItem.PurchasePrice,
                             SellingPrice = grnItem.SellingPrice,
                             CurrentStock = totalReceived,
