@@ -1,0 +1,85 @@
+@inherits LayoutComponentBase
+@using Microsoft.AspNetCore.Components.Routing
+@using Microsoft.AspNetCore.Components.Authorization
+@using CareSphere.Infrastructure
+@using CareSphere.Components
+
+<div class="page">
+    <div class="sidebar">
+        <div class="top-row ps-3 navbar navbar-dark bg-primary text-white">
+            <div class="container-fluid">
+                <a class="navbar-brand fw-bold" href=""><i class="bi bi-heart-pulse-fill me-2"></i>CareSphere</a>
+            </div>
+        </div>
+
+        <input type="checkbox" title="Navigation menu" class="navbar-toggler" />
+
+        <div class="nav-scrollable" onclick="document.querySelector('.navbar-toggler').click()">
+            <nav class="nav flex-column mt-3">
+                <AuthorizeView>
+                    <Authorized>
+                        <div class="px-3 mb-3 py-2 bg-primary bg-opacity-10 rounded mx-2">
+                            <div class="d-flex align-items-center">
+                                <div class="bg-primary bg-opacity-25 rounded-circle d-flex align-items-center justify-content-center me-2"
+                                     style="width: 36px; height: 36px; flex-shrink: 0;">
+                                    <i class="bi bi-person-fill text-primary"></i>
+                                </div>
+                                <div style="min-width: 0;">
+                                    <div class="fw-semibold small text-truncate text-white">
+                                        @(CurrentUserHelper.GetFullName(context.User) ?? context.User.Identity?.Name ?? "User")
+                                    </div>
+                                    <span class="badge bg-primary" style="font-size: 0.65rem;">
+                                        @(CurrentUserHelper.GetUserRole(context.User) ?? "")
+                                    </span>
+                                </div>
+                            </div>
+                        </div>
+                    </Authorized>
+                </AuthorizeView>
+
+                <div class="nav-item px-3">
+                    <NavLink class="nav-link" href="billing/dashboard" Match="NavLinkMatch.All">
+                        <i class="bi bi-speedometer2 me-3" aria-hidden="true"></i> Dashboard
+                    </NavLink>
+                </div>
+                <div class="nav-item px-3">
+                    <NavLink class="nav-link" href="billing/invoices">
+                        <i class="bi bi-file-earmark-text me-3" aria-hidden="true"></i> Invoices
+                    </NavLink>
+                </div>
+                <div class="nav-item px-3">
+                    <NavLink class="nav-link" href="billing/payments">
+                        <i class="bi bi-credit-card me-3" aria-hidden="true"></i> Payments
+                    </NavLink>
+                </div>
+                <div class="nav-item px-3">
+                    <NavLink class="nav-link" href="billing/claims">
+                        <i class="bi bi-shield-check me-3" aria-hidden="true"></i> Insurance Claims
+                    </NavLink>
+                </div>
+
+                <hr class="mx-3 my-2" />
+
+                <div class="nav-item px-3 mb-3">
+                    <a class="nav-link text-danger" href="/auth/logout">
+                        <i class="bi bi-box-arrow-right me-3" aria-hidden="true"></i> Sign Out
+                    </a>
+                </div>
+            </nav>
+        </div>
+    </div>
+
+    <main>
+        <ImpersonationBanner />
+        <div class="top-row px-4 justify-content-between">
+            <span class="navbar-brand fw-semibold text-primary">CareSphere — Billing &amp; Payments</span>
+            <a href="/" class="btn btn-outline-secondary btn-sm">
+                <i class="bi bi-house-door-fill"></i> Home
+            </a>
+        </div>
+
+        <article class="content px-4">
+            @Body
+        </article>
+    </main>
+</div>

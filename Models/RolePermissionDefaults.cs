@@ -95,15 +95,20 @@ namespace CareSphere.Models
                 CareSpherePermissions.Billing_ViewInvoices,
             },
 
-            // Nurse — care and basic bed allocation
+            // Nurse — ward nursing staff
+            // Can record vitals, view allotments, administer medications, write nursing notes
+            // Must NOT have prescribing, billing, or admin access
             [CareSphereRoles.Nurse] = new List<string>
             {
                 CareSpherePermissions.Patients_View,
-                CareSpherePermissions.Encounters_View,
-                CareSpherePermissions.Beds_View,
-                CareSpherePermissions.Beds_Allocate,
-                CareSpherePermissions.Lab_CollectSample,
-                CareSpherePermissions.Lab_ViewReports,
+                CareSpherePermissions.BedAllotment_View,
+                CareSpherePermissions.Vitals_Create,
+                CareSpherePermissions.Vitals_View,
+                CareSpherePermissions.NursingNotes_Create,
+                CareSpherePermissions.NursingNotes_View,
+                CareSpherePermissions.MedicationAdmin_Create,
+                CareSpherePermissions.MedicationAdmin_View,
+                CareSpherePermissions.Queue_View
             },
 
             // Pharmacist — pharmacy operations
@@ -157,10 +162,40 @@ namespace CareSphere.Models
                 CareSpherePermissions.Billing_ViewInvoices,
             },
 
-            // Patient — access own record only (enforced at service level)
+            // Patient (portal) — future patient-facing portal role
+            // Read-only access to their own records only
             [CareSphereRoles.Patient] = new List<string>
             {
+                CareSpherePermissions.OwnRecords_View,
+                CareSpherePermissions.OwnInvoices_Download,
+                CareSpherePermissions.Appointments_Book
+            },
+
+            // Receptionist — front desk staff
+            // Can manage patients and queues but must NOT have Billing.Edit or any EMR access
+            [CareSphereRoles.Receptionist] = new List<string>
+            {
                 CareSpherePermissions.Patients_View,
+                CareSpherePermissions.Patients_Create,
+                CareSpherePermissions.Patients_Edit,
+                CareSpherePermissions.Queue_Manage,
+                CareSpherePermissions.Appointments_Create,
+                CareSpherePermissions.Appointments_View,
+                CareSpherePermissions.BedAllotment_View,
+                CareSpherePermissions.Billing_View
+            },
+
+            // BillingStaff — dedicated billing and insurance clerks
+            // Can fully manage billing and claims but must NOT change user roles or access EMR
+            [CareSphereRoles.BillingStaff] = new List<string>
+            {
+                CareSpherePermissions.Patients_View,
+                CareSpherePermissions.Billing_View,
+                CareSpherePermissions.Billing_Create,
+                CareSpherePermissions.Billing_Edit,
+                CareSpherePermissions.Payments_Manage,
+                CareSpherePermissions.InsuranceClaims_Manage,
+                CareSpherePermissions.InsuranceClaims_View
             },
         };
     }

@@ -1,7 +1,8 @@
 @page "/platform-admin/tenants/edit/{id:guid}"
 @layout CareSphere.Areas.PlatformAdmin.Layout.PlatformAdminLayout
+@rendermode InteractiveServer
 @inject CareSphere.Data.ApplicationDbContext DbContext
-@inject CareSphere.Services.ITenantService TenantService
+@inject ITenantService TenantService
 @inject AuthenticationStateProvider AuthStateProvider
 @inject NavigationManager NavigationManager
 @using Microsoft.EntityFrameworkCore

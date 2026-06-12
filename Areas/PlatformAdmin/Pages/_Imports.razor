@@ -1,6 +1,14 @@
 @using CareSphere.Areas.PlatformAdmin
 @using CareSphere.Areas.PlatformAdmin.Pages
 @using CareSphere.Models
-@using CareSphere.Services
+@using CareSphere.Modules.Clinical.Services
+@using CareSphere.Modules.Laboratory.Services
+@using CareSphere.Modules.Pharmacy.Services
+@using CareSphere.Modules.Billing.Services
+@using CareSphere.Modules.Patients.Services
+@using CareSphere.Modules.Ward.Services
+@using CareSphere.Modules.Notifications.Services
+@using CareSphere.Modules.Admin.Services
+@using CareSphere.Modules.Shared.Services
 @using Microsoft.AspNetCore.Authorization
 @attribute [Authorize(Policy = "PlatformSuperAdmin")]

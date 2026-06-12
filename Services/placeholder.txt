@@ -1,0 +1,2 @@
+// This folder is deprecated. Services have been reorganized vertically into modules under /Modules.
+// A placeholder file is kept to maintain the folder directory structure.

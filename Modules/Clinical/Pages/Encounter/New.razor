@@ -1,0 +1,197 @@
+@page "/encounter/new"
+@attribute [Authorize(Policy = PolicyNames.Permission_Encounters_Create)]
+@using CareSphere.Models
+@inject IEncounterService EncounterService
+@inject IPatientReadModel PatientReadModel
+@inject IDoctorService DoctorService
+@inject NavigationManager NavigationManager
+@rendermode InteractiveServer
+
+<PageTitle>New Encounter - CareSphere</PageTitle>
+
+<h2>Start New Encounter</h2>
+<hr />
+
+<div class="row">
+    <div class="col-md-8">
+        <EditForm Model="@formModel" FormName="createEncounter" OnValidSubmit="ProcessValidSubmit">
+            <DataAnnotationsValidator />
+            <ValidationSummary class="alert alert-danger" />
+
+            <div class="card mb-4">
+                <div class="card-header bg-light">
+                    <h5 class="mb-0">Encounter Details</h5>
+                </div>
+                <div class="card-body">
+                    <div class="row g-3">
+
+                        <div class="col-md-12">
+                            <label class="form-label">Search and Select Patient *</label>
+                            <div class="input-group mb-2">
+                                <input type="text" class="form-control" placeholder="Search by name or MRN..." @bind="patientSearchQuery" />
+                                <button type="button" class="btn btn-secondary" @onclick="SearchPatients">Search</button>
+                            </div>
+                            
+                            @if (foundPatients != null)
+                            {
+                                <div class="list-group mb-3" style="max-height: 200px; overflow-y: auto;">
+                                    @foreach (var p in foundPatients)
+                                    {
+                                        <button type="button" class="list-group-item list-group-item-action d-flex justify-content-between align-items-center @(formModel.PatientIdAsString == p.Id.ToString() ? "active" : "")" @onclick="() => SelectPatient(p)">
+                                             <span>@p.FullName (MRN: @p.MRN)</span>
+                                             <span class="badge bg-light text-dark">Select</span>
+                                        </button>
+                                    }
+                                </div>
+                            }
+
+                            @if (selectedPatientSummary != null)
+                            {
+                                <div class="alert alert-info py-2 mb-0">
+                                    Selected Patient: <strong>@selectedPatientSummary.FullName (MRN: @selectedPatientSummary.MRN)</strong>
+                                </div>
+                            }
+                            <InputText type="hidden" @bind-Value="formModel.PatientIdAsString" />
+                            <ValidationMessage For="@(() => formModel.PatientIdAsString)" />
+                        </div>
+
+                        <div class="col-md-12">
+                            <label class="form-label">Select Doctor *</label>
+                            <InputSelect class="form-select" @bind-Value="formModel.DoctorIdAsString">
+                                <option value="">Select a Doctor</option>
+                                @if (doctors != null)
+                                {
+                                    @foreach (var d in doctors)
+                                    {
+                                        <option value="@d.Id">Dr. @d.FirstName @d.LastName (@d.Specialization)</option>
+                                    }
+                                }
+                            </InputSelect>
+                            <ValidationMessage For="@(() => formModel.DoctorIdAsString)" />
+                        </div>
+
+                        <div class="col-md-6">
+                            <label class="form-label">Encounter Type *</label>
+                            <InputSelect class="form-select" @bind-Value="formModel.EncounterType">
+                                <option value="">Select Type</option>
+                                <option value="OPD">OPD</option>
+                                <option value="IPD">IPD</option>
+                                <option value="Emergency">Emergency</option>
+                            </InputSelect>
+                            <ValidationMessage For="@(() => formModel.EncounterType)" />
+                        </div>
+
+                        <div class="col-md-6">
+                            <label class="form-label">Date *</label>
+                            <InputDate class="form-control" @bind-Value="formModel.AdmissionDate" />
+                            <ValidationMessage For="@(() => formModel.AdmissionDate)" />
+                        </div>
+
+                        <div class="col-md-12">
+                            <label class="form-label">Chief Complaint</label>
+                            <InputTextArea class="form-control" @bind-Value="formModel.ChiefComplaint" rows="3" placeholder="Describe the patient's chief complaint..." />
+                        </div>
+
+                    </div>
+                </div>
+            </div>
+
+            <div class="d-flex gap-2">
+                <button type="submit" class="btn btn-primary" disabled="@(isSubmitting || string.IsNullOrEmpty(formModel.PatientIdAsString))">
+                    @if (isSubmitting)
+                    {
+                        <span class="spinner-border spinner-border-sm me-1"></span>
+                    }
+                    Start Encounter
+                </button>
+                <a href="/encounters" class="btn btn-secondary">Cancel</a>
+            </div>
+
+            @if (!string.IsNullOrEmpty(errorMessage))
+            {
+                <div class="alert alert-danger mt-3">@errorMessage</div>
+            }
+
+        </EditForm>
+    </div>
+</div>
+
+@code {
+    [SupplyParameterFromForm]
+    public EncounterFormModel formModel { get; set; } = new() { AdmissionDate = DateTime.Now };
+
+    public class EncounterFormModel
+    {
+        [System.ComponentModel.DataAnnotations.Required(ErrorMessage = "Please select a patient by searching above.")]
+        public string PatientIdAsString { get; set; } = string.Empty;
+
+        [System.ComponentModel.DataAnnotations.Required(ErrorMessage = "Please select a doctor.")]
+        public string DoctorIdAsString { get; set; } = string.Empty;
+
+        [System.ComponentModel.DataAnnotations.Required(ErrorMessage = "Encounter type is required.")]
+        public string EncounterType { get; set; } = string.Empty;
+
+        [System.ComponentModel.DataAnnotations.Required]
+        public DateTime AdmissionDate { get; set; }
+
+        public string? ChiefComplaint { get; set; }
+    }
+
+    private string patientSearchQuery = string.Empty;
+    private IEnumerable<PatientSummary>? foundPatients;
+    private PatientSummary? selectedPatientSummary;
+    private List<Doctor>? doctors;
+    private bool isSubmitting = false;
+    private string errorMessage = string.Empty;
+
+    protected override async Task OnInitializedAsync()
+    {
+        doctors = await DoctorService.GetActiveDoctorsAsync();
+    }
+
+    private async Task SearchPatients()
+    {
+        if (!string.IsNullOrWhiteSpace(patientSearchQuery))
+        {
+            foundPatients = await PatientReadModel.SearchAsync(patientSearchQuery, Guid.Empty);
+        }
+    }
+
+    private void SelectPatient(PatientSummary summary)
+    {
+        selectedPatientSummary = summary;
+        formModel.PatientIdAsString = summary.Id.ToString();
+    }
+
+    private async Task ProcessValidSubmit()
+    {
+        try
+        {
+            isSubmitting = true;
+            errorMessage = string.Empty;
+
+            var encounter = new Encounter
+            {
+                PatientId = Guid.Parse(formModel.PatientIdAsString),
+                DoctorId = Guid.Parse(formModel.DoctorIdAsString),
+                EncounterType = formModel.EncounterType,
+                AdmissionDate = formModel.AdmissionDate.ToUniversalTime(),
+                ChiefComplaint = formModel.ChiefComplaint,
+                Status = "Planned"
+            };
+
+            var created = await EncounterService.CreateEncounterAsync(encounter);
+
+            NavigationManager.NavigateTo($"/encounter/view/{created.Id}");
+        }
+        catch (Microsoft.AspNetCore.Components.NavigationException)
+        {
+            throw;
+        }
+        catch (Exception ex)
+        {
+            errorMessage = $"Error creating encounter: {ex.Message}";
+            isSubmitting = false;
+        }
+    }
+}

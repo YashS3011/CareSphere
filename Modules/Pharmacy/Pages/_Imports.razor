@@ -1,0 +1,6 @@
+@using CareSphere.Modules.Pharmacy.Services
+@using CareSphere.Modules.Pharmacy.Layout
+@using CareSphere.Modules.Shared.ReadModels
+@using CareSphere.Models
+@layout PharmacyLayout
+@attribute [Authorize(Policy = "HasPermission")]

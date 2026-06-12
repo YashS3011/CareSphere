@@ -1,0 +1,6 @@
+@using CareSphere.Modules.Billing.Services
+@using CareSphere.Modules.Billing.Layout
+@using CareSphere.Modules.Shared.ReadModels
+@using CareSphere.Models
+@layout BillingLayout
+@attribute [Authorize(Policy = "HasPermission")]

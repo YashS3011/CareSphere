@@ -1,0 +1,343 @@
+@page "/laboratory/requisitions/{id:guid}"
+@attribute [Microsoft.AspNetCore.Authorization.Authorize(Policy = PolicyNames.Permission_Lab_ViewReports)]
+@using CareSphere.Models
+@using CareSphere.Modules.Laboratory.Services
+@using CareSphere.Modules.Shared.Services
+@using CareSphere.Data
+@using Microsoft.EntityFrameworkCore
+@inject ILabRequisitionService RequisitionService
+@inject ILabSampleService SampleService
+@inject ILabReportService ReportService
+@inject ApplicationDbContext DbContext
+@inject NavigationManager NavigationManager
+@rendermode InteractiveServer
+
+<PageTitle>Lab Requisition Details - CareSphere</PageTitle>
+
+<div class="container py-4" style="max-width: 1000px;">
+    <!-- Back Link -->
+    <div class="mb-3 d-flex justify-content-between align-items-center">
+        <a href="/laboratory/requisitions" class="btn btn-link p-0 text-decoration-none link-secondary small">
+            <i class="bi bi-arrow-left"></i> Back to Requisitions
+        </a>
+        <div class="d-flex gap-2">
+            @if (requisition != null)
+            {
+                @if (requisition.Status == "Ordered")
+                {
+                    <a href="/laboratory/requisitions/@requisition.Id/collect-sample" class="btn btn-warning shadow-sm small-btn">
+                        <i class="bi bi-droplet-fill me-1"></i> Collect Sample
+                    </a>
+                }
+                
+                @if (unreceivedSample != null)
+                {
+                    <button class="btn btn-info text-white shadow-sm small-btn" @onclick="ReceiveSample">
+                        <i class="bi bi-box-arrow-in-right me-1"></i> Receive Sample
+                    </button>
+                }
+
+                @if (requisition.Status == "Completed" || requisition.Items.All(i => i.Status == "Completed"))
+                {
+                    <button class="btn btn-primary shadow-sm small-btn" @onclick="GenerateReport">
+                        <i class="bi bi-file-earmark-medical me-1"></i> Generate Report
+                    </button>
+                }
+
+                @if (latestReport != null)
+                {
+                    <a href="/@latestReport.StoragePath" target="_blank" class="btn btn-success shadow-sm small-btn">
+                        <i class="bi bi-download me-1"></i> Download Report
+                    </a>
+                }
+            }
+        </div>
+    </div>
+
+    @if (loading)
+    {
+        <div class="d-flex justify-content-center my-5">
+            <div class="spinner-border text-primary" role="status">
+                <span class="visually-hidden">Loading requisition details...</span>
+            </div>
+        </div>
+    }
+    else if (requisition == null)
+    {
+        <div class="alert alert-danger">
+            Lab requisition not found.
+        </div>
+    }
+    else
+    {
+        @if (!string.IsNullOrEmpty(successMessage))
+        {
+            <div class="alert alert-success py-2 small mb-3">@successMessage</div>
+        }
+
+        <!-- Header -->
+        <div class="card border-0 shadow-sm rounded-4 mb-4">
+            <div class="card-header bg-white py-3 px-4 border-bottom d-flex justify-content-between align-items-center">
+                <h5 class="fw-bold text-dark mb-0">Requisition: @requisition.RequisitionNumber</h5>
+                <div>
+                    <span class="badge @GetPriorityBadgeClass(requisition.Priority) me-2 px-3 py-2">
+                        @requisition.Priority Priority
+                    </span>
+                    <span class="badge @GetStatusBadgeClass(requisition.Status) px-3 py-2">
+                        Status: @requisition.Status
+                    </span>
+                </div>
+            </div>
+            <div class="card-body p-4">
+                <div class="row g-4 mb-3">
+                    <div class="col-md-4">
+                        <div class="text-muted small fw-semibold uppercase fs-9 mb-1">Patient Details</div>
+                        <div class="fw-bold text-dark">@requisition.Patient.FirstName @requisition.Patient.LastName</div>
+                        <div class="small text-muted">MRN: <span class="font-monospace text-dark fw-semibold">@requisition.Patient.Mrn</span></div>
+                        <div class="small text-muted">DOB: @requisition.Patient.DateOfBirth.ToString("d")</div>
+                        <div class="small text-muted">Gender: @requisition.Patient.Gender</div>
+                    </div>
+
+                    <div class="col-md-4">
+                        <div class="text-muted small fw-semibold uppercase fs-9 mb-1">Ordered By</div>
+                        <div class="fw-bold text-dark">Dr. @requisition.OrderedByDoctor.FirstName @requisition.OrderedByDoctor.LastName</div>
+                        <div class="small text-muted">Specialization: @requisition.OrderedByDoctor.Specialization</div>
+                        <div class="small text-muted">Reg No: @requisition.OrderedByDoctor.RegistrationNumber</div>
+                    </div>
+
+                    <div class="col-md-4">
+                        <div class="text-muted small fw-semibold uppercase fs-9 mb-1">Timing Details</div>
+                        <div class="small text-muted">Ordered At: <span class="text-dark fw-semibold">@requisition.OrderedAt.ToLocalTime().ToString("g")</span></div>
+                        @if (requisition.UpdatedAt.HasValue)
+                        {
+                            <div class="small text-muted">Last Updated: <span class="text-dark fw-semibold">@requisition.UpdatedAt.Value.ToLocalTime().ToString("g")</span></div>
+                        }
+                    </div>
+                </div>
+
+                @if (!string.IsNullOrEmpty(requisition.ClinicalNotes))
+                {
+                    <div class="border-top pt-3">
+                        <div class="text-muted small fw-semibold uppercase fs-9 mb-1">Clinical Notes & Remarks</div>
+                        <p class="text-dark mb-0 small italic">@requisition.ClinicalNotes</p>
+                    </div>
+                }
+            </div>
+        </div>
+
+        <!-- Ordered Tests -->
+        <div class="card border-0 shadow-sm rounded-4 mb-4">
+            <div class="card-header bg-white py-3 px-4 border-bottom">
+                <h5 class="fw-bold text-dark mb-0">Ordered Tests & Results</h5>
+            </div>
+            <div class="table-responsive">
+                <table class="table align-middle mb-0 small">
+                    <thead class="table-light fs-8 text-uppercase text-muted">
+                        <tr>
+                            <th>Test Name</th>
+                            <th>Sample Requirement</th>
+                            <th>Status</th>
+                            <th class="text-center" style="width: 20%;">Action</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var item in requisition.Items)
+                        {
+                            <tr>
+                                <td class="fw-semibold text-dark">@item.Test.TestName <span class="font-monospace text-muted text-uppercase" style="font-size: 0.75rem;">(@item.Test.TestCode)</span></td>
+                                <td>@item.Test.SampleType</td>
+                                <td>
+                                    <span class="badge @GetStatusBadgeClass(item.Status)">
+                                        @item.Status
+                                    </span>
+                                </td>
+                                <td class="text-center">
+                                    @if (item.Status == "Processing" || requisition.Status == "Processing")
+                                    {
+                                        <a href="/laboratory/requisitions/@item.Id/results" class="btn btn-xs btn-outline-primary px-3 fs-8">
+                                            <i class="bi bi-pencil-square me-1"></i> Enter Results
+                                        </a>
+                                    }
+                                    else if (item.Status == "Completed")
+                                    {
+                                        <a href="/laboratory/requisitions/@item.Id/results" class="btn btn-xs btn-outline-success px-3 fs-8">
+                                            <i class="bi bi-eye-fill me-1"></i> View Results
+                                        </a>
+                                    }
+                                    else
+                                    {
+                                        <span class="text-muted small">-</span>
+                                    }
+                                </td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <!-- Samples Collected -->
+        <div class="card border-0 shadow-sm rounded-4">
+            <div class="card-header bg-white py-3 px-4 border-bottom">
+                <h5 class="fw-bold text-dark mb-0">Collected Specimens</h5>
+            </div>
+            <div class="table-responsive">
+                <table class="table align-middle mb-0 small">
+                    <thead class="table-light fs-8 text-uppercase text-muted">
+                        <tr>
+                            <th>Specimen Type</th>
+                            <th>Collected At</th>
+                            <th>Collected By</th>
+                            <th>Barcode Label</th>
+                            <th>Received Status</th>
+                            <th>Received Details</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @if (requisition.Samples == null || !requisition.Samples.Any())
+                        {
+                            <tr>
+                                <td colspan="6" class="text-center py-4 text-muted">No specimen samples collected for this order yet.</td>
+                            </tr>
+                        }
+                        else
+                        {
+                            @foreach (var sample in requisition.Samples)
+                            {
+                                <tr>
+                                    <td class="fw-semibold">@sample.SampleType</td>
+                                    <td>@sample.CollectedAt.ToLocalTime().ToString("g")</td>
+                                    <td>@sample.CollectedByUserId</td>
+                                    <td class="font-monospace text-uppercase">@(sample.BarcodeLabel ?? "-")</td>
+                                    <td>
+                                        <span class="badge @(sample.IsReceived ? "bg-success" : "bg-warning text-dark")">
+                                            @(sample.IsReceived ? "Received" : "Pending Receipt")
+                                        </span>
+                                    </td>
+                                    <td class="text-muted">
+                                        @if (sample.IsReceived)
+                                        {
+                                            <span>Received at @sample.ReceivedAt?.ToLocalTime().ToString("g") by @sample.ReceivedByUserId</span>
+                                        }
+                                        else
+                                        {
+                                            <span>-</span>
+                                        }
+                                    </td>
+                                </tr>
+                            }
+                        }
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    }
+</div>
+
+@code {
+    [Parameter]
+    public Guid id { get; set; }
+
+    private bool loading = true;
+    private LabRequisition? requisition;
+    private LabSample? unreceivedSample;
+    private LabReport? latestReport;
+    private string successMessage = string.Empty;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadRequisitionDetails();
+    }
+
+    private async Task LoadRequisitionDetails()
+    {
+        try
+        {
+            loading = true;
+            requisition = await RequisitionService.GetRequisitionByIdAsync(id);
+            if (requisition != null)
+            {
+                unreceivedSample = requisition.Samples.FirstOrDefault(s => !s.IsReceived);
+                latestReport = await DbContext.LabReports
+                    .FirstOrDefaultAsync(r => r.RequisitionId == id && r.IsLatest);
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error loading requisition details: {ex.Message}");
+        }
+        finally
+        {
+            loading = false;
+        }
+    }
+
+    private async Task ReceiveSample()
+    {
+        if (unreceivedSample == null) return;
+
+        try
+        {
+            await SampleService.ReceiveSampleAsync(unreceivedSample.Id, "system");
+            successMessage = "Specimen sample successfully received and requisition status set to Processing.";
+            await LoadRequisitionDetails();
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error receiving sample: {ex.Message}");
+        }
+    }
+
+    private async Task GenerateReport()
+    {
+        if (requisition == null) return;
+
+        try
+        {
+            await ReportService.GenerateReportAsync(requisition.TenantId, requisition.Id);
+            successMessage = "Lab report compiled and generated successfully.";
+            await LoadRequisitionDetails();
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error generating report: {ex.Message}");
+        }
+    }
+
+    private string GetPriorityBadgeClass(string priority)
+    {
+        return priority switch
+        {
+            "Stat" => "bg-danger text-white",
+            "Urgent" => "bg-warning text-dark",
+            _ => "bg-success text-white"
+        };
+    }
+
+    private string GetStatusBadgeClass(string status)
+    {
+        return status switch
+        {
+            "Completed" => "bg-success text-white",
+            "Cancelled" => "bg-secondary text-white",
+            "Processing" => "bg-info text-info-emphasis",
+            "SampleCollected" => "bg-warning text-dark",
+            _ => "bg-primary text-white"
+        };
+    }
+}
+
+<style>
+    .fs-8 { font-size: 0.8rem !important; }
+    .fs-9 { font-size: 0.72rem !important; }
+    .small-btn {
+        padding: 0.25rem 0.75rem;
+        font-size: 0.85rem;
+    }
+    .btn-xs {
+        padding: 0.15rem 0.4rem;
+        font-size: 0.75rem;
+        line-height: 1.5;
+        border-radius: 0.2rem;
+    }
+</style>

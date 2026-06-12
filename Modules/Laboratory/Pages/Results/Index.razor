@@ -1,0 +1,135 @@
+@page "/laboratory/results"
+@attribute [Microsoft.AspNetCore.Authorization.Authorize(Policy = PolicyNames.Permission_Lab_EnterResults)]
+@using CareSphere.Models
+@using CareSphere.Modules.Laboratory.Services
+@using CareSphere.Data
+@using Microsoft.EntityFrameworkCore
+@inject ApplicationDbContext DbContext
+@inject NavigationManager NavigationManager
+@rendermode InteractiveServer
+
+<PageTitle>Result Entry Queue - CareSphere</PageTitle>
+
+<div class="container-fluid py-4">
+    <!-- Header -->
+    <div class="mb-4">
+        <h1 class="h3 mb-1 text-dark fw-bold"><i class="bi bi-clipboard-data me-2 text-primary"></i>Result Entry Queue</h1>
+        <p class="text-muted mb-0">List of laboratory requisition items pending result entry and verification</p>
+    </div>
+
+    @if (loading)
+    {
+        <div class="d-flex justify-content-center my-5">
+            <div class="spinner-border text-primary" role="status">
+                <span class="visually-hidden">Loading queue...</span>
+            </div>
+        </div>
+    }
+    else
+    {
+        <div class="card border-0 shadow-sm rounded-4">
+            <div class="table-responsive">
+                <table class="table align-middle mb-0 small">
+                    <thead class="table-light fs-8 text-uppercase text-muted">
+                        <tr>
+                            <th>Requisition #</th>
+                            <th>Patient Name</th>
+                            <th>MRN</th>
+                            <th>Test Name</th>
+                            <th>Sample Type</th>
+                            <th>Status</th>
+                            <th class="text-center" style="width: 15%;">Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @if (pendingItems == null || !pendingItems.Any())
+                        {
+                            <tr>
+                                <td colspan="7" class="text-center py-4 text-muted">No pending test results found.</td>
+                            </tr>
+                        }
+                        else
+                        {
+                            @foreach (var item in pendingItems)
+                            {
+                                <tr>
+                                    <td class="fw-bold text-dark font-monospace text-uppercase">@item.Requisition.RequisitionNumber</td>
+                                    <td>@item.Requisition.Patient.FirstName @item.Requisition.Patient.LastName</td>
+                                    <td class="font-monospace text-muted">@item.Requisition.Patient.Mrn</td>
+                                    <td class="fw-semibold">@item.Test.TestName</td>
+                                    <td>@item.Test.SampleType</td>
+                                    <td>
+                                        <span class="badge @GetStatusBadgeClass(item.Status)">
+                                            @item.Status
+                                        </span>
+                                    </td>
+                                    <td class="text-center">
+                                        <a href="/laboratory/requisitions/@item.Id/results" class="btn btn-xs btn-outline-primary px-3 py-1 fs-8">
+                                            <i class="bi bi-pencil-square me-1"></i> Enter Results
+                                        </a>
+                                    </td>
+                                </tr>
+                            }
+                        }
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    }
+</div>
+
+@code {
+    private bool loading = true;
+    private List<LabRequisitionItem>? pendingItems;
+    private Guid currentTenantId = Guid.Empty;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadQueue();
+    }
+
+    private async Task LoadQueue()
+    {
+        try
+        {
+            loading = true;
+            pendingItems = await DbContext.LabRequisitionItems
+                .Include(i => i.Requisition)
+                    .ThenInclude(r => r.Patient)
+                .Include(i => i.Test)
+                .Where(i => i.Requisition.TenantId == currentTenantId && (i.Status == "Processing" || i.Status == "SampleCollected"))
+                .OrderByDescending(i => i.Requisition.OrderedAt)
+                .ToListAsync();
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error loading results queue: {ex.Message}");
+        }
+        finally
+        {
+            loading = false;
+        }
+    }
+
+    private string GetStatusBadgeClass(string status)
+    {
+        return status switch
+        {
+            "Completed" => "bg-success text-white",
+            "Cancelled" => "bg-secondary text-white",
+            "Processing" => "bg-info text-info-emphasis",
+            "SampleCollected" => "bg-warning text-dark",
+            _ => "bg-primary text-white"
+        };
+    }
+}
+
+<style>
+    .fs-8 { font-size: 0.8rem !important; }
+    .btn-xs {
+        padding: 0.15rem 0.4rem;
+        font-size: 0.75rem;
+        line-height: 1.5;
+        border-radius: 0.2rem;
+    }
+</style>

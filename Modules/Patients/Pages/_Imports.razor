@@ -1,0 +1,5 @@
+@using CareSphere.Modules.Patients.Services
+@using CareSphere.Modules.Patients.Layout
+@using CareSphere.Models
+@layout PatientsLayout
+@attribute [Authorize(Policy = "HasPermission")]

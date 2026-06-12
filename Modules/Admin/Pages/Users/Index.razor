@@ -1,0 +1,212 @@
+@page "/admin/users"
+@attribute [Microsoft.AspNetCore.Authorization.Authorize(Policy = PolicyNames.Permission_Admin_ManageUsers)]
+@inject IUserService UserService
+@inject UserTimeZoneService UserTimeZone
+@inject IConfiguration Configuration
+@inject NavigationManager NavigationManager
+@rendermode InteractiveServer
+
+<PageTitle>User Management — CareSphere</PageTitle>
+
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <h2><i class="bi bi-people me-2 text-primary"></i>User Management</h2>
+    <a href="/admin/users/create" class="btn btn-primary">
+        <i class="bi bi-person-plus me-2"></i>Create User
+    </a>
+</div>
+
+<!-- Filters -->
+<div class="card mb-4 border-0 shadow-sm">
+    <div class="card-body">
+        <div class="row g-3">
+            <div class="col-md-4">
+                <div class="input-group">
+                    <span class="input-group-text"><i class="bi bi-search"></i></span>
+                    <input type="text" class="form-control" placeholder="Search name or email..."
+                           @bind="searchTerm" @bind:event="oninput" @onkeyup="HandleSearch" />
+                </div>
+            </div>
+            <div class="col-md-3">
+                <select class="form-select" @bind="filterRole">
+                    <option value="">All Roles</option>
+                    @foreach (var role in AdminHelpers.GetAllRoles())
+                    {
+                        <option value="@role">@role</option>
+                    }
+                </select>
+            </div>
+            <div class="col-md-2">
+                <select class="form-select" @bind="filterActive">
+                    <option value="">All Status</option>
+                    <option value="true">Active</option>
+                    <option value="false">Inactive</option>
+                </select>
+            </div>
+            <div class="col-md-3">
+                <button class="btn btn-outline-secondary w-100" @onclick="LoadUsers">
+                    <i class="bi bi-funnel me-2"></i>Apply Filters
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+@if (users == null)
+{
+    <div class="d-flex justify-content-center py-5">
+        <div class="spinner-border text-primary" role="status"></div>
+    </div>
+}
+else if (!users.Any())
+{
+    <div class="alert alert-info"><i class="bi bi-info-circle me-2"></i>No users found matching the criteria.</div>
+}
+else
+{
+    <div class="card border-0 shadow-sm">
+        <div class="table-responsive">
+            <table class="table table-hover mb-0">
+                <thead class="table-light">
+                    <tr>
+                        <th>Full Name</th>
+                        <th>Email</th>
+                        <th>Role</th>
+                        <th>Department</th>
+                        <th>Last Login</th>
+                        <th>Status</th>
+                        <th>Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var user in users)
+                    {
+                        <tr>
+                            <td class="fw-semibold">@user.FullName</td>
+                            <td class="text-muted">@user.Email</td>
+                            <td><span class="badge @GetRoleBadgeClass(user.Role)">@user.Role</span></td>
+                            <td>@(user.Department ?? "—")</td>
+                            <td class="small">
+                                @(user.LastLoginAt.HasValue ? UserTimeZone.ToLocal(user.LastLoginAt.Value).ToString("dd MMM yyyy HH:mm") : "Never")
+                            </td>
+                            <td>
+                                @if (user.IsActive)
+                                {
+                                    <span class="badge bg-success">Active</span>
+                                }
+                                else
+                                {
+                                    <span class="badge bg-secondary">Inactive</span>
+                                }
+                            </td>
+                            <td>
+                                <div class="btn-group btn-group-sm">
+                                    <a href="/admin/users/edit/@user.Id" class="btn btn-outline-primary" title="Edit">
+                                        <i class="bi bi-pencil"></i>
+                                    </a>
+                                    <button class="btn btn-outline-warning" @onclick="() => ShowResetPassword(user.Id, user.FullName)" title="Reset Password">
+                                        <i class="bi bi-key"></i>
+                                    </button>
+                                    <button class="btn @(user.IsActive ? "btn-outline-danger" : "btn-outline-success")"
+                                            @onclick="() => ToggleActive(user.Id, user.FullName, user.IsActive)" title="@(user.IsActive ? "Deactivate" : "Activate")">
+                                        <i class="bi @(user.IsActive ? "bi-person-x" : "bi-person-check")"></i>
+                                    </button>
+                                </div>
+                            </td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+    </div>
+    <p class="text-muted small mt-2">Showing @users.Count users</p>
+}
+
+<!-- Reset Password Modal -->
+@if (showResetModal)
+{
+    <div class="modal fade show d-block" style="background: rgba(0,0,0,0.5);" tabindex="-1">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title"><i class="bi bi-key me-2"></i>Reset Password for @selectedUserName</h5>
+                    <button type="button" class="btn-close" @onclick="CloseModals"></button>
+                </div>
+                <div class="modal-body">
+                    @if (!string.IsNullOrEmpty(actionMessage))
+                    {
+                        <div class="alert alert-@(actionSuccess ? "success" : "danger")">@actionMessage</div>
+                    }
+                    <div class="mb-3">
+                        <label class="form-label">New Password</label>
+                        <input type="password" class="form-control" @bind="newPassword" placeholder="Min. 8 characters" />
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button class="btn btn-secondary" @onclick="CloseModals">Cancel</button>
+                    <button class="btn btn-warning" @onclick="DoResetPassword">Reset Password</button>
+                </div>
+            </div>
+        </div>
+    </div>
+}
+
+@code {
+    private List<UserListItem>? users;
+    private string searchTerm = "";
+    private string filterRole = "";
+    private string filterActive = "";
+    private bool showResetModal = false;
+    private string selectedUserId = "";
+    private string selectedUserName = "";
+    private string newPassword = "";
+    private string? actionMessage;
+    private bool actionSuccess;
+
+    protected override async Task OnInitializedAsync() => await LoadUsers();
+
+    private async Task HandleSearch(Microsoft.AspNetCore.Components.Web.KeyboardEventArgs e)
+    {
+        if (e.Key == "Enter") await LoadUsers();
+    }
+
+    private async Task LoadUsers()
+    {
+        var tenantIdStr = Configuration["App:DefaultTenantId"] ?? "00000000-0000-0000-0000-000000000001";
+        var tenantId = Guid.Parse(tenantIdStr);
+        bool? active = string.IsNullOrEmpty(filterActive) ? null : filterActive == "true";
+        users = await UserService.GetUsersByTenantAsync(tenantId, searchTerm, filterRole, active);
+    }
+
+    private void ShowResetPassword(string userId, string name)
+    {
+        selectedUserId = userId;
+        selectedUserName = name;
+        newPassword = "";
+        actionMessage = null;
+        showResetModal = true;
+    }
+
+    private async Task DoResetPassword()
+    {
+        if (string.IsNullOrWhiteSpace(newPassword) || newPassword.Length < 8)
+        {
+            actionMessage = "Password must be at least 8 characters.";
+            actionSuccess = false;
+            return;
+        }
+        var result = await UserService.ResetPasswordAsync(selectedUserId, newPassword);
+        actionMessage = result.Success ? "Password reset successfully." : string.Join(", ", result.Errors);
+        actionSuccess = result.Success;
+        if (result.Success) { await Task.Delay(1000); CloseModals(); }
+    }
+
+    private async Task ToggleActive(string userId, string name, bool currentlyActive)
+    {
+        var result = await UserService.ToggleUserActiveAsync(userId, userId);
+        if (result.Success) await LoadUsers();
+    }
+
+    private void CloseModals() { showResetModal = false; actionMessage = null; }
+
+    private static string GetRoleBadgeClass(string role) => AdminHelpers.GetRoleBadgeClass(role);
+}

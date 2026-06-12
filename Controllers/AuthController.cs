@@ -1,6 +1,14 @@
 using CareSphere.Infrastructure;
 using CareSphere.Data;
-using CareSphere.Services;
+using CareSphere.Modules.Clinical.Services;
+using CareSphere.Modules.Laboratory.Services;
+using CareSphere.Modules.Pharmacy.Services;
+using CareSphere.Modules.Billing.Services;
+using CareSphere.Modules.Patients.Services;
+using CareSphere.Modules.Ward.Services;
+using CareSphere.Modules.Notifications.Services;
+using CareSphere.Modules.Admin.Services;
+using CareSphere.Modules.Shared.Services;
 using CareSphere.Models;
 using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Identity;
@@ -96,7 +104,11 @@ namespace CareSphere.Controllers
         public async Task<IActionResult> ImpersonateSignIn([FromQuery] string token, [FromQuery] string returnUrl = "/")
         {
             var tokenHandler = new JwtSecurityTokenHandler();
-            var secret = _configuration["Supabase:JwtSecret"] ?? "local_dev_secret_key_for_caresphere_1234567890";
+            var secret = _configuration["Supabase:JwtSecret"];
+            if (string.IsNullOrEmpty(secret))
+            {
+                secret = "local_dev_secret_key_for_caresphere_1234567890";
+            }
             var key = Encoding.UTF8.GetBytes(secret);
             if (key.Length < 32)
             {

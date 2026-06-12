@@ -1,0 +1,151 @@
+@page "/encounter/view/{id:guid}"
+@attribute [Authorize(Policy = PolicyNames.Permission_Encounters_View)]
+@using CareSphere.Models
+@inject IEncounterService EncounterService
+@rendermode InteractiveServer
+
+<PageTitle>Encounter Workspace - CareSphere</PageTitle>
+
+@if (encounter == null && !isNotFound)
+{
+    <p><em>Loading encounter...</em></p>
+}
+else if (isNotFound)
+{
+    <div class="alert alert-danger">Encounter not found.</div>
+    <a href="/encounters" class="btn btn-primary">Back to Encounters</a>
+}
+else if (encounter != null)
+{
+    @* Encounter Header *@
+    <div class="d-flex justify-content-between align-items-center mb-3">
+        <div>
+            <h2><i class="bi bi-clipboard2-pulse me-2"></i>Clinical Workspace</h2>
+            <p class="text-muted mb-0">
+                @encounter.Patient.FirstName @encounter.Patient.LastName
+                <span class="badge bg-secondary ms-1">@encounter.Patient.Mrn</span>
+            </p>
+        </div>
+        <div class="d-flex gap-2">
+            @if (encounter.Status == "Planned")
+            {
+                <button class="btn btn-success" @onclick='() => UpdateStatus("InProgress")'>
+                    <i class="bi bi-play-fill me-1"></i> Start Encounter
+                </button>
+            }
+            @if (encounter.Status == "InProgress")
+            {
+                <button class="btn btn-warning" @onclick='() => UpdateStatus("Completed")'>
+                    <i class="bi bi-check-circle me-1"></i> Complete Encounter
+                </button>
+            }
+            <a href="/encounters" class="btn btn-outline-secondary">
+                <i class="bi bi-arrow-left me-1"></i> Back
+            </a>
+        </div>
+    </div>
+
+    @* Encounter Details Card *@
+    <div class="card mb-4">
+        <div class="card-header bg-primary text-white d-flex justify-content-between align-items-center">
+            <h5 class="mb-0">Encounter Details</h5>
+            <div>
+                @switch (encounter.Status)
+                {
+                    case "Planned":
+                        <span class="badge bg-warning text-dark">Planned</span>
+                        break;
+                    case "InProgress":
+                        <span class="badge bg-success">In Progress</span>
+                        break;
+                    case "Completed":
+                        <span class="badge bg-light text-dark">Completed</span>
+                        break;
+                }
+            </div>
+        </div>
+        <div class="card-body">
+            <div class="row">
+                <div class="col-md-3">
+                    <strong>Patient:</strong><br />
+                    @encounter.Patient.FirstName @encounter.Patient.LastName
+                </div>
+                <div class="col-md-3">
+                    <strong>Doctor:</strong><br />
+                    Dr. @encounter.Doctor.FirstName @encounter.Doctor.LastName
+                    <br /><small class="text-muted">@encounter.Doctor.Specialization</small>
+                </div>
+                <div class="col-md-2">
+                    <strong>Type:</strong><br />
+                    @switch (encounter.EncounterType)
+                    {
+                        case "OPD":
+                            <span class="badge bg-info">OPD</span>
+                            break;
+                        case "IPD":
+                            <span class="badge bg-primary">IPD</span>
+                            break;
+                        case "Emergency":
+                            <span class="badge bg-danger">Emergency</span>
+                            break;
+                    }
+                </div>
+                <div class="col-md-2">
+                    <strong>Date:</strong><br />
+                    @encounter.AdmissionDate.ToLocalTime().ToString("dd MMM yyyy")
+                </div>
+                <div class="col-md-2">
+                    <strong>Chief Complaint:</strong><br />
+                    @(string.IsNullOrEmpty(encounter.ChiefComplaint) ? "—" : encounter.ChiefComplaint)
+                </div>
+            </div>
+        </div>
+    </div>
+
+    @if (!string.IsNullOrEmpty(statusMessage))
+    {
+        <div class="alert alert-success py-2">@statusMessage</div>
+    }
+
+    @* SOAP Note Section *@
+    <SoapNoteEditor EncounterId="encounter.Id" DoctorId="encounter.DoctorId" />
+
+    @* Prescriptions Section *@
+    <PrescriptionPanel EncounterId="encounter.Id" PatientId="encounter.PatientId" DoctorId="encounter.DoctorId" />
+
+    @* Tele-Consult Section *@
+    <TeleConsultPanel EncounterId="encounter.Id" DoctorId="encounter.DoctorId" PatientId="encounter.PatientId" />
+}
+
+@code {
+    [Parameter]
+    public Guid id { get; set; }
+
+    private Encounter? encounter;
+    private bool isNotFound = false;
+    private string statusMessage = string.Empty;
+
+    protected override async Task OnInitializedAsync()
+    {
+        encounter = await EncounterService.GetEncounterByIdAsync(id);
+        if (encounter == null)
+        {
+            isNotFound = true;
+        }
+    }
+
+    private async Task UpdateStatus(string newStatus)
+    {
+        try
+        {
+            await EncounterService.UpdateEncounterStatusAsync(id, newStatus);
+            encounter = await EncounterService.GetEncounterByIdAsync(id);
+            statusMessage = $"Encounter status updated to {newStatus}.";
+            _ = Task.Delay(3000).ContinueWith(_ => InvokeAsync(() => { statusMessage = string.Empty; StateHasChanged(); }));
+        }
+        catch (Exception ex)
+        {
+            statusMessage = $"Error: {ex.Message}";
+        }
+    }
+}

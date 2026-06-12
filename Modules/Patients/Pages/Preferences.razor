@@ -1,0 +1,297 @@
+@page "/patients/preferences"
+@page "/patients/preferences/{patientId:guid}"
+@attribute [Authorize(Policy = PolicyNames.Permission_Patients_Edit)]
+@using CareSphere.Models
+@using CareSphere.Data
+@using Microsoft.EntityFrameworkCore
+@inject IPatientService PatientService
+@inject ApplicationDbContext DbContext
+@inject NavigationManager NavigationManager
+@rendermode InteractiveServer
+
+<PageTitle>Patient Alert Preferences - CareSphere</PageTitle>
+
+<div class="container-fluid py-4">
+    <div class="row justify-content-center">
+        <div class="col-lg-8 col-md-10">
+            @if (patientId == Guid.Empty)
+            {
+                <div class="card shadow-sm border-0 mb-4">
+                    <div class="card-header bg-primary text-white py-3">
+                        <h5 class="m-0 fw-bold">Select Patient for Preferences</h5>
+                    </div>
+                    <div class="card-body p-4">
+                        <div class="input-group mb-4">
+                            <input type="text" class="form-control" placeholder="Search patient by MRN or name..." @bind="SearchTerm" @bind:event="oninput" @onkeyup="HandleSearchKey" />
+                            <button class="btn btn-outline-secondary" type="button" @onclick="SearchPatients">Search</button>
+                        </div>
+
+                        @if (searchResults != null)
+                        {
+                            @if (!searchResults.Any())
+                            {
+                                <div class="alert alert-info">No patients found.</div>
+                            }
+                            else
+                            {
+                                <div class="list-group">
+                                    @foreach (var p in searchResults)
+                                    {
+                                        <button class="list-group-item list-group-item-action d-flex justify-content-between align-items-center" @onclick="() => SelectPatient(p.Id)">
+                                            <div>
+                                                <h6 class="mb-0 fw-bold">@p.FirstName @p.LastName</h6>
+                                                <small class="text-muted">MRN: @p.Mrn</small>
+                                            </div>
+                                            <span class="badge bg-primary rounded-pill">Select</span>
+                                        </button>
+                                    }
+                                </div>
+                            }
+                        }
+                    </div>
+                </div>
+            }
+            else
+            {
+                <div class="d-flex align-items-center mb-4">
+                    <button class="btn btn-outline-secondary btn-sm me-3" @onclick="GoBack">
+                        <i class="bi bi-arrow-left"></i> Back
+                    </button>
+                    <h1 class="h3 text-gray-800 m-0">Notification Preferences</h1>
+                </div>
+
+                @if (patient == null || preferences == null)
+                {
+                    <div class="text-center py-5">
+                        <div class="spinner-border text-primary" role="status"></div>
+                    </div>
+                }
+                else
+                {
+                    <div class="card shadow-sm border-0 mb-4">
+                        <div class="card-header bg-white py-3 border-bottom">
+                            <h5 class="m-0 font-weight-bold text-primary">
+                                <i class="bi bi-person-gear me-2"></i> Preferences for @($"{patient.FirstName} {patient.LastName}")
+                            </h5>
+                            <small class="text-muted">MRN: @patient.Mrn | Phone: @patient.Phone</small>
+                        </div>
+                        <div class="card-body p-4">
+                            <EditForm Model="@preferences" OnValidSubmit="HandleValidSubmit" FormName="patientPrefsForm">
+                                <DataAnnotationsValidator />
+                                
+                                <div class="row mb-4">
+                                    <div class="col-md-6 mb-3">
+                                        <label class="form-label font-weight-bold fw-semibold">Preferred Delivery Channel *</label>
+                                        <InputSelect class="form-select" @bind-Value="preferences.PreferredChannel">
+                                            <option value="SMS">SMS Text Messages</option>
+                                            <option value="WhatsApp">WhatsApp Message</option>
+                                            <option value="Voice">Voice Automated Call</option>
+                                            <option value="InApp">In-App Portal Notification</option>
+                                        </InputSelect>
+                                    </div>
+
+                                    <div class="col-md-6 mb-3">
+                                        <label class="form-label font-weight-bold fw-semibold">Preferred Language *</label>
+                                        <InputSelect class="form-select" @bind-Value="preferences.PreferredLanguage">
+                                            <option value="en">English</option>
+                                            <option value="hi">Hindi (हिंदी)</option>
+                                            <option value="ta">Tamil (தமிழ்)</option>
+                                            <option value="te">Telugu (తెలుగు)</option>
+                                            <option value="kn">Kannada (ਕನ್ನಡ)</option>
+                                            <option value="ml">Malayalam (മലയാളം)</option>
+                                            <option value="bn">Bengali (বাংলা)</option>
+                                            <option value="mr">Marathi (മராठी)</option>
+                                            <option value="gu">Gujarati (ગુજરાતી)</option>
+                                            <option value="pa">Punjabi (ਪੰਜਾਬੀ)</option>
+                                        </InputSelect>
+                                    </div>
+                                </div>
+
+                                <hr />
+
+                                <!-- Opt-Out Toggles (Channel Level) -->
+                                <h6 class="font-weight-bold text-secondary mb-3"><i class="bi bi-x-circle me-1"></i> Channel Opt-Out (Do Not Send)</h6>
+                                
+                                <div class="row mb-4 ps-2">
+                                    <div class="col-md-4 mb-2">
+                                        <div class="form-check form-switch">
+                                            <InputCheckbox class="form-check-input" @bind-Value="preferences.OptOutSms" id="optOutSms" />
+                                            <label class="form-check-label" for="optOutSms">Block SMS Texts</label>
+                                        </div>
+                                    </div>
+                                    <div class="col-md-4 mb-2">
+                                        <div class="form-check form-switch">
+                                            <InputCheckbox class="form-check-input" @bind-Value="preferences.OptOutWhatsApp" id="optOutWhatsApp" />
+                                            <label class="form-check-label" for="optOutWhatsApp">Block WhatsApp Messages</label>
+                                        </div>
+                                    </div>
+                                    <div class="col-md-4 mb-2">
+                                        <div class="form-check form-switch">
+                                            <InputCheckbox class="form-check-input" @bind-Value="preferences.OptOutVoice" id="optOutVoice" />
+                                            <label class="form-check-label" for="optOutVoice">Block Automated Calls</label>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <hr />
+
+                                <!-- Module Preferences -->
+                                <h6 class="font-weight-bold text-secondary mb-3"><i class="bi bi-sliders me-1"></i> Subscriptions per Alert Type</h6>
+
+                                <div class="row mb-4 ps-2">
+                                    <div class="col-md-6 mb-3">
+                                        <div class="form-check">
+                                            <InputCheckbox class="form-check-input" @bind-Value="preferences.AllowAppointmentReminders" id="allowAppointments" />
+                                            <label class="form-check-label" for="allowAppointments">
+                                                Allow Appointment Reminders (24h/2h notice)
+                                            </label>
+                                        </div>
+                                    </div>
+                                    <div class="col-md-6 mb-3">
+                                        <div class="form-check">
+                                            <InputCheckbox class="form-check-input" @bind-Value="preferences.AllowFollowUpReminders" id="allowFollowUps" />
+                                            <label class="form-check-label" for="allowFollowUps">
+                                                Allow Doctor Follow-up Reminders
+                                            </label>
+                                        </div>
+                                    </div>
+                                    <div class="col-md-6 mb-3">
+                                        <div class="form-check">
+                                            <InputCheckbox class="form-check-input" @bind-Value="preferences.AllowDischargeNotifications" id="allowDischarges" />
+                                            <label class="form-check-label" for="allowDischarges">
+                                                Allow Admission & Discharge Alerts
+                                            </label>
+                                        </div>
+                                    </div>
+                                    <div class="col-md-6 mb-3">
+                                        <div class="form-check">
+                                            <InputCheckbox class="form-check-input" @bind-Value="preferences.AllowLabNotifications" id="allowLabs" />
+                                            <label class="form-check-label" for="allowLabs">
+                                                Allow Laboratory & Diagnostic Ready Alerts
+                                            </label>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <div class="d-flex gap-2">
+                                    <button type="submit" class="btn btn-primary" disabled="@isSaving">
+                                        @if (isSaving)
+                                        {
+                                            <span class="spinner-border spinner-border-sm me-1"></span>
+                                        }
+                                        Save Preferences
+                                    </button>
+                                    <button type="button" class="btn btn-secondary" @onclick="GoBack">Cancel</button>
+                                </div>
+
+                                @if (!string.IsNullOrEmpty(successMessage))
+                                {
+                                    <div class="alert alert-success mt-3 mb-0">@successMessage</div>
+                                }
+                                @if (!string.IsNullOrEmpty(errorMessage))
+                                {
+                                    <div class="alert alert-danger mt-3 mb-0">@errorMessage</div>
+                                }
+                            </EditForm>
+                        </div>
+                    </div>
+                }
+            }
+        </div>
+    </div>
+</div>
+
+@code {
+    [Parameter]
+    public Guid patientId { get; set; } = Guid.Empty;
+
+    private Patient? patient;
+    private PatientPreference? preferences;
+    private bool isSaving = false;
+    private string? successMessage;
+    private string? errorMessage;
+    private string SearchTerm = string.Empty;
+    private List<Patient>? searchResults;
+
+    protected override async Task OnInitializedAsync()
+    {
+        if (patientId != Guid.Empty)
+        {
+            await LoadPreferences();
+        }
+    }
+
+    private async Task LoadPreferences()
+    {
+        patient = await PatientService.GetPatientByIdAsync(patientId);
+        if (patient != null)
+        {
+            preferences = await DbContext.PatientPreferences
+                .FirstOrDefaultAsync(p => p.PatientId == patientId);
+
+            if (preferences == null)
+            {
+                preferences = new PatientPreference
+                {
+                    Id = Guid.NewGuid(),
+                    PatientId = patientId,
+                    TenantId = patient.TenantId,
+                    PreferredChannel = "SMS",
+                    PreferredLanguage = "en",
+                    CreatedAt = DateTime.UtcNow
+                };
+                DbContext.PatientPreferences.Add(preferences);
+                await DbContext.SaveChangesAsync();
+            }
+        }
+    }
+
+    private async Task HandleSearchKey(KeyboardEventArgs e)
+    {
+        if (e.Key == "Enter")
+        {
+            await SearchPatients();
+        }
+    }
+
+    private async Task SearchPatients()
+    {
+        searchResults = await PatientService.GetPatientsAsync(SearchTerm);
+    }
+
+    private void SelectPatient(Guid id)
+    {
+        NavigationManager.NavigateTo($"/patients/preferences/{id}");
+    }
+
+    private void GoBack()
+    {
+        NavigationManager.NavigateTo("/patients");
+    }
+
+    private async Task HandleValidSubmit()
+    {
+        if (preferences == null) return;
+
+        try
+        {
+            isSaving = true;
+            successMessage = null;
+            errorMessage = null;
+
+            preferences.UpdatedAt = DateTime.UtcNow;
+            DbContext.PatientPreferences.Update(preferences);
+            await DbContext.SaveChangesAsync();
+
+            successMessage = "Patient alert preferences updated successfully.";
+        }
+        catch (Exception ex)
+        {
+            errorMessage = $"Error saving preferences: {ex.Message}";
+        }
+        finally
+        {
+            isSaving = false;
+        }
+    }
+}

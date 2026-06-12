@@ -1,7 +1,15 @@
 @page "/pharmacy/expiry-alerts"
 @attribute [Microsoft.AspNetCore.Authorization.Authorize(Policy = PolicyNames.Permission_Pharmacy_ViewStock)]
 @using CareSphere.Models
-@using CareSphere.Services
+@using CareSphere.Modules.Clinical.Services
+@using CareSphere.Modules.Laboratory.Services
+@using CareSphere.Modules.Pharmacy.Services
+@using CareSphere.Modules.Billing.Services
+@using CareSphere.Modules.Patients.Services
+@using CareSphere.Modules.Ward.Services
+@using CareSphere.Modules.Notifications.Services
+@using CareSphere.Modules.Admin.Services
+@using CareSphere.Modules.Shared.Services
 @inject IExpiryAlertService AlertService
 @inject NavigationManager NavigationManager
 @rendermode InteractiveServer

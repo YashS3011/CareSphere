@@ -1,6 +1,6 @@
 @page "/auth/login"
-@inject CareSphere.Services.IAuthService AuthService
-@inject CareSphere.Services.ITenantService TenantService
+@inject IAuthService AuthService
+@inject ITenantService TenantService
 @inject NavigationManager NavigationManager
 @inject IHttpContextAccessor HttpContextAccessor
 @inject IConfiguration Configuration
@@ -157,6 +157,10 @@
             {
                 errorMessage = result.Error ?? "An error occurred during login.";
             }
+        }
+        catch (Microsoft.AspNetCore.Components.NavigationException)
+        {
+            throw;
         }
         catch (Exception ex)
         {

@@ -1,9 +1,9 @@
 @page "/admin/dashboard"
 @attribute [Microsoft.AspNetCore.Authorization.Authorize(Policy = PolicyNames.Permission_Admin_ManageUsers)]
-@inject CareSphere.Services.ITenantService TenantService
-@inject CareSphere.Services.IAuditLogService AuditLogService
+@inject ITenantService TenantService
+@inject IAuditLogService AuditLogService
 @inject CareSphere.Data.ApplicationDbContext DbContext
-@inject CareSphere.Services.UserTimeZoneService UserTimeZone
+@inject UserTimeZoneService UserTimeZone
 @inject IConfiguration Configuration
 @inject AuthenticationStateProvider AuthStateProvider
 @using Microsoft.EntityFrameworkCore
@@ -259,7 +259,7 @@ else
 }
 
 @code {
-    private CareSphere.Services.TenantStats? stats;
+    private TenantStats? stats;
     private List<CareSphere.Models.UserSession>? recentSessions;
     private List<CareSphere.Models.AuditEvent>? recentAuditEvents;
     private Dictionary<string, string> userNameCache = new();

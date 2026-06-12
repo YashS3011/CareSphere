@@ -1,0 +1,138 @@
+@page "/laboratory/samples"
+@attribute [Microsoft.AspNetCore.Authorization.Authorize(Policy = PolicyNames.Permission_Lab_CollectSample)]
+@using CareSphere.Models
+@using CareSphere.Modules.Laboratory.Services
+@using CareSphere.Data
+@using Microsoft.EntityFrameworkCore
+@inject ApplicationDbContext DbContext
+@inject NavigationManager NavigationManager
+@rendermode InteractiveServer
+
+<PageTitle>Sample Collection - CareSphere</PageTitle>
+
+<div class="container-fluid py-4">
+    <!-- Header -->
+    <div class="mb-4">
+        <h1 class="h3 mb-1 text-dark fw-bold"><i class="bi bi-droplet me-2 text-primary"></i>Sample Collection Queue</h1>
+        <p class="text-muted mb-0">List of laboratory requisitions pending specimen sample collection</p>
+    </div>
+
+    @if (loading)
+    {
+        <div class="d-flex justify-content-center my-5">
+            <div class="spinner-border text-primary" role="status">
+                <span class="visually-hidden">Loading queue...</span>
+            </div>
+        </div>
+    }
+    else
+    {
+        <div class="card border-0 shadow-sm rounded-4">
+            <div class="table-responsive">
+                <table class="table align-middle mb-0 small">
+                    <thead class="table-light fs-8 text-uppercase text-muted">
+                        <tr>
+                            <th>Requisition #</th>
+                            <th>Patient Name</th>
+                            <th>MRN</th>
+                            <th>Doctor Name</th>
+                            <th>Ordered At</th>
+                            <th>Priority</th>
+                            <th>Tests</th>
+                            <th class="text-center" style="width: 15%;">Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @if (pendingRequisitions == null || !pendingRequisitions.Any())
+                        {
+                            <tr>
+                                <td colspan="8" class="text-center py-4 text-muted">No pending sample collections found.</td>
+                            </tr>
+                        }
+                        else
+                        {
+                            @foreach (var req in pendingRequisitions)
+                            {
+                                <tr>
+                                    <td class="fw-bold text-dark font-monospace text-uppercase">@req.RequisitionNumber</td>
+                                    <td>@req.Patient.FirstName @req.Patient.LastName</td>
+                                    <td class="font-monospace text-muted">@req.Patient.Mrn</td>
+                                    <td>Dr. @req.OrderedByDoctor.FirstName @req.OrderedByDoctor.LastName</td>
+                                    <td class="text-muted">@req.OrderedAt.ToLocalTime().ToString("g")</td>
+                                    <td>
+                                        <span class="badge @GetPriorityBadgeClass(req.Priority)">
+                                            @req.Priority
+                                        </span>
+                                    </td>
+                                    <td>
+                                        @string.Join(", ", req.Items.Select(i => i.Test.TestName))
+                                    </td>
+                                    <td class="text-center">
+                                        <a href="/laboratory/requisitions/@req.Id/collect-sample" class="btn btn-xs btn-warning px-3 py-1 fs-8">
+                                            <i class="bi bi-droplet-fill me-1"></i> Collect
+                                        </a>
+                                    </td>
+                                </tr>
+                            }
+                        }
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    }
+</div>
+
+@code {
+    private bool loading = true;
+    private List<LabRequisition>? pendingRequisitions;
+    private Guid currentTenantId = Guid.Empty;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadQueue();
+    }
+
+    private async Task LoadQueue()
+    {
+        try
+        {
+            loading = true;
+            pendingRequisitions = await DbContext.LabRequisitions
+                .Include(r => r.Patient)
+                .Include(r => r.OrderedByDoctor)
+                .Include(r => r.Items)
+                    .ThenInclude(i => i.Test)
+                .Where(r => r.TenantId == currentTenantId && r.Status == "Ordered")
+                .OrderByDescending(r => r.OrderedAt)
+                .ToListAsync();
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error loading sample collection queue: {ex.Message}");
+        }
+        finally
+        {
+            loading = false;
+        }
+    }
+
+    private string GetPriorityBadgeClass(string priority)
+    {
+        return priority switch
+        {
+            "Stat" => "bg-danger text-white",
+            "Urgent" => "bg-warning text-dark",
+            _ => "bg-success text-white"
+        };
+    }
+}
+
+<style>
+    .fs-8 { font-size: 0.8rem !important; }
+    .btn-xs {
+        padding: 0.15rem 0.4rem;
+        font-size: 0.75rem;
+        line-height: 1.5;
+        border-radius: 0.2rem;
+    }
+</style>

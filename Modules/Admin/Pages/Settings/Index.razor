@@ -1,0 +1,218 @@
+@page "/admin/tenant-settings"
+@attribute [Microsoft.AspNetCore.Authorization.Authorize(Policy = PolicyNames.Permission_Admin_ManageTenant)]
+@inject ITenantService TenantService
+@inject IConfiguration Configuration
+@inject AuthenticationStateProvider AuthStateProvider
+@rendermode InteractiveServer
+
+<PageTitle>Tenant Settings — CareSphere</PageTitle>
+
+<h2 class="mb-4"><i class="bi bi-gear-fill me-2 text-primary"></i>Tenant Settings</h2>
+
+@if (settings == null)
+{
+    <div class="d-flex justify-content-center py-5">
+        <div class="spinner-border text-primary" role="status"></div>
+    </div>
+}
+else
+{
+    @if (!string.IsNullOrEmpty(saveMessage))
+    {
+        <div class="alert alert-@(saveSuccess ? "success" : "danger") alert-dismissible">
+            <i class="bi @(saveSuccess ? "bi-check-circle-fill" : "bi-exclamation-triangle-fill") me-2"></i>
+            @saveMessage
+            <button type="button" class="btn-close" @onclick='() => saveMessage = null'></button>
+        </div>
+    }
+
+    <!-- Tabs -->
+    <ul class="nav nav-tabs mb-4">
+        <li class="nav-item">
+            <button class="nav-link @(activeTab == "general" ? "active" : "")" @onclick='() => activeTab = "general"'>
+                <i class="bi bi-building me-2"></i>General
+            </button>
+        </li>
+        <li class="nav-item">
+            <button class="nav-link @(activeTab == "sso" ? "active" : "")" @onclick='() => activeTab = "sso"'>
+                <i class="bi bi-key me-2"></i>SSO
+            </button>
+        </li>
+        <li class="nav-item">
+            <button class="nav-link @(activeTab == "subscription" ? "active" : "")" @onclick='() => activeTab = "subscription"'>
+                <i class="bi bi-gem me-2"></i>Subscription
+            </button>
+        </li>
+    </ul>
+
+    <div class="card border-0 shadow-sm" style="max-width: 800px;">
+        <div class="card-body p-4">
+            @if (activeTab == "general")
+            {
+                <div class="row g-3">
+                    <div class="col-md-8">
+                        <label class="form-label fw-semibold">Hospital Name *</label>
+                        <input class="form-control" @bind="settings.HospitalName" placeholder="CareSphere Hospital" />
+                    </div>
+                    <div class="col-md-4">
+                        <label class="form-label fw-semibold">Logo Path</label>
+                        <input class="form-control" @bind="settings.HospitalLogoPath" placeholder="/images/logo.png" />
+                    </div>
+                    <div class="col-12">
+                        <label class="form-label fw-semibold">Address Line 1</label>
+                        <input class="form-control" @bind="settings.AddressLine1" />
+                    </div>
+                    <div class="col-12">
+                        <label class="form-label fw-semibold">Address Line 2</label>
+                        <input class="form-control" @bind="settings.AddressLine2" />
+                    </div>
+                    <div class="col-md-4">
+                        <label class="form-label fw-semibold">City</label>
+                        <input class="form-control" @bind="settings.City" />
+                    </div>
+                    <div class="col-md-4">
+                        <label class="form-label fw-semibold">State</label>
+                        <input class="form-control" @bind="settings.State" />
+                    </div>
+                    <div class="col-md-4">
+                        <label class="form-label fw-semibold">PIN Code</label>
+                        <input class="form-control" @bind="settings.PinCode" />
+                    </div>
+                    <div class="col-md-6">
+                        <label class="form-label fw-semibold">Phone</label>
+                        <input class="form-control" @bind="settings.Phone" type="tel" />
+                    </div>
+                    <div class="col-md-6">
+                        <label class="form-label fw-semibold">Email</label>
+                        <input class="form-control" @bind="settings.Email" type="email" />
+                    </div>
+                </div>
+                <div class="mt-4">
+                    <button class="btn btn-primary" @onclick="SaveGeneral" disabled="@isSaving">
+                        @if (isSaving) { <span class="spinner-border spinner-border-sm me-2"></span> }
+                        <i class="bi bi-floppy me-2"></i>Save General Settings
+                    </button>
+                </div>
+            }
+
+            @if (activeTab == "sso")
+            {
+                <div class="alert alert-warning d-flex align-items-center mb-4">
+                    <i class="bi bi-exclamation-triangle-fill me-2"></i>
+                    <div><strong>Warning:</strong> SSO configuration changes require an application restart to take effect.</div>
+                </div>
+                <div class="row g-3">
+                    <div class="col-12">
+                        <div class="form-check form-switch">
+                            <input class="form-check-input" type="checkbox" id="ssoEnabled" @bind="settings.SsoEnabled" />
+                            <label class="form-check-label fw-semibold" for="ssoEnabled">Enable SSO Authentication</label>
+                        </div>
+                    </div>
+                    @if (settings.SsoEnabled)
+                    {
+                        <div class="col-md-6">
+                            <label class="form-label fw-semibold">SSO Provider</label>
+                            <select class="form-select" @bind="settings.SsoProvider">
+                                <option value="">— Select Provider —</option>
+                                <option value="Google">Google</option>
+                                <option value="Microsoft">Microsoft</option>
+                                <option value="OIDC">Generic OIDC</option>
+                                <option value="SAML">SAML 2.0</option>
+                            </select>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label fw-semibold">Client ID</label>
+                            <input class="form-control" @bind="settings.OidcClientId" />
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label fw-semibold">Client Secret</label>
+                            <input class="form-control" type="password" @bind="settings.OidcClientSecret" />
+                        </div>
+                    }
+                </div>
+                <div class="mt-4">
+                    <button class="btn btn-primary" @onclick="SaveSso" disabled="@isSaving">
+                        @if (isSaving) { <span class="spinner-border spinner-border-sm me-2"></span> }
+                        <i class="bi bi-floppy me-2"></i>Save SSO Settings
+                    </button>
+                </div>
+            }
+
+            @if (activeTab == "subscription")
+            {
+                <div class="row g-3">
+                    <div class="col-md-6">
+                        <label class="form-label fw-semibold">Subscription Tier</label>
+                        <input class="form-control bg-light" value="@settings.SubscriptionTier" disabled />
+                        <div class="form-text">Contact support to upgrade your subscription tier.</div>
+                    </div>
+                    <div class="col-12">
+                        <div class="alert alert-info">
+                            <i class="bi bi-info-circle me-2"></i>
+                            To upgrade your plan, please contact <strong>@(string.IsNullOrEmpty(settings.Email) ? "support@caresphere.in" : settings.Email)</strong>.
+                        </div>
+                    </div>
+                </div>
+            }
+        </div>
+    </div>
+}
+
+@code {
+    private CareSphere.Models.TenantSettings? settings;
+    private TenantStats? stats;
+    private string activeTab = "general";
+    private string? saveMessage;
+    private bool saveSuccess;
+    private bool isSaving;
+
+    protected override async Task OnInitializedAsync()
+    {
+        var tenantId = GetTenantId();
+        settings = await TenantService.GetTenantSettingsAsync(tenantId);
+        stats = await TenantService.GetTenantStatsAsync(tenantId);
+    }
+
+    private async Task SaveGeneral()
+    {
+        if (settings == null) return;
+        isSaving = true;
+        try
+        {
+            var actorId = await GetActorId();
+            await TenantService.UpdateTenantSettingsAsync(settings, actorId);
+            saveSuccess = true;
+            saveMessage = "General settings saved successfully.";
+        }
+        catch { saveSuccess = false; saveMessage = "Failed to save settings."; }
+        finally { isSaving = false; }
+    }
+
+    private async Task SaveSso()
+    {
+        if (settings == null) return;
+        isSaving = true;
+        try
+        {
+            var actorId = await GetActorId();
+            await TenantService.ConfigureSsoAsync(GetTenantId(), settings.SsoEnabled, settings.SsoProvider,
+                settings.OidcClientId, settings.OidcClientSecret, settings.OidcAuthority, settings.SamlMetadataUrl, actorId);
+            saveSuccess = true;
+            saveMessage = "SSO settings saved. Application restart required.";
+        }
+        catch { saveSuccess = false; saveMessage = "Failed to save SSO settings."; }
+        finally { isSaving = false; }
+    }
+
+    private Guid GetTenantId()
+    {
+        var str = Configuration["App:DefaultTenantId"] ?? "00000000-0000-0000-0000-000000000001";
+        return Guid.TryParse(str, out var id) ? id : Guid.Empty;
+    }
+
+    private async Task<string> GetActorId()
+    {
+        var authState = await AuthStateProvider.GetAuthenticationStateAsync();
+        return authState.User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value ?? "admin";
+    }
+}

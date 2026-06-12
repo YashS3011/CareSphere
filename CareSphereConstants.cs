@@ -15,6 +15,8 @@ namespace CareSphere
         public const string Finance = "Finance";
         public const string NabhAuditor = "NabhAuditor";
         public const string Patient = "Patient";
+        public const string Receptionist = "Receptionist";
+        public const string BillingStaff = "BillingStaff";
     }
 
     /// <summary>
@@ -27,11 +29,17 @@ namespace CareSphere
         public const string Patients_Create = "Patients.Create";
         public const string Patients_Edit = "Patients.Edit";
         public const string Patients_Delete = "Patients.Delete";
+        public const string OwnRecords_View = "OwnRecords.View";
+        public const string OwnInvoices_Download = "OwnInvoices.Download";
+        public const string Appointments_Book = "Appointments.Book";
+        public const string Appointments_Create = "Appointments.Create";
+        public const string Appointments_View = "Appointments.View";
 
         // --- Bed Module ---
         public const string Beds_View = "Beds.View";
         public const string Beds_Manage = "Beds.Manage";
         public const string Beds_Allocate = "Beds.Allocate";
+        public const string BedAllotment_View = "BedAllotment.View";
 
         // --- Doctor / EMR Module ---
         public const string Encounters_View = "Encounters.View";
@@ -41,6 +49,14 @@ namespace CareSphere
         public const string Prescriptions_Write = "Prescriptions.Write";
         public const string Prescriptions_Cancel = "Prescriptions.Cancel";
         public const string TeleConsult_Start = "TeleConsult.Start";
+        public const string Queue_View = "Queue.View";
+        public const string Queue_Manage = "Queue.Manage";
+        public const string Vitals_Create = "Vitals.Create";
+        public const string Vitals_View = "Vitals.View";
+        public const string NursingNotes_Create = "NursingNotes.Create";
+        public const string NursingNotes_View = "NursingNotes.View";
+        public const string MedicationAdmin_Create = "MedicationAdmin.Create";
+        public const string MedicationAdmin_View = "MedicationAdmin.View";
 
         // --- Pharmacy Module ---
         public const string Pharmacy_ViewStock = "Pharmacy.ViewStock";
@@ -61,6 +77,12 @@ namespace CareSphere
         public const string Billing_CreateInvoices = "Billing.CreateInvoices";
         public const string Billing_RecordPayments = "Billing.RecordPayments";
         public const string Billing_ManageClaims = "Billing.ManageClaims";
+        public const string Billing_View = "Billing.View";
+        public const string Billing_Create = "Billing.Create";
+        public const string Billing_Edit = "Billing.Edit";
+        public const string Payments_Manage = "Payments.Manage";
+        public const string InsuranceClaims_Manage = "InsuranceClaims.Manage";
+        public const string InsuranceClaims_View = "InsuranceClaims.View";
 
         // --- Admin Module ---
         public const string Admin_ManageUsers = "Admin.ManageUsers";
@@ -80,11 +102,17 @@ namespace CareSphere
         public const string Permission_Patients_Create = "Permission_Patients_Create";
         public const string Permission_Patients_Edit = "Permission_Patients_Edit";
         public const string Permission_Patients_Delete = "Permission_Patients_Delete";
+        public const string Permission_OwnRecords_View = "Permission_OwnRecords_View";
+        public const string Permission_OwnInvoices_Download = "Permission_OwnInvoices_Download";
+        public const string Permission_Appointments_Book = "Permission_Appointments_Book";
+        public const string Permission_Appointments_Create = "Permission_Appointments_Create";
+        public const string Permission_Appointments_View = "Permission_Appointments_View";
 
         // Beds
         public const string Permission_Beds_View = "Permission_Beds_View";
         public const string Permission_Beds_Manage = "Permission_Beds_Manage";
         public const string Permission_Beds_Allocate = "Permission_Beds_Allocate";
+        public const string Permission_BedAllotment_View = "Permission_BedAllotment_View";
 
         // Doctor / EMR
         public const string Permission_Encounters_View = "Permission_Encounters_View";
@@ -94,6 +122,14 @@ namespace CareSphere
         public const string Permission_Prescriptions_Write = "Permission_Prescriptions_Write";
         public const string Permission_Prescriptions_Cancel = "Permission_Prescriptions_Cancel";
         public const string Permission_TeleConsult_Start = "Permission_TeleConsult_Start";
+        public const string Permission_Queue_View = "Permission_Queue_View";
+        public const string Permission_Queue_Manage = "Permission_Queue_Manage";
+        public const string Permission_Vitals_Create = "Permission_Vitals_Create";
+        public const string Permission_Vitals_View = "Permission_Vitals_View";
+        public const string Permission_NursingNotes_Create = "Permission_NursingNotes_Create";
+        public const string Permission_NursingNotes_View = "Permission_NursingNotes_View";
+        public const string Permission_MedicationAdmin_Create = "Permission_MedicationAdmin_Create";
+        public const string Permission_MedicationAdmin_View = "Permission_MedicationAdmin_View";
 
         // Pharmacy
         public const string Permission_Pharmacy_ViewStock = "Permission_Pharmacy_ViewStock";
@@ -114,6 +150,12 @@ namespace CareSphere
         public const string Permission_Billing_CreateInvoices = "Permission_Billing_CreateInvoices";
         public const string Permission_Billing_RecordPayments = "Permission_Billing_RecordPayments";
         public const string Permission_Billing_ManageClaims = "Permission_Billing_ManageClaims";
+        public const string Permission_Billing_View = "Permission_Billing_View";
+        public const string Permission_Billing_Create = "Permission_Billing_Create";
+        public const string Permission_Billing_Edit = "Permission_Billing_Edit";
+        public const string Permission_Payments_Manage = "Permission_Payments_Manage";
+        public const string Permission_InsuranceClaims_Manage = "Permission_InsuranceClaims_Manage";
+        public const string Permission_InsuranceClaims_View = "Permission_InsuranceClaims_View";
 
         // Admin
         public const string Permission_Admin_ManageUsers = "Permission_Admin_ManageUsers";

@@ -1,0 +1,226 @@
+@page "/laboratory/requisitions/{id:guid}/collect-sample"
+@attribute [Microsoft.AspNetCore.Authorization.Authorize(Policy = PolicyNames.Permission_Lab_CollectSample)]
+@using CareSphere.Models
+@using CareSphere.Modules.Laboratory.Services
+@using CareSphere.Modules.Shared.Services
+@using CareSphere.Components
+@inject ILabRequisitionService RequisitionService
+@inject ILabSampleService SampleService
+@inject NavigationManager NavigationManager
+@rendermode InteractiveServer
+
+<PageTitle>Record Sample Collection - CareSphere</PageTitle>
+
+<div class="container py-4" style="max-width: 600px;">
+    <!-- Back Link -->
+    <div class="mb-3">
+        <a href="/laboratory/requisitions/@id" class="btn btn-link p-0 text-decoration-none link-secondary small">
+            <i class="bi bi-arrow-left"></i> Back to Requisition Details
+        </a>
+    </div>
+
+    @if (loading)
+    {
+        <div class="d-flex justify-content-center my-5">
+            <div class="spinner-border text-primary" role="status">
+                <span class="visually-hidden">Loading requisition...</span>
+            </div>
+        </div>
+    }
+    else if (requisition == null)
+    {
+        <div class="alert alert-danger">
+            Requisition not found.
+        </div>
+    }
+    else
+    {
+        <!-- Header Info -->
+        <div class="card border-0 shadow-sm rounded-4 mb-4 bg-light">
+            <div class="card-body p-3">
+                <h5 class="fw-bold text-dark mb-1">Requisition: @requisition.RequisitionNumber</h5>
+                <p class="text-muted mb-0 small">Patient: <strong>@requisition.Patient.FirstName @requisition.Patient.LastName</strong> (MRN: @requisition.Patient.Mrn)</p>
+            </div>
+        </div>
+
+        <EditForm Model="sampleModel" OnValidSubmit="HandleSubmit" FormName="RecordSampleCollection">
+            <DataAnnotationsValidator />
+            <ValidationSummary class="alert alert-danger mb-4 py-2 small" />
+
+            <div class="card border-0 shadow-sm rounded-4 mb-4">
+                <div class="card-header bg-white py-3 px-4 border-bottom">
+                    <h5 class="fw-bold text-dark mb-0">Record Specimen Collection</h5>
+                </div>
+                <div class="card-body p-4">
+                    <div class="d-flex flex-column gap-3">
+                        <!-- Specimen Type -->
+                        <div>
+                            <label class="form-label fw-semibold text-muted small">Specimen Type *</label>
+                            <InputSelect class="form-select" @bind-Value="sampleModel.SampleType">
+                                <option value="Blood">Blood</option>
+                                <option value="Urine">Urine</option>
+                                <option value="Stool">Stool</option>
+                                <option value="Swab">Swab</option>
+                                <option value="Tissue">Tissue</option>
+                                <option value="CSF">CSF</option>
+                                <option value="Other">Other</option>
+                            </InputSelect>
+                        </div>
+
+                        <!-- Collected At -->
+                        <div>
+                            <label class="form-label fw-semibold text-muted small">Collected At *</label>
+                            <InputDate Type="InputDateType.DateTimeLocal" class="form-control" @bind-Value="collectedAtLocal" />
+                        </div>
+
+                        <!-- Barcode Label -->
+                        <div>
+                            <div class="d-flex justify-content-between align-items-center mb-1">
+                                <label class="form-label fw-semibold text-muted small mb-0">Barcode Label / Tube ID</label>
+                                <button type="button" class="btn btn-xs btn-outline-secondary" @onclick="ToggleScanner">
+                                    <i class="bi @(showScanner ? "bi-camera-video-off" : "bi-camera") me-1"></i>
+                                    @(showScanner ? "Close Scanner" : "Scan Barcode")
+                                </button>
+                            </div>
+
+                            @if (showScanner)
+                            {
+                                <div class="card mb-3 border border-secondary shadow-sm rounded-3 overflow-hidden" style="max-width: 400px; margin: 0 auto;">
+                                    <div class="card-header bg-light py-2">
+                                        <span class="small fw-semibold text-muted"><i class="bi bi-upc-scan me-1"></i> Scan sample barcode label</span>
+                                    </div>
+                                    <div class="card-body p-2">
+                                        <BarcodeScanner VideoClass="w-100 rounded-3" OnScanned="HandleBarcodeScanned" />
+                                    </div>
+                                </div>
+                            }
+
+                            <InputText class="form-control font-monospace text-uppercase" placeholder="e.g. BAR-09876" @bind-Value="sampleModel.BarcodeLabel" />
+                        </div>
+
+                        <!-- Notes -->
+                        <div>
+                            <label class="form-label fw-semibold text-muted small">Notes / Specimen Quality Notes</label>
+                            <InputTextArea class="form-control" placeholder="e.g. Hemolysis noted, collected in green top tube..." @bind-Value="sampleModel.Notes" rows="3" />
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            @if (!string.IsNullOrEmpty(errorMessage))
+            {
+                <div class="alert alert-danger mb-4 py-2 small">@errorMessage</div>
+            }
+
+            <!-- Actions -->
+            <div class="d-flex gap-2">
+                <button type="submit" class="btn btn-primary px-4 shadow-sm" disabled="@isSubmitting">
+                    @if (isSubmitting)
+                    {
+                        <span class="spinner-border spinner-border-sm me-1"></span>
+                    }
+                    Save Collection
+                </button>
+                <a href="/laboratory/requisitions/@id" class="btn btn-light px-4">Cancel</a>
+            </div>
+        </EditForm>
+    }
+</div>
+
+@code {
+    [Parameter]
+    public Guid id { get; set; }
+
+    private bool loading = true;
+    private LabRequisition? requisition;
+    private LabSample sampleModel = new() { TenantId = Guid.Empty, CollectedByUserId = "system" };
+    private DateTime collectedAtLocal = DateTime.Now;
+
+    private bool showScanner = false;
+    private bool isSubmitting = false;
+    private string errorMessage = string.Empty;
+
+    protected override async Task OnInitializedAsync()
+    {
+        try
+        {
+            loading = true;
+            requisition = await RequisitionService.GetRequisitionByIdAsync(id);
+            if (requisition != null)
+            {
+                sampleModel.RequisitionId = requisition.Id;
+                // Pre-fill from first item's test sample type
+                var firstTestType = requisition.Items.FirstOrDefault()?.Test.SampleType;
+                if (!string.IsNullOrEmpty(firstTestType))
+                {
+                    sampleModel.SampleType = firstTestType;
+                }
+                else
+                {
+                    sampleModel.SampleType = "Blood";
+                }
+            }
+        }
+        catch (Exception ex)
+        {
+            errorMessage = $"Error loading order details: {ex.Message}";
+        }
+        finally
+        {
+            loading = false;
+        }
+    }
+
+    private void ToggleScanner()
+    {
+        showScanner = !showScanner;
+    }
+
+    private void HandleBarcodeScanned(string barcode)
+    {
+        sampleModel.BarcodeLabel = barcode;
+        showScanner = false;
+        StateHasChanged();
+    }
+
+    private async Task HandleSubmit()
+    {
+        if (string.IsNullOrWhiteSpace(sampleModel.SampleType))
+        {
+            errorMessage = "Please enter specimen type.";
+            return;
+        }
+
+        try
+        {
+            isSubmitting = true;
+            errorMessage = string.Empty;
+
+            await SampleService.RecordSampleCollectionAsync(
+                Guid.Empty,
+                id,
+                sampleModel.SampleType,
+                "system",
+                sampleModel.BarcodeLabel,
+                sampleModel.Notes,
+                collectedAtLocal
+            );
+
+            NavigationManager.NavigateTo($"/laboratory/requisitions/{id}");
+        }
+        catch (Exception ex)
+        {
+            errorMessage = $"Failed to save specimen collection: {ex.Message}";
+            isSubmitting = false;
+        }
+    }
+}
+
+<style>
+    .btn-xs {
+        padding: 0.15rem 0.4rem;
+        font-size: 0.75rem;
+        line-height: 1.5;
+        border-radius: 0.2rem;
+    }
+</style>

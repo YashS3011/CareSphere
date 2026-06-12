@@ -3,11 +3,14 @@ using System.Text.Json;
 using System.Threading;
 using System.Threading.Tasks;
 using Azure.Messaging.ServiceBus;
-using CareSphere.Services;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
+using CareSphere.Modules.Shared.Events;
+using CareSphere.Modules.Billing.Services;
+using CareSphere.Modules.Notifications.Services;
+using CareSphere.Modules.Laboratory.Services;
 
 namespace CareSphere.BackgroundServices
 {
@@ -104,11 +107,14 @@ namespace CareSphere.BackgroundServices
                 }
                 else if (envelope.MessageType.Equals("LabReportReady", StringComparison.OrdinalIgnoreCase))
                 {
-                    var payload = JsonSerializer.Deserialize<LabReportReadyPayload>(envelope.Payload);
+                    var payload = JsonSerializer.Deserialize<LabReportReady>(envelope.Payload);
                     if (payload != null)
                     {
                         var service = scope.ServiceProvider.GetRequiredService<ILabNotificationService>();
                         await service.SendReportNotificationsAsync(payload.TenantId, payload.LabReportId);
+
+                        var senderService = scope.ServiceProvider.GetRequiredService<INotificationSenderService>();
+                        await senderService.SendLabReportReadyAsync(payload);
                     }
                 }
                 else if (envelope.MessageType.Equals("DischargeNotification", StringComparison.OrdinalIgnoreCase))
@@ -118,6 +124,24 @@ namespace CareSphere.BackgroundServices
                     {
                         var service = scope.ServiceProvider.GetRequiredService<IDischargeNotificationService>();
                         await service.SendDischargeNotificationAsync(payload.TenantId, payload.PatientId, payload.AllotmentId, payload.DischargedAt, payload.Language);
+                    }
+                }
+                else if (envelope.MessageType.Equals("EncounterCompleted", StringComparison.OrdinalIgnoreCase))
+                {
+                    var payload = JsonSerializer.Deserialize<EncounterCompleted>(envelope.Payload);
+                    if (payload != null)
+                    {
+                        var service = scope.ServiceProvider.GetRequiredService<IInvoiceService>();
+                        await service.CreateDraftFromEncounterAsync(payload);
+                    }
+                }
+                else if (envelope.MessageType.Equals("DispenseCompleted", StringComparison.OrdinalIgnoreCase))
+                {
+                    var payload = JsonSerializer.Deserialize<DispenseCompleted>(envelope.Payload);
+                    if (payload != null)
+                    {
+                        var service = scope.ServiceProvider.GetRequiredService<IInvoiceService>();
+                        await service.AddDispenseLineItemAsync(payload);
                     }
                 }
 

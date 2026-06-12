@@ -550,7 +550,7 @@ namespace CareSphere.Data
             modelBuilder.Entity<ApplicationUser>().HasQueryFilter(x => x.TenantId == _tenantContext.TenantId);
         }
 
-        public override async Task<int> SaveChangesAsync(CancellationToken cancellationToken = default)
+        private void BeforeSave()
         {
             foreach (var entry in ChangeTracker.Entries<BaseEntity>())
             {
@@ -566,7 +566,59 @@ namespace CareSphere.Data
                 if (entry.State == EntityState.Modified)
                     entry.Entity.UpdatedAt = DateTime.UtcNow;
             }
+
+            foreach (var entry in ChangeTracker.Entries())
+            {
+                if (entry.State == EntityState.Added)
+                {
+                    var tenantIdProp = entry.Metadata.FindProperty("TenantId");
+                    if (tenantIdProp != null && tenantIdProp.ClrType == typeof(Guid))
+                    {
+                        var currentVal = (Guid)entry.Property("TenantId").CurrentValue!;
+                        if (currentVal == Guid.Empty)
+                        {
+                            bool shouldSet = true;
+                            if (entry.Entity is ApplicationUser appUser && (appUser.Role == "platform_super_admin" || (appUser.TenantId == Guid.Empty && string.Equals(appUser.UserName, "platformadmin@caresphere.dev", StringComparison.OrdinalIgnoreCase))))
+                            {
+                                shouldSet = false;
+                            }
+                            else if (entry.Entity is AuditEvent auditEvent && auditEvent.Action.StartsWith("SuperAdmin_"))
+                            {
+                                shouldSet = false;
+                            }
+                            
+                            if (shouldSet)
+                            {
+                                entry.Property("TenantId").CurrentValue = _tenantContext.TenantId;
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        public override int SaveChanges()
+        {
+            BeforeSave();
+            return base.SaveChanges();
+        }
+
+        public override int SaveChanges(bool acceptAllChangesOnSuccess)
+        {
+            BeforeSave();
+            return base.SaveChanges(acceptAllChangesOnSuccess);
+        }
+
+        public override async Task<int> SaveChangesAsync(CancellationToken cancellationToken = default)
+        {
+            BeforeSave();
             return await base.SaveChangesAsync(cancellationToken);
+        }
+
+        public override async Task<int> SaveChangesAsync(bool acceptAllChangesOnSuccess, CancellationToken cancellationToken = default)
+        {
+            BeforeSave();
+            return await base.SaveChangesAsync(acceptAllChangesOnSuccess, cancellationToken);
         }
     }
 }

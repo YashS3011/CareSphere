@@ -1,8 +1,11 @@
 @page "/"
 @page "/dashboard"
 @attribute [Microsoft.AspNetCore.Authorization.Authorize]
-@inject CareSphere.Services.IPatientService PatientService
+@inject IPatientService PatientService
+@inject NavigationManager NavigationManager
+@inject AuthenticationStateProvider AuthenticationStateProvider
 @rendermode InteractiveServer
+
 
 <PageTitle>Dashboard - CareSphere</PageTitle>
 
@@ -83,6 +86,39 @@
 
     protected override async Task OnInitializedAsync()
     {
+        var authState = await AuthenticationStateProvider.GetAuthenticationStateAsync();
+        var user = authState.User;
+        if (user.Identity?.IsAuthenticated == true)
+        {
+            var role = CurrentUserHelper.GetUserRole(user);
+            var relativePath = NavigationManager.ToBaseRelativePath(NavigationManager.Uri).TrimEnd('/');
+
+            string? redirectUrl = role switch
+            {
+                CareSphereRoles.Doctor => $"/doctor/queue/{CurrentUserHelper.GetDoctorId(user) ?? Guid.Empty}",
+                CareSphereRoles.Nurse => "/beds/dashboard",
+                CareSphereRoles.Receptionist => "/patients",
+                CareSphereRoles.Pharmacist => "/pharmacy/dashboard",
+                CareSphereRoles.LabTechnician => "/lab/dashboard",
+                CareSphereRoles.BillingStaff => "/billing/dashboard",
+                CareSphereRoles.HospitalAdmin => "/admin/dashboard",
+                CareSphereRoles.SuperAdmin => "/admin/dashboard",
+                _ => null
+            };
+
+            if (redirectUrl != null)
+            {
+                NavigationManager.NavigateTo(redirectUrl);
+                return;
+            }
+
+            if (string.IsNullOrEmpty(relativePath) || relativePath == "/")
+            {
+                NavigationManager.NavigateTo("/dashboard");
+                return;
+            }
+        }
+
         patientCount = await PatientService.GetPatientCountAsync();
     }
 }

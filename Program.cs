@@ -4,7 +4,15 @@ using CareSphere.Components;
 using CareSphere.Data;
 using CareSphere.Infrastructure;
 using CareSphere.Models;
-using CareSphere.Services;
+using CareSphere.Modules.Clinical.Services;
+using CareSphere.Modules.Laboratory.Services;
+using CareSphere.Modules.Pharmacy.Services;
+using CareSphere.Modules.Billing.Services;
+using CareSphere.Modules.Patients.Services;
+using CareSphere.Modules.Ward.Services;
+using CareSphere.Modules.Notifications.Services;
+using CareSphere.Modules.Admin.Services;
+using CareSphere.Modules.Shared.Services;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
@@ -57,6 +65,9 @@ builder.Services.ConfigureApplicationCookie(options =>
 // ─── Authorization Policies ──────────────────────────────────────────────────
 builder.Services.AddAuthorization(options =>
 {
+    options.AddPolicy("HasPermission",
+        p => p.RequireAuthenticatedUser());
+
     options.AddPolicy("PlatformSuperAdmin",
         p => p.RequireClaim("role", "platform_super_admin"));
 
@@ -65,10 +76,18 @@ builder.Services.AddAuthorization(options =>
     options.AddPolicy(PolicyNames.Permission_Patients_Create, p => p.Requirements.Add(new PermissionRequirement(CareSpherePermissions.Patients_Create)));
     options.AddPolicy(PolicyNames.Permission_Patients_Edit,   p => p.Requirements.Add(new PermissionRequirement(CareSpherePermissions.Patients_Edit)));
     options.AddPolicy(PolicyNames.Permission_Patients_Delete, p => p.Requirements.Add(new PermissionRequirement(CareSpherePermissions.Patients_Delete)));
+    options.AddPolicy(PolicyNames.Permission_OwnRecords_View, p => p.Requirements.Add(new PermissionRequirement(CareSpherePermissions.OwnRecords_View)));
+    options.AddPolicy(PolicyNames.Permission_OwnInvoices_Download, p => p.Requirements.Add(new PermissionRequirement(CareSpherePermissions.OwnInvoices_Download)));
+    options.AddPolicy(PolicyNames.Permission_Appointments_Book, p => p.Requirements.Add(new PermissionRequirement(CareSpherePermissions.Appointments_Book)));
+    options.AddPolicy(PolicyNames.Permission_Appointments_Create, p => p.Requirements.Add(new PermissionRequirement(CareSpherePermissions.Appointments_Create)));
+    options.AddPolicy(PolicyNames.Permission_Appointments_View, p => p.Requirements.Add(new PermissionRequirement(CareSpherePermissions.Appointments_View)));
+
     // Beds
     options.AddPolicy(PolicyNames.Permission_Beds_View,    p => p.Requirements.Add(new PermissionRequirement(CareSpherePermissions.Beds_View)));
     options.AddPolicy(PolicyNames.Permission_Beds_Manage,  p => p.Requirements.Add(new PermissionRequirement(CareSpherePermissions.Beds_Manage)));
     options.AddPolicy(PolicyNames.Permission_Beds_Allocate,p => p.Requirements.Add(new PermissionRequirement(CareSpherePermissions.Beds_Allocate)));
+    options.AddPolicy(PolicyNames.Permission_BedAllotment_View, p => p.Requirements.Add(new PermissionRequirement(CareSpherePermissions.BedAllotment_View)));
+
     // Doctor / EMR
     options.AddPolicy(PolicyNames.Permission_Encounters_View,     p => p.Requirements.Add(new PermissionRequirement(CareSpherePermissions.Encounters_View)));
     options.AddPolicy(PolicyNames.Permission_Encounters_Create,   p => p.Requirements.Add(new PermissionRequirement(CareSpherePermissions.Encounters_Create)));
@@ -77,23 +96,41 @@ builder.Services.AddAuthorization(options =>
     options.AddPolicy(PolicyNames.Permission_Prescriptions_Write, p => p.Requirements.Add(new PermissionRequirement(CareSpherePermissions.Prescriptions_Write)));
     options.AddPolicy(PolicyNames.Permission_Prescriptions_Cancel,p => p.Requirements.Add(new PermissionRequirement(CareSpherePermissions.Prescriptions_Cancel)));
     options.AddPolicy(PolicyNames.Permission_TeleConsult_Start,   p => p.Requirements.Add(new PermissionRequirement(CareSpherePermissions.TeleConsult_Start)));
+    options.AddPolicy(PolicyNames.Permission_Queue_View,          p => p.Requirements.Add(new PermissionRequirement(CareSpherePermissions.Queue_View)));
+    options.AddPolicy(PolicyNames.Permission_Queue_Manage,        p => p.Requirements.Add(new PermissionRequirement(CareSpherePermissions.Queue_Manage)));
+    options.AddPolicy(PolicyNames.Permission_Vitals_Create,       p => p.Requirements.Add(new PermissionRequirement(CareSpherePermissions.Vitals_Create)));
+    options.AddPolicy(PolicyNames.Permission_Vitals_View,         p => p.Requirements.Add(new PermissionRequirement(CareSpherePermissions.Vitals_View)));
+    options.AddPolicy(PolicyNames.Permission_NursingNotes_Create, p => p.Requirements.Add(new PermissionRequirement(CareSpherePermissions.NursingNotes_Create)));
+    options.AddPolicy(PolicyNames.Permission_NursingNotes_View,   p => p.Requirements.Add(new PermissionRequirement(CareSpherePermissions.NursingNotes_View)));
+    options.AddPolicy(PolicyNames.Permission_MedicationAdmin_Create, p => p.Requirements.Add(new PermissionRequirement(CareSpherePermissions.MedicationAdmin_Create)));
+    options.AddPolicy(PolicyNames.Permission_MedicationAdmin_View,   p => p.Requirements.Add(new PermissionRequirement(CareSpherePermissions.MedicationAdmin_View)));
+
     // Pharmacy
     options.AddPolicy(PolicyNames.Permission_Pharmacy_ViewStock,      p => p.Requirements.Add(new PermissionRequirement(CareSpherePermissions.Pharmacy_ViewStock)));
     options.AddPolicy(PolicyNames.Permission_Pharmacy_Dispense,       p => p.Requirements.Add(new PermissionRequirement(CareSpherePermissions.Pharmacy_Dispense)));
     options.AddPolicy(PolicyNames.Permission_Pharmacy_ManageInventory,p => p.Requirements.Add(new PermissionRequirement(CareSpherePermissions.Pharmacy_ManageInventory)));
     options.AddPolicy(PolicyNames.Permission_Pharmacy_OtcSale,        p => p.Requirements.Add(new PermissionRequirement(CareSpherePermissions.Pharmacy_OtcSale)));
     options.AddPolicy(PolicyNames.Permission_Pharmacy_ManagePO,       p => p.Requirements.Add(new PermissionRequirement(CareSpherePermissions.Pharmacy_ManagePO)));
+
     // Lab
     options.AddPolicy(PolicyNames.Permission_Lab_OrderTests,    p => p.Requirements.Add(new PermissionRequirement(CareSpherePermissions.Lab_OrderTests)));
     options.AddPolicy(PolicyNames.Permission_Lab_CollectSample, p => p.Requirements.Add(new PermissionRequirement(CareSpherePermissions.Lab_CollectSample)));
     options.AddPolicy(PolicyNames.Permission_Lab_EnterResults,  p => p.Requirements.Add(new PermissionRequirement(CareSpherePermissions.Lab_EnterResults)));
     options.AddPolicy(PolicyNames.Permission_Lab_VerifyResults, p => p.Requirements.Add(new PermissionRequirement(CareSpherePermissions.Lab_VerifyResults)));
     options.AddPolicy(PolicyNames.Permission_Lab_ViewReports,   p => p.Requirements.Add(new PermissionRequirement(CareSpherePermissions.Lab_ViewReports)));
+
     // Billing
     options.AddPolicy(PolicyNames.Permission_Billing_ViewInvoices,   p => p.Requirements.Add(new PermissionRequirement(CareSpherePermissions.Billing_ViewInvoices)));
     options.AddPolicy(PolicyNames.Permission_Billing_CreateInvoices, p => p.Requirements.Add(new PermissionRequirement(CareSpherePermissions.Billing_CreateInvoices)));
     options.AddPolicy(PolicyNames.Permission_Billing_RecordPayments, p => p.Requirements.Add(new PermissionRequirement(CareSpherePermissions.Billing_RecordPayments)));
     options.AddPolicy(PolicyNames.Permission_Billing_ManageClaims,   p => p.Requirements.Add(new PermissionRequirement(CareSpherePermissions.Billing_ManageClaims)));
+    options.AddPolicy(PolicyNames.Permission_Billing_View,           p => p.Requirements.Add(new PermissionRequirement(CareSpherePermissions.Billing_View)));
+    options.AddPolicy(PolicyNames.Permission_Billing_Create,         p => p.Requirements.Add(new PermissionRequirement(CareSpherePermissions.Billing_Create)));
+    options.AddPolicy(PolicyNames.Permission_Billing_Edit,           p => p.Requirements.Add(new PermissionRequirement(CareSpherePermissions.Billing_Edit)));
+    options.AddPolicy(PolicyNames.Permission_Payments_Manage,        p => p.Requirements.Add(new PermissionRequirement(CareSpherePermissions.Payments_Manage)));
+    options.AddPolicy(PolicyNames.Permission_InsuranceClaims_Manage, p => p.Requirements.Add(new PermissionRequirement(CareSpherePermissions.InsuranceClaims_Manage)));
+    options.AddPolicy(PolicyNames.Permission_InsuranceClaims_View,   p => p.Requirements.Add(new PermissionRequirement(CareSpherePermissions.InsuranceClaims_View)));
+
     // Admin
     options.AddPolicy(PolicyNames.Permission_Admin_ManageUsers,  p => p.Requirements.Add(new PermissionRequirement(CareSpherePermissions.Admin_ManageUsers)));
     options.AddPolicy(PolicyNames.Permission_Admin_ManageRoles,  p => p.Requirements.Add(new PermissionRequirement(CareSpherePermissions.Admin_ManageRoles)));
@@ -103,6 +140,11 @@ builder.Services.AddAuthorization(options =>
 
 // Register PermissionAuthorizationHandler as scoped
 builder.Services.AddScoped<IAuthorizationHandler, PermissionAuthorizationHandler>();
+
+// Register Shared Read Models
+builder.Services.AddScoped<CareSphere.Modules.Shared.ReadModels.IPatientReadModel, CareSphere.Modules.Shared.ReadModels.PatientReadModel>();
+builder.Services.AddScoped<CareSphere.Modules.Shared.ReadModels.IPrescriptionReadModel, CareSphere.Modules.Shared.ReadModels.PrescriptionReadModel>();
+builder.Services.AddScoped<CareSphere.Modules.Shared.ReadModels.IBedReadModel, CareSphere.Modules.Shared.ReadModels.BedReadModel>();
 
 // ─── Core Services ────────────────────────────────────────────────────────────
 builder.Services.AddTransient<IPatientService, PatientService>();

@@ -1,0 +1,8 @@
+@using CareSphere.Modules.Admin.Services
+@using CareSphere.Modules.Admin.Layout
+@using CareSphere.Modules.Shared.ReadModels
+@using CareSphere.Models
+@using CareSphere.Components.Pages.Admin
+@using CareSphere.Infrastructure
+@layout AdminLayout
+@attribute [Authorize(Policy = "HasPermission")]

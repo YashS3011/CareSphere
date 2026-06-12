@@ -22,6 +22,8 @@ namespace CareSphere.Components.Pages.Admin
             CareSphereRoles.Finance,
             CareSphereRoles.NabhAuditor,
             CareSphereRoles.Patient,
+            CareSphereRoles.Receptionist,
+            CareSphereRoles.BillingStaff,
         };
 
         /// <summary>
@@ -57,6 +59,8 @@ namespace CareSphere.Components.Pages.Admin
             CareSphereRoles.Finance => "bg-dark",
             CareSphereRoles.NabhAuditor => "bg-secondary",
             CareSphereRoles.Patient => "bg-light text-dark",
+            CareSphereRoles.Receptionist => "bg-primary text-white",
+            CareSphereRoles.BillingStaff => "bg-warning text-dark",
             _ => "bg-light text-dark",
         };
 
@@ -75,6 +79,8 @@ namespace CareSphere.Components.Pages.Admin
             CareSphereRoles.Finance => "bi-wallet2",
             CareSphereRoles.NabhAuditor => "bi-clipboard-check",
             CareSphereRoles.Patient => "bi-person",
+            CareSphereRoles.Receptionist => "bi-telephone-fill",
+            CareSphereRoles.BillingStaff => "bi-receipt-cutoff",
             _ => "bi-shield",
         };
 
@@ -88,6 +94,8 @@ namespace CareSphere.Components.Pages.Admin
             CareSphereRoles.Doctor => "bg-primary",
             CareSphereRoles.Nurse => "bg-info",
             CareSphereRoles.Pharmacist => "bg-success",
+            CareSphereRoles.Receptionist => "bg-primary",
+            CareSphereRoles.BillingStaff => "bg-warning",
             _ => "bg-secondary",
         };
 
@@ -106,6 +114,8 @@ namespace CareSphere.Components.Pages.Admin
             CareSphereRoles.Finance => "Billing and payments",
             CareSphereRoles.NabhAuditor => "Read-only compliance",
             CareSphereRoles.Patient => "Own record only",
+            CareSphereRoles.Receptionist => "Reception and front desk",
+            CareSphereRoles.BillingStaff => "Billing and claim processing",
             _ => "",
         };
     }

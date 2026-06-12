@@ -158,8 +158,6 @@ D:\CareSphere\obj\Debug\net10.0\compressed\lo6oz9e3ub-{0}-4d85u1mtcx-4d85u1mtcx.
 D:\CareSphere\obj\Debug\net10.0\compressed\sve89tpc8z-{0}-0j3bgjxly4-0j3bgjxly4.gz
 D:\CareSphere\obj\Debug\net10.0\compressed\q0vlpy1grk-{0}-ej96puwv3k-ej96puwv3k.gz
 D:\CareSphere\obj\Debug\net10.0\compressed\op49qy57it-{0}-cj5793hgrt-cj5793hgrt.gz
-D:\CareSphere\obj\Debug\net10.0\compressed\mfuuwe67di-{0}-h4qi4xrdbe-h4qi4xrdbe.gz
-D:\CareSphere\obj\Debug\net10.0\compressed\ajdfzskxy7-{0}-h4qi4xrdbe-h4qi4xrdbe.gz
 D:\CareSphere\obj\Debug\net10.0\staticwebassets.build.json
 D:\CareSphere\obj\Debug\net10.0\staticwebassets.build.json.cache
 D:\CareSphere\obj\Debug\net10.0\staticwebassets.development.json
@@ -237,3 +235,5 @@ D:\CareSphere\bin\Debug\net10.0\Microsoft.AspNetCore.Authentication.OpenIdConnec
 D:\CareSphere\bin\Debug\net10.0\Microsoft.AspNetCore.Identity.EntityFrameworkCore.dll
 D:\CareSphere\bin\Debug\net10.0\Microsoft.IdentityModel.Protocols.dll
 D:\CareSphere\bin\Debug\net10.0\Microsoft.IdentityModel.Protocols.OpenIdConnect.dll
+D:\CareSphere\obj\Debug\net10.0\compressed\mfuuwe67di-{0}-wslu3rzd45-wslu3rzd45.gz
+D:\CareSphere\obj\Debug\net10.0\compressed\ajdfzskxy7-{0}-wslu3rzd45-wslu3rzd45.gz

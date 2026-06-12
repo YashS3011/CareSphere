@@ -1,7 +1,8 @@
 @page "/platform-admin/tenants"
 @layout CareSphere.Areas.PlatformAdmin.Layout.PlatformAdminLayout
+@rendermode InteractiveServer
 @inject CareSphere.Data.ApplicationDbContext DbContext
-@inject CareSphere.Services.IImpersonationService ImpersonationService
+@inject IImpersonationService ImpersonationService
 @inject NavigationManager NavigationManager
 @using Microsoft.EntityFrameworkCore
 
