@@ -13,7 +13,12 @@ using CareSphere.Modules.Ward.Services;
 using CareSphere.Modules.Notifications.Services;
 using CareSphere.Modules.Admin.Services;
 using CareSphere.Modules.Shared.Services;
+using CareSphere.Modules.Appointments.Services;
+using CareSphere.Modules.Analytics.Services;
+using CareSphere.Modules.Nursing.Services;
+using CareSphere.Modules.Shared.ReadModels;
 using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Components.Authorization;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 
@@ -33,10 +38,20 @@ builder.Services.AddScoped<ITenantContext, TenantContext>();
 // In-memory cache (used by PermissionService)
 builder.Services.AddMemoryCache();
 
-// Configure EF Core with PostgreSQL
+// Configure EF Core with PostgreSQL or InMemory fallback
 builder.Services.AddDbContext<ApplicationDbContext>(options =>
-    options.UseNpgsql(builder.Configuration.GetConnectionString("DefaultConnection")),
-    ServiceLifetime.Transient, ServiceLifetime.Transient);
+{
+    var connStr = builder.Configuration.GetConnectionString("DefaultConnection");
+    if (string.IsNullOrEmpty(connStr) || connStr.Contains("<host>") || connStr.Contains("placeholder"))
+    {
+        options.UseInMemoryDatabase("CareSphereDb");
+    }
+    else
+    {
+        options.UseNpgsql(connStr);
+    }
+},
+ServiceLifetime.Transient, ServiceLifetime.Transient);
 
 // ─── ASP.NET Core Identity ──────────────────────────────────────────────────
 builder.Services.AddIdentity<ApplicationUser, IdentityRole>(options =>
@@ -136,19 +151,32 @@ builder.Services.AddAuthorization(options =>
     options.AddPolicy(PolicyNames.Permission_Admin_ManageRoles,  p => p.Requirements.Add(new PermissionRequirement(CareSpherePermissions.Admin_ManageRoles)));
     options.AddPolicy(PolicyNames.Permission_Admin_ViewAuditLog, p => p.Requirements.Add(new PermissionRequirement(CareSpherePermissions.Admin_ViewAuditLog)));
     options.AddPolicy(PolicyNames.Permission_Admin_ManageTenant, p => p.Requirements.Add(new PermissionRequirement(CareSpherePermissions.Admin_ManageTenant)));
+    options.AddPolicy(PolicyNames.Permission_DoctorSchedule_Manage, p => p.Requirements.Add(new PermissionRequirement(CareSpherePermissions.DoctorSchedule_Manage)));
+    options.AddPolicy(PolicyNames.Permission_Analytics_View, p => p.Requirements.Add(new PermissionRequirement(CareSpherePermissions.Analytics_View)));
+    options.AddPolicy("Queue_Access", p => p.Requirements.Add(new CareSphere.Authorization.QueueAccessRequirement()));
 });
 
 // Register PermissionAuthorizationHandler as scoped
 builder.Services.AddScoped<IAuthorizationHandler, PermissionAuthorizationHandler>();
+builder.Services.AddScoped<IAuthorizationHandler, CareSphere.Authorization.QueueAccessAuthorizationHandler>();
 
 // Register Shared Read Models
 builder.Services.AddScoped<CareSphere.Modules.Shared.ReadModels.IPatientReadModel, CareSphere.Modules.Shared.ReadModels.PatientReadModel>();
 builder.Services.AddScoped<CareSphere.Modules.Shared.ReadModels.IPrescriptionReadModel, CareSphere.Modules.Shared.ReadModels.PrescriptionReadModel>();
 builder.Services.AddScoped<CareSphere.Modules.Shared.ReadModels.IBedReadModel, CareSphere.Modules.Shared.ReadModels.BedReadModel>();
+builder.Services.AddScoped<CareSphere.Modules.Shared.ReadModels.IDoctorReadModel, CareSphere.Modules.Shared.ReadModels.DoctorReadModel>();
 
 // ─── Core Services ────────────────────────────────────────────────────────────
 builder.Services.AddTransient<IPatientService, PatientService>();
 builder.Services.AddTransient<IBedService, BedService>();
+
+// Register New Modules Services
+builder.Services.AddScoped<IAppointmentService, AppointmentService>();
+builder.Services.AddScoped<IDoctorScheduleService, DoctorScheduleService>();
+builder.Services.AddScoped<IAnalyticsService, AnalyticsService>();
+builder.Services.AddScoped<IVitalSignsService, VitalSignsService>();
+builder.Services.AddScoped<INursingNoteService, NursingNoteService>();
+builder.Services.AddScoped<IMedicationAdministrationService, MedicationAdministrationService>();
 
 // Doctor Workflow & EMR Services
 builder.Services.AddTransient<IAuditService, AuditService>();
@@ -206,6 +234,8 @@ builder.Services.AddHostedService<CareSphere.BackgroundServices.ServiceBusConsum
 // ─── Admin & Access Control Services ─────────────────────────────────────────
 builder.Services.AddScoped<IPermissionService, PermissionService>();
 builder.Services.AddScoped<IAuthService, AuthService>();
+builder.Services.AddScoped<CareSphere.Authorization.TabIsolatedAuthenticationStateProvider>();
+builder.Services.AddScoped<AuthenticationStateProvider>(sp => sp.GetRequiredService<CareSphere.Authorization.TabIsolatedAuthenticationStateProvider>());
 builder.Services.AddScoped<IUserService, UserService>();
 builder.Services.AddTransient<ITenantService, TenantService>();
 builder.Services.AddScoped<IImpersonationService, ImpersonationService>();
@@ -236,7 +266,14 @@ using (var scope = app.Services.CreateScope())
 
         // Apply any pending EF Core migrations
         var context = services.GetRequiredService<ApplicationDbContext>();
-        await context.Database.MigrateAsync();
+        if (context.Database.IsRelational())
+        {
+            await context.Database.MigrateAsync();
+        }
+        else
+        {
+            await context.Database.EnsureCreatedAsync();
+        }
 
         // Seed roles, SuperAdmin, tenant settings, and role permissions
         var seeder = services.GetRequiredService<DatabaseSeeder>();

@@ -58,6 +58,15 @@ namespace CareSphere.Modules.Admin.Services
                 if (!user.IsActive)
                     return AuthResult.Fail("Account is deactivated. Please contact your administrator.");
 
+                if (!isPlatformAdmin)
+                {
+                    var tenantSettings = await _context.TenantSettings
+                        .IgnoreQueryFilters()
+                        .FirstOrDefaultAsync(t => t.TenantId == user.TenantId);
+                    if (tenantSettings == null || !tenantSettings.IsActive)
+                        return AuthResult.Fail("This hospital is currently suspended. Please contact platform operations.");
+                }
+
                 var result = await _signInManager.CheckPasswordSignInAsync(user, password, lockoutOnFailure: true);
                 if (!result.Succeeded)
                 {
@@ -72,6 +81,7 @@ namespace CareSphere.Modules.Admin.Services
                 {
                     new Claim(CareSphereClaimTypes.TenantId, user.TenantId.ToString()),
                     new Claim(CareSphereClaimTypes.FullName, user.FullName),
+                    new Claim(ClaimTypes.Role, user.Role),
                     new Claim("role", user.Role),
                 };
 
@@ -104,7 +114,18 @@ namespace CareSphere.Modules.Admin.Services
                 await _context.SaveChangesAsync();
 
                 // Sign in with extended claims (cookie auth)
-                await _signInManager.SignInWithClaimsAsync(user, isPersistent: false, claims);
+                try
+                {
+                    if (_signInManager.Context?.Response?.HasStarted == false)
+                    {
+                        await _signInManager.SignInWithClaimsAsync(user, isPersistent: false, claims);
+                    }
+                }
+                catch (InvalidOperationException)
+                {
+                    // Ignore: response has already started in Blazor Interactive Server mode.
+                    // Tab session isolation is managed via JS window.name token.
+                }
 
                 // Audit
                 await _auditService.LogAsync(new AuditEvent
@@ -118,7 +139,7 @@ namespace CareSphere.Modules.Admin.Services
                     Device = ParseDeviceInfo(userAgent),
                 });
 
-                return AuthResult.Ok(user);
+                return AuthResult.Ok(user, sessionToken);
             }
             finally
             {
@@ -151,7 +172,17 @@ namespace CareSphere.Modules.Admin.Services
                 ResourceId = userId,
             });
 
-            await _signInManager.SignOutAsync();
+            try
+            {
+                if (_signInManager.Context?.Response?.HasStarted == false)
+                {
+                    await _signInManager.SignOutAsync();
+                }
+            }
+            catch (InvalidOperationException)
+            {
+                // Ignore: response has already started in Blazor Interactive Server mode.
+            }
         }
 
         public async Task<bool> RefreshSessionAsync(string sessionToken)

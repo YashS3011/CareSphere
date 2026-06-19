@@ -1,10 +1,11 @@
 @page "/doctor/queue"
 @page "/doctor/queue/{DoctorId:guid}"
-@attribute [Microsoft.AspNetCore.Authorization.Authorize(Policy = PolicyNames.Permission_Encounters_View)]
+@attribute [Microsoft.AspNetCore.Authorization.Authorize(Policy = "Queue_Access")]
 @using CareSphere.Models
-@inject IQueueService QueueService
+@inject IServiceScopeFactory ScopeFactory
 @inject IDoctorService DoctorService
 @inject IPatientReadModel PatientReadModel
+@inject ITenantContext TenantContext
 @inject NavigationManager NavigationManager
 @rendermode InteractiveServer
 @implements IDisposable
@@ -202,6 +203,7 @@ else
     private IEnumerable<PatientSummary>? patients;
     private List<Doctor>? activeDoctors;
     private System.Threading.Timer? refreshTimer;
+    private bool _isDisposed = false;
 
     private bool showAddForm = false;
     private string selectedPatientId = string.Empty;
@@ -228,8 +230,10 @@ else
                     // Auto-refresh every 30 seconds
                     refreshTimer = new System.Threading.Timer(async _ =>
                     {
+                        if (_isDisposed) return;
                         await InvokeAsync(async () =>
                         {
+                            if (_isDisposed) return;
                             await RefreshQueue();
                             StateHasChanged();
                         });
@@ -254,12 +258,30 @@ else
 
     private async Task RefreshQueue()
     {
-        queueEntries = await QueueService.GetQueueForDoctorAsync(DoctorId);
+        if (_isDisposed) return;
+        try
+        {
+            using (var scope = ScopeFactory.CreateScope())
+            {
+                var scopedTenant = scope.ServiceProvider.GetRequiredService<ITenantContext>();
+                scopedTenant.SetTenantId(TenantContext.TenantId);
+
+                var queueService = scope.ServiceProvider.GetRequiredService<IQueueService>();
+                queueEntries = await queueService.GetQueueForDoctorAsync(DoctorId);
+            }
+        }
+        catch (Exception ex)
+        {
+            if (!_isDisposed)
+            {
+                Console.WriteLine($"[QueueIndex] Error refreshing queue: {ex.Message}");
+            }
+        }
     }
 
     private async Task ShowAddToQueue()
     {
-        patients = await PatientReadModel.SearchAsync("", Guid.Empty);
+        patients = await PatientReadModel.SearchAsync("", TenantContext.TenantId);
         selectedPatientId = string.Empty;
         queueNotes = string.Empty;
         addError = string.Empty;
@@ -284,7 +306,14 @@ else
                 TenantId = doctor?.TenantId ?? Guid.Empty
             };
 
-            await QueueService.AddToQueueAsync(entry);
+            using (var scope = ScopeFactory.CreateScope())
+            {
+                var scopedTenant = scope.ServiceProvider.GetRequiredService<ITenantContext>();
+                scopedTenant.SetTenantId(TenantContext.TenantId);
+
+                var queueService = scope.ServiceProvider.GetRequiredService<IQueueService>();
+                await queueService.AddToQueueAsync(entry);
+            }
             showAddForm = false;
             statusMessage = "Patient added to queue.";
             await RefreshQueue();
@@ -302,7 +331,14 @@ else
     {
         try
         {
-            await QueueService.UpdateStatusAsync(entryId, newStatus);
+            using (var scope = ScopeFactory.CreateScope())
+            {
+                var scopedTenant = scope.ServiceProvider.GetRequiredService<ITenantContext>();
+                scopedTenant.SetTenantId(TenantContext.TenantId);
+
+                var queueService = scope.ServiceProvider.GetRequiredService<IQueueService>();
+                await queueService.UpdateStatusAsync(entryId, newStatus);
+            }
             statusMessage = $"Status updated to {newStatus}.";
             await RefreshQueue();
 
@@ -330,6 +366,7 @@ else
 
     public void Dispose()
     {
+        _isDisposed = true;
         refreshTimer?.Dispose();
     }
 }

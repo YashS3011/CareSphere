@@ -1,7 +1,9 @@
 @page "/auth/logout"
+@rendermode @(new InteractiveServerRenderMode(prerender: false))
 @inject IAuthService AuthService
 @inject NavigationManager NavigationManager
 @inject AuthenticationStateProvider AuthStateProvider
+@inject IJSRuntime JS
 
 <PageTitle>Signing out — CareSphere</PageTitle>
 
@@ -19,9 +21,19 @@
         {
             var authState = await AuthStateProvider.GetAuthenticationStateAsync();
             var userId = authState.User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value;
+            var sessionToken = authState.User.FindFirst("session_token")?.Value ?? "";
+
+            // Clear window.name for tab session isolation
+            await JS.InvokeVoidAsync("eval", "window.name = ''");
+
+            // Notify provider of logout
+            if (AuthStateProvider is CareSphere.Authorization.TabIsolatedAuthenticationStateProvider tabProvider)
+            {
+                tabProvider.NotifyUserLogout();
+            }
 
             if (!string.IsNullOrEmpty(userId))
-                await AuthService.LogoutAsync(userId, "");
+                await AuthService.LogoutAsync(userId, sessionToken);
         }
         catch { /* Ignore errors during logout */ }
 

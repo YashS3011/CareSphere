@@ -13,6 +13,7 @@
 @using CareSphere.Components
 @inject IPharmacyItemService ItemService
 @inject NavigationManager NavigationManager
+@inject ITenantContext TenantContext
 @rendermode InteractiveServer
 
 <PageTitle>Add Pharmacy Item - CareSphere</PageTitle>
@@ -174,7 +175,7 @@
         {
             isSubmitting = true;
             errorMessage = string.Empty;
-            item.TenantId = Guid.Empty;
+            item.TenantId = TenantContext.TenantId;
 
             await ItemService.CreateItemAsync(item);
             NavigationManager.NavigateTo("/pharmacy/items");

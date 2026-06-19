@@ -10,5 +10,8 @@ namespace CareSphere.Infrastructure
         {
             TenantId = tenantId;
         }
+
+        // No-op: this context is used for seeding/migrations where tenant ID is fixed at construction.
+        public void SetTenantId(Guid tenantId) { }
     }
 }

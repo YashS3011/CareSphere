@@ -63,6 +63,11 @@ namespace CareSphere.Data
         public DbSet<LabResult> LabResults { get; set; }
         public DbSet<LabReport> LabReports { get; set; }
         public DbSet<InAppNotification> InAppNotifications { get; set; }
+        public DbSet<Appointment> Appointments { get; set; }
+        public DbSet<DoctorSchedule> DoctorSchedules { get; set; }
+        public DbSet<VitalSigns> VitalSigns { get; set; }
+        public DbSet<NursingNote> NursingNotes { get; set; }
+        public DbSet<MedicationAdministrationRecord> MedicationAdministrationRecords { get; set; }
 
         // Notifications & Patient Engagement DbSets
         public DbSet<NotificationTemplate> NotificationTemplates { get; set; }
@@ -394,6 +399,44 @@ namespace CareSphere.Data
                 entity.Property(e => e.CreatedAt).HasDefaultValueSql("now()");
             });
 
+            modelBuilder.Entity<Appointment>(entity =>
+            {
+                entity.Property(e => e.Id).HasDefaultValueSql("gen_random_uuid()");
+                entity.Property(e => e.CreatedAt).HasDefaultValueSql("now()");
+                entity.HasIndex(e => new { e.TenantId, e.Status }).HasDatabaseName("IX_Appointments_Tenant_Status");
+                entity.HasIndex(e => new { e.DoctorId, e.SlotStart }).HasDatabaseName("IX_Appointments_Doctor_SlotStart");
+            });
+
+            modelBuilder.Entity<DoctorSchedule>(entity =>
+            {
+                entity.Property(e => e.Id).HasDefaultValueSql("gen_random_uuid()");
+                entity.Property(e => e.CreatedAt).HasDefaultValueSql("now()");
+                entity.HasIndex(e => new { e.DoctorId, e.DayOfWeek }).HasDatabaseName("IX_DoctorSchedules_Doctor_Day");
+            });
+
+            modelBuilder.Entity<VitalSigns>(entity =>
+            {
+                entity.Property(e => e.Id).HasDefaultValueSql("gen_random_uuid()");
+                entity.Property(e => e.CreatedAt).HasDefaultValueSql("now()");
+                entity.HasIndex(e => new { e.PatientId, e.RecordedAt }).HasDatabaseName("IX_VitalSigns_Patient_RecordedAt");
+                entity.HasIndex(e => new { e.TenantId, e.RecordedAt }).HasDatabaseName("IX_VitalSigns_Tenant_RecordedAt");
+            });
+
+            modelBuilder.Entity<NursingNote>(entity =>
+            {
+                entity.Property(e => e.Id).HasDefaultValueSql("gen_random_uuid()");
+                entity.Property(e => e.CreatedAt).HasDefaultValueSql("now()");
+                entity.HasIndex(e => new { e.PatientId, e.TenantId }).HasDatabaseName("IX_NursingNotes_Patient");
+            });
+
+            modelBuilder.Entity<MedicationAdministrationRecord>(entity =>
+            {
+                entity.Property(e => e.Id).HasDefaultValueSql("gen_random_uuid()");
+                entity.Property(e => e.CreatedAt).HasDefaultValueSql("now()");
+                entity.HasIndex(e => new { e.PrescriptionId, e.TenantId }).HasDatabaseName("IX_MAR_Prescription");
+                entity.HasIndex(e => new { e.PatientId, e.AdministeredAt }).HasDatabaseName("IX_MAR_Patient_AdministeredAt");
+            });
+
             // --- Notifications & Patient Engagement Configurations ---
             modelBuilder.Entity<NotificationTemplate>(entity =>
             {
@@ -537,6 +580,11 @@ namespace CareSphere.Data
             modelBuilder.Entity<LabResult>().HasQueryFilter(x => x.TenantId == _tenantContext.TenantId);
             modelBuilder.Entity<LabReport>().HasQueryFilter(x => x.TenantId == _tenantContext.TenantId);
             modelBuilder.Entity<InAppNotification>().HasQueryFilter(x => x.TenantId == _tenantContext.TenantId);
+            modelBuilder.Entity<Appointment>().HasQueryFilter(x => x.TenantId == _tenantContext.TenantId);
+            modelBuilder.Entity<DoctorSchedule>().HasQueryFilter(x => x.TenantId == _tenantContext.TenantId);
+            modelBuilder.Entity<VitalSigns>().HasQueryFilter(x => x.TenantId == _tenantContext.TenantId);
+            modelBuilder.Entity<NursingNote>().HasQueryFilter(x => x.TenantId == _tenantContext.TenantId);
+            modelBuilder.Entity<MedicationAdministrationRecord>().HasQueryFilter(x => x.TenantId == _tenantContext.TenantId);
             modelBuilder.Entity<NotificationTemplate>().HasQueryFilter(x => x.TenantId == _tenantContext.TenantId);
             modelBuilder.Entity<NotificationLog>().HasQueryFilter(x => x.TenantId == _tenantContext.TenantId);
             modelBuilder.Entity<AppointmentReminder>().HasQueryFilter(x => x.TenantId == _tenantContext.TenantId);

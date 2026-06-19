@@ -34,6 +34,8 @@ namespace CareSphere.Modules.Shared.ReadModels
                 Form = rx.Form,
                 Strength = rx.Strength,
                 IssuedAt = rx.IssuedAt,
+                Route = rx.Route,
+                Frequency = rx.Frequency,
                 Items = new List<PrescriptionItemSummary>
                 {
                     new PrescriptionItemSummary
@@ -83,6 +85,39 @@ namespace CareSphere.Modules.Shared.ReadModels
                 Form = rx.Form,
                 Strength = rx.Strength,
                 IssuedAt = rx.IssuedAt,
+                Route = rx.Route,
+                Frequency = rx.Frequency,
+                Items = new List<PrescriptionItemSummary>
+                {
+                    new PrescriptionItemSummary
+                    {
+                        DrugName = rx.DrugName,
+                        Quantity = rx.Quantity,
+                        Dosage = $"{rx.Strength} {rx.Form} - {rx.Frequency} ({rx.Duration})"
+                    }
+                }
+            }).ToList();
+        }
+
+        public async Task<IEnumerable<PrescriptionSummary>> GetActiveByPatientAsync(Guid patientId, Guid tenantId)
+        {
+            var prescriptions = await _dbContext.Prescriptions
+                .AsNoTracking()
+                .Where(p => p.PatientId == patientId && p.Status == "Active" && p.TenantId == tenantId)
+                .OrderByDescending(p => p.IssuedAt)
+                .ToListAsync();
+
+            return prescriptions.Select(rx => new PrescriptionSummary
+            {
+                Id = rx.Id,
+                PatientId = rx.PatientId,
+                Status = rx.Status,
+                DrugCode = rx.DrugCode ?? string.Empty,
+                Form = rx.Form,
+                Strength = rx.Strength,
+                IssuedAt = rx.IssuedAt,
+                Route = rx.Route,
+                Frequency = rx.Frequency,
                 Items = new List<PrescriptionItemSummary>
                 {
                     new PrescriptionItemSummary

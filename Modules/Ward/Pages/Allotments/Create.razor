@@ -2,7 +2,10 @@
 @attribute [Authorize(Policy = PolicyNames.Permission_Beds_Allocate)]
 @inject IBedService BedService
 @inject IPatientReadModel PatientReadModel
+@inject ITenantContext TenantContext
 @inject NavigationManager NavigationManager
+@inject CareSphere.Data.ApplicationDbContext DbContext
+@using Microsoft.EntityFrameworkCore
 @rendermode InteractiveServer
 
 <PageTitle>Admit Patient (Bed Allotment) - CareSphere</PageTitle>
@@ -157,7 +160,24 @@
     {
         if (!string.IsNullOrWhiteSpace(patientSearchQuery))
         {
-            foundPatients = await PatientReadModel.SearchAsync(patientSearchQuery, Guid.Empty);
+            var allPatients = await PatientReadModel.SearchAsync(patientSearchQuery, TenantContext.TenantId);
+
+            // Exclude patients who are currently admitted (active allotment) to prevent duplicate admissions.
+            var activePatientIds = await DbContext.BedAllotments
+                .Where(a => a.Status == "Active" && a.TenantId == TenantContext.TenantId)
+                .Select(a => a.PatientId)
+                .ToListAsync();
+
+            foundPatients = allPatients.Where(p => !activePatientIds.Contains(p.Id)).ToList();
+
+            if (allPatients.Count() > foundPatients.Count())
+            {
+                errorMessage = "Note: Some patients are excluded because they are already admitted. Discharge them first before re-admitting.";
+            }
+            else
+            {
+                errorMessage = string.Empty;
+            }
         }
     }
 

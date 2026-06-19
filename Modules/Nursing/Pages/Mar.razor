@@ -1,0 +1,513 @@
+@page "/nursing/mar"
+@rendermode InteractiveServer
+@inject CareSphere.Data.ApplicationDbContext DbContext
+@inject IMedicationAdministrationService MedicationAdministrationService
+@inject IPrescriptionReadModel PrescriptionReadModel
+@inject IPatientReadModel PatientReadModel
+@inject TabIsolatedAuthenticationStateProvider AuthStateProvider
+@inject NavigationManager NavigationManager
+
+<PageTitle>Medication Administration Record (MAR) - CareSphere</PageTitle>
+
+<div class="container py-4 animate-fade-in">
+    <!-- Header -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="card bg-dark text-white border-0 shadow">
+                <div class="card-body p-4 d-flex justify-content-between align-items-center">
+                    <div>
+                        <h1 class="h3 mb-1 fw-bold"><i class="bi bi-capsule me-2 text-info"></i>Medication Administration (MAR)</h1>
+                        <p class="text-light opacity-75 mb-0">Record and track patient medication doses, skipped administrations, or refusals</p>
+                    </div>
+                    <div>
+                        <a href="/nursing" class="btn btn-outline-light">
+                            <i class="bi bi-arrow-left me-2"></i>Dashboard
+                        </a>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    @if (!string.IsNullOrEmpty(successMessage))
+    {
+        <div class="alert alert-success alert-dismissible fade show border-0 shadow-sm mb-4" role="alert">
+            <i class="bi bi-check-circle-fill me-2"></i>@successMessage
+            <button type="button" class="btn-close" @onclick="() => successMessage = null"></button>
+        </div>
+    }
+
+    @if (!string.IsNullOrEmpty(errorMessage))
+    {
+        <div class="alert alert-danger alert-dismissible fade show border-0 shadow-sm mb-4" role="alert">
+            <i class="bi bi-x-circle-fill me-2"></i>@errorMessage
+            <button type="button" class="btn-close" @onclick="() => errorMessage = null"></button>
+        </div>
+    }
+
+    <div class="row g-4">
+        <!-- Patient Selector and Active Prescriptions -->
+        <div class="col-lg-7">
+            <!-- Patient Selector -->
+            <div class="card border-0 shadow-sm p-4 bg-white mb-4">
+                <h5 class="fw-bold mb-3 text-dark"><i class="bi bi-person-fill text-primary me-2"></i>Select Patient</h5>
+                <div class="mb-3">
+                    <select class="form-select form-select-lg" @onchange="OnPatientChanged" value="@selectedPatientIdString">
+                        <option value="">-- Choose Admitted Patient --</option>
+                        @foreach (var adm in activeAdmissions)
+                        {
+                            var name = adm.Patient != null ? $"{adm.Patient.FirstName} {adm.Patient.LastName}" : "Unknown";
+                            var mrn = adm.Patient?.Mrn ?? "N/A";
+                            <option value="@adm.PatientId">@name (MRN: @mrn)</option>
+                        }
+                    </select>
+                </div>
+
+                @if (selectedPatient != null)
+                {
+                    <div class="bg-light p-3 rounded-3 mt-2">
+                        <div class="row">
+                            <div class="col-6">
+                                <small class="text-secondary d-block">Patient Name</small>
+                                <strong class="text-dark">@selectedPatient.FullName</strong>
+                            </div>
+                            <div class="col-6">
+                                <small class="text-secondary d-block">MRN</small>
+                                <strong class="text-dark">@selectedPatient.MRN</strong>
+                            </div>
+                        </div>
+                    </div>
+                }
+            </div>
+
+            <!-- Active Prescriptions -->
+            @if (selectedPatient != null)
+            {
+                <div class="card border-0 shadow-sm p-4 bg-white mb-4">
+                    <h5 class="fw-bold mb-4 text-dark"><i class="bi bi-prescription text-primary me-2"></i>Active Prescriptions</h5>
+                    
+                    @if (rxLoading)
+                    {
+                        <div class="d-flex align-items-center py-4">
+                            <div class="spinner-border text-primary me-3" role="status"></div>
+                            <span class="text-secondary">Loading patient prescriptions...</span>
+                        </div>
+                    }
+                    else if (activePrescriptions.Count == 0)
+                    {
+                        <div class="alert alert-info border-0 mb-0">
+                            <i class="bi bi-info-circle me-2"></i>No active prescriptions found for this patient.
+                        </div>
+                    }
+                    else
+                    {
+                        <div class="d-flex flex-column gap-3">
+                            @foreach (var rx in activePrescriptions)
+                            {
+                                <div class="card border shadow-sm p-3">
+                                    <div class="d-flex justify-content-between align-items-start">
+                                        <div>
+                                            <h6 class="fw-bold text-dark mb-1"><i class="bi bi-droplet-half text-info me-1"></i>@rx.DrugName</h6>
+                                            <div class="small text-secondary mb-2">
+                                                <span><strong>Dosage:</strong> @rx.Strength @rx.Form</span> | 
+                                                <span><strong>Route:</strong> @rx.Route</span> | 
+                                                <span><strong>Frequency:</strong> @rx.Frequency</span>
+                                            </div>
+                                            <small class="text-muted">Prescribed on: @rx.IssuedAt.ToLocalTime().ToString("dd MMM yyyy")</small>
+                                        </div>
+                                        <div>
+                                            @if (activeRxIdToAdminister == rx.Id)
+                                            {
+                                                <button class="btn btn-sm btn-secondary" @onclick="CancelAdminister">Cancel</button>
+                                            }
+                                            else
+                                            {
+                                                <button class="btn btn-sm btn-primary" @onclick="() => StartAdminister(rx)">
+                                                    <i class="bi bi-plus-lg"></i> Administer
+                                                </button>
+                                            }
+                                        </div>
+                                    </div>
+
+                                    <!-- Administration Inline Form -->
+                                    @if (activeRxIdToAdminister == rx.Id)
+                                    {
+                                        <div class="mt-3 p-3 bg-light rounded border border-info animate-fade-in">
+                                            <h6 class="fw-bold text-info mb-3"><i class="bi bi-pencil-square me-1"></i>Record Administration Details</h6>
+                                            
+                                            <form @onsubmit="SaveAdministration">
+                                                <div class="row g-3 mb-3">
+                                                    <div class="col-md-4">
+                                                        <label class="form-label small fw-bold">Status</label>
+                                                        <select class="form-select form-select-sm" @bind="newMAR.Status" @bind:after="OnStatusChanged" required>
+                                                            <option value="Administered">Administered</option>
+                                                            <option value="Skipped">Skipped</option>
+                                                            <option value="Refused">Refused</option>
+                                                        </select>
+                                                    </div>
+                                                    <div class="col-md-4">
+                                                        <label class="form-label small fw-bold">Dose Given</label>
+                                                        <input type="number" step="0.01" class="form-control form-control-sm" @bind="newMAR.DoseGiven" required disabled="@(newMAR.Status != "Administered")" />
+                                                    </div>
+                                                    <div class="col-md-4">
+                                                        <label class="form-label small fw-bold">Dose Unit</label>
+                                                        <input type="text" class="form-control form-control-sm" @bind="newMAR.DoseUnit" placeholder="e.g. mg, ml, tablet" required disabled="@(newMAR.Status != "Administered")" />
+                                                    </div>
+                                                </div>
+
+                                                <div class="row g-3 mb-3">
+                                                    <div class="col-md-6">
+                                                        <label class="form-label small fw-bold">Route</label>
+                                                        <input type="text" class="form-control form-control-sm" @bind="newMAR.Route" placeholder="e.g. Oral, IV" required />
+                                                    </div>
+                                                    <div class="col-md-6">
+                                                        <label class="form-label small fw-bold">Administered At</label>
+                                                        <input type="datetime-local" class="form-control form-control-sm" value="@administeredAtString" @onchange="OnAdministeredAtChanged" required />
+                                                    </div>
+                                                </div>
+
+                                                @if (newMAR.Status == "Skipped" || newMAR.Status == "Refused")
+                                                {
+                                                    <div class="mb-3">
+                                                        <label class="form-label small fw-bold text-danger">Reason for Skip/Refusal</label>
+                                                        <input type="text" class="form-control form-control-sm border-danger" @bind="newMAR.SkipReason" placeholder="Enter clinical reason..." required />
+                                                    </div>
+                                                }
+
+                                                <div class="mb-3">
+                                                    <label class="form-label small fw-bold">Notes (Optional)</label>
+                                                    <textarea class="form-control form-control-sm" rows="2" @bind="newMAR.Notes" placeholder="Additional observations..."></textarea>
+                                                </div>
+
+                                                <div class="d-flex justify-content-end gap-2">
+                                                    <button type="button" class="btn btn-sm btn-outline-secondary" @onclick="CancelAdminister">Cancel</button>
+                                                    <button type="submit" class="btn btn-sm btn-info text-white">Save Record</button>
+                                                </div>
+                                            </form>
+                                        </div>
+                                    }
+                                </div>
+                            }
+                        </div>
+                    }
+                </div>
+            }
+            else
+            {
+                <div class="alert alert-warning border-0">
+                    <i class="bi bi-info-circle-fill me-2"></i>Please select a patient to load active prescriptions.
+                </div>
+            }
+        </div>
+
+        <!-- MAR History Logs -->
+        <div class="col-lg-5">
+            <div class="card border-0 shadow-sm p-4 bg-white h-100">
+                <h5 class="fw-bold mb-4 text-dark"><i class="bi bi-clock-history text-primary me-2"></i>Medication Log History</h5>
+
+                @if (selectedPatient == null)
+                {
+                    <div class="text-center py-5 text-muted">
+                        <i class="bi bi-capsule fs-1 d-block mb-3 opacity-25"></i>
+                        Select a patient to load administration logs
+                    </div>
+                }
+                else if (historyLoading)
+                {
+                    <div class="d-flex align-items-center py-4">
+                        <div class="spinner-border text-primary me-3" role="status"></div>
+                        <span class="text-secondary">Loading history logs...</span>
+                    </div>
+                }
+                else if (marHistory.Count == 0)
+                {
+                    <div class="alert alert-light border text-center py-4 mb-0">
+                        <i class="bi bi-info-circle-fill me-2 text-muted"></i>No medication records logged yet for @selectedPatient.FullName.
+                    </div>
+                }
+                else
+                {
+                    <div class="d-flex flex-column gap-3 overflow-auto" style="max-height: 700px;">
+                        @foreach (var log in marHistory)
+                        {
+                            var rxDrug = activePrescriptions.FirstOrDefault(r => r.Id == log.PrescriptionId)?.DrugName ?? "Prescription Med";
+                            <div class="card border shadow-sm p-3">
+                                <div class="d-flex justify-content-between align-items-center mb-2">
+                                    <h6 class="fw-bold text-dark mb-0">@rxDrug</h6>
+                                    <span class="@GetStatusClass(log.Status)">@log.Status</span>
+                                </div>
+                                <div class="small text-secondary mb-1">
+                                    @if (log.Status == "Administered")
+                                    {
+                                        <span><strong>Dose:</strong> @log.DoseGiven @log.DoseUnit</span> <span> | <strong>Route:</strong> @log.Route</span>
+                                    }
+                                    else
+                                    {
+                                        <span class="text-danger"><strong>Reason:</strong> @log.SkipReason</span>
+                                    }
+                                </div>
+                                <div class="d-flex justify-content-between align-items-center mt-2 pt-2 border-top">
+                                    <small class="text-muted"><i class="bi bi-person text-muted"></i> Nurse ID: @log.NurseUserId</small>
+                                    <small class="text-secondary"><i class="bi bi-clock"></i> @log.AdministeredAt.ToLocalTime().ToString("dd MMM, hh:mm tt")</small>
+                                </div>
+                                @if (!string.IsNullOrEmpty(log.Notes))
+                                {
+                                    <div class="small text-muted bg-light p-2 rounded mt-2">
+                                        <strong>Notes:</strong> @log.Notes
+                                    </div>
+                                }
+                            </div>
+                        }
+                    </div>
+                }
+            </div>
+        </div>
+    </div>
+</div>
+
+@code {
+    [Parameter]
+    [SupplyParameterFromQuery]
+    public string? PatientId { get; set; }
+
+    private List<BedAllotment> activeAdmissions = new();
+    private Guid selectedPatientId = Guid.Empty;
+    private string selectedPatientIdString = string.Empty;
+    private PatientSummary? selectedPatient;
+
+    private List<PrescriptionSummary> activePrescriptions = new();
+    private List<MedicationAdministrationRecord> marHistory = new();
+
+    private bool rxLoading = false;
+    private bool historyLoading = false;
+
+    private string? successMessage;
+    private string? errorMessage;
+
+    private Guid? activeRxIdToAdminister = null;
+    private MedicationAdministrationRecord newMAR = new();
+    private string administeredAtString = DateTime.Now.ToString("yyyy-MM-ddTHH:mm");
+
+    private Guid currentTenantId = Guid.Empty;
+    private string currentUserId = "system";
+
+    protected override async Task OnInitializedAsync()
+    {
+        var authState = await AuthStateProvider.GetAuthenticationStateAsync();
+        var user = authState.User;
+        var tenantIdOpt = CurrentUserHelper.GetTenantId(user);
+        var userIdOpt = CurrentUserHelper.GetUserId(user);
+
+        if (tenantIdOpt.HasValue)
+        {
+            currentTenantId = tenantIdOpt.Value;
+            currentUserId = userIdOpt ?? "system";
+
+            // Load active admissions
+            activeAdmissions = await DbContext.BedAllotments
+                .Include(a => a.Patient)
+                .Where(a => a.Status == "Active" && a.TenantId == currentTenantId)
+                .OrderByDescending(a => a.AdmissionDate)
+                .ToListAsync();
+        }
+    }
+
+    protected override async Task OnParametersSetAsync()
+    {
+        if (!string.IsNullOrEmpty(PatientId) && Guid.TryParse(PatientId, out var parsedId))
+        {
+            selectedPatientId = parsedId;
+            selectedPatientIdString = parsedId.ToString();
+            await LoadPatientDataAsync();
+        }
+        else
+        {
+            ResetPatientSelection();
+        }
+    }
+
+    private async Task OnPatientChanged(ChangeEventArgs e)
+    {
+        var val = e.Value?.ToString();
+        if (!string.IsNullOrEmpty(val) && Guid.TryParse(val, out var parsedId))
+        {
+            selectedPatientId = parsedId;
+            selectedPatientIdString = parsedId.ToString();
+            await LoadPatientDataAsync();
+        }
+        else
+        {
+            ResetPatientSelection();
+        }
+    }
+
+    private void ResetPatientSelection()
+    {
+        selectedPatientId = Guid.Empty;
+        selectedPatientIdString = string.Empty;
+        selectedPatient = null;
+        activeRxIdToAdminister = null;
+        activePrescriptions.Clear();
+        marHistory.Clear();
+        newMAR = new();
+        successMessage = null;
+        errorMessage = null;
+    }
+
+    private async Task LoadPatientDataAsync()
+    {
+        successMessage = null;
+        errorMessage = null;
+        rxLoading = true;
+        historyLoading = true;
+
+        try
+        {
+            selectedPatient = await PatientReadModel.GetSummaryAsync(selectedPatientId, currentTenantId);
+
+            if (selectedPatient != null)
+            {
+                // Load active prescriptions
+                var rxList = await PrescriptionReadModel.GetActiveByPatientAsync(selectedPatientId, currentTenantId);
+                activePrescriptions = rxList.ToList();
+                rxLoading = false;
+
+                // Load MAR history
+                await LoadHistoryAsync();
+            }
+        }
+        catch (Exception ex)
+        {
+            errorMessage = "Failed to load patient data: " + ex.Message;
+            rxLoading = false;
+        }
+        finally
+        {
+            historyLoading = false;
+        }
+    }
+
+    private async Task LoadHistoryAsync()
+    {
+        marHistory = await MedicationAdministrationService.GetByPatientAsync(selectedPatientId, currentTenantId);
+    }
+
+    private void StartAdminister(PrescriptionSummary rx)
+    {
+        activeRxIdToAdminister = rx.Id;
+        administeredAtString = DateTime.Now.ToString("yyyy-MM-ddTHH:mm");
+
+        // Parse numerical strength from strength string if possible (e.g. "500mg" -> 500, "10ml" -> 10)
+        decimal defaultDose = 1;
+        string defaultUnit = "tablet";
+
+        if (!string.IsNullOrEmpty(rx.Strength))
+        {
+            var cleanStr = rx.Strength.Trim();
+            var numericPart = new string(cleanStr.TakeWhile(c => char.IsDigit(c) || c == '.').ToArray());
+            if (decimal.TryParse(numericPart, out var parsedDose))
+            {
+                defaultDose = parsedDose;
+            }
+
+            var unitPart = new string(cleanStr.SkipWhile(c => char.IsDigit(c) || c == '.').ToArray()).Trim();
+            if (!string.IsNullOrEmpty(unitPart))
+            {
+                defaultUnit = unitPart;
+            }
+            else if (!string.IsNullOrEmpty(rx.Form))
+            {
+                defaultUnit = rx.Form;
+            }
+        }
+
+        newMAR = new MedicationAdministrationRecord
+        {
+            PrescriptionId = rx.Id,
+            PatientId = selectedPatientId,
+            Status = "Administered",
+            DoseGiven = defaultDose,
+            DoseUnit = defaultUnit,
+            Route = rx.Route,
+            AdministeredAt = DateTime.UtcNow,
+            NurseUserId = currentUserId
+        };
+    }
+
+    private void CancelAdminister()
+    {
+        activeRxIdToAdminister = null;
+        newMAR = new MedicationAdministrationRecord();
+    }
+
+    private void OnStatusChanged()
+    {
+        if (newMAR.Status == "Skipped" || newMAR.Status == "Refused")
+        {
+            newMAR.DoseGiven = 0;
+            newMAR.DoseUnit = "N/A";
+        }
+    }
+
+    private void OnAdministeredAtChanged(ChangeEventArgs e)
+    {
+        administeredAtString = e.Value?.ToString() ?? DateTime.Now.ToString("yyyy-MM-ddTHH:mm");
+        if (DateTime.TryParse(administeredAtString, out var dt))
+        {
+            newMAR.AdministeredAt = dt.ToUniversalTime();
+        }
+    }
+
+    private async Task SaveAdministration()
+    {
+        successMessage = null;
+        errorMessage = null;
+
+        if (newMAR.Status == "Administered" && (newMAR.DoseGiven <= 0 || string.IsNullOrEmpty(newMAR.DoseUnit)))
+        {
+            errorMessage = "Please enter a valid dose given and unit.";
+            return;
+        }
+
+        if ((newMAR.Status == "Skipped" || newMAR.Status == "Refused") && string.IsNullOrEmpty(newMAR.SkipReason))
+        {
+            errorMessage = "Please provide a reason for skipping or refusing the medication.";
+            return;
+        }
+
+        try
+        {
+            newMAR.PatientId = selectedPatientId;
+            newMAR.NurseUserId = currentUserId;
+
+            if (DateTime.TryParse(administeredAtString, out var dt))
+            {
+                newMAR.AdministeredAt = dt.ToUniversalTime();
+            }
+            else
+            {
+                newMAR.AdministeredAt = DateTime.UtcNow;
+            }
+
+            await MedicationAdministrationService.RecordAdministrationAsync(newMAR, currentTenantId);
+
+            successMessage = $"Medication record saved successfully ({newMAR.Status}).";
+            activeRxIdToAdminister = null;
+
+            // Reload history
+            await LoadHistoryAsync();
+        }
+        catch (Exception ex)
+        {
+            errorMessage = "Failed to save administration record: " + ex.Message;
+        }
+    }
+
+    private string GetStatusClass(string status) => status switch
+    {
+        "Administered" => "badge bg-success text-white",
+        "Skipped" => "badge bg-warning text-dark",
+        "Refused" => "badge bg-danger text-white",
+        _ => "badge bg-secondary text-white"
+    };
+}

@@ -1,3 +1,4 @@
+@using Microsoft.AspNetCore.Components.Web
 <!DOCTYPE html>
 <html lang="en">
 
@@ -18,7 +19,7 @@
 </head>
 
 <body>
-    <Routes />
+    <Routes @rendermode="new InteractiveServerRenderMode(prerender: false)" />
     <script>
         window.getBrowserTimezoneOffset = function() {
             return new Date().getTimezoneOffset();

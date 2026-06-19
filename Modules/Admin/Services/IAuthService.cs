@@ -17,7 +17,8 @@ namespace CareSphere.Modules.Admin.Services
         public bool Success { get; set; }
         public string? Error { get; set; }
         public ApplicationUser? User { get; set; }
-        public static AuthResult Ok(ApplicationUser user) => new() { Success = true, User = user };
+        public string? SessionToken { get; set; }
+        public static AuthResult Ok(ApplicationUser user, string sessionToken) => new() { Success = true, User = user, SessionToken = sessionToken };
         public static AuthResult Fail(string error) => new() { Success = false, Error = error };
     }
 

@@ -1,6 +1,7 @@
 @page "/pharmacy/items"
 @attribute [Microsoft.AspNetCore.Authorization.Authorize(Policy = PolicyNames.Permission_Pharmacy_ViewStock)]
 @inject IPharmacyItemService ItemService
+@inject ITenantContext TenantContext
 @inject NavigationManager NavigationManager
 @rendermode InteractiveServer
 
@@ -182,7 +183,6 @@
     private int currentPage = 1;
     private int pageSize = 10;
     private int totalPages = 1;
-    private Guid currentTenantId = Guid.Empty;
 
     protected override async Task OnInitializedAsync()
     {
@@ -195,12 +195,12 @@
         if (bool.TryParse(SelectedRequiresPrescription, out var res))
             reqPresc = res;
 
-        var totalItems = await ItemService.GetItemsCountAsync(currentTenantId, SearchQuery, SelectedCategory, reqPresc);
+        var totalItems = await ItemService.GetItemsCountAsync(TenantContext.TenantId, SearchQuery, SelectedCategory, reqPresc);
         totalPages = (int)Math.Ceiling((double)totalItems / pageSize);
         if (totalPages == 0) totalPages = 1;
         if (currentPage > totalPages) currentPage = totalPages;
 
-        items = await ItemService.SearchItemsAsync(currentTenantId, SearchQuery, SelectedCategory, reqPresc, currentPage, pageSize);
+        items = await ItemService.SearchItemsAsync(TenantContext.TenantId, SearchQuery, SelectedCategory, reqPresc, currentPage, pageSize);
     }
 
     private async Task HandleSearch() { currentPage = 1; await LoadItems(); }

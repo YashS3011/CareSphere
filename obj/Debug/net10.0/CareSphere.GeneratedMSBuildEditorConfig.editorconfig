@@ -279,6 +279,38 @@ build_metadata.AdditionalFiles.CssScope =
 build_metadata.AdditionalFiles.TargetPath = TW9kdWxlc1xBZG1pblxQYWdlc1xfSW1wb3J0cy5yYXpvcg==
 build_metadata.AdditionalFiles.CssScope = 
 
+[D:/CareSphere/Modules/Analytics/Layout/AnalyticsLayout.razor]
+build_metadata.AdditionalFiles.TargetPath = TW9kdWxlc1xBbmFseXRpY3NcTGF5b3V0XEFuYWx5dGljc0xheW91dC5yYXpvcg==
+build_metadata.AdditionalFiles.CssScope = 
+
+[D:/CareSphere/Modules/Analytics/Pages/Dashboard.razor]
+build_metadata.AdditionalFiles.TargetPath = TW9kdWxlc1xBbmFseXRpY3NcUGFnZXNcRGFzaGJvYXJkLnJhem9y
+build_metadata.AdditionalFiles.CssScope = 
+
+[D:/CareSphere/Modules/Analytics/Pages/_Imports.razor]
+build_metadata.AdditionalFiles.TargetPath = TW9kdWxlc1xBbmFseXRpY3NcUGFnZXNcX0ltcG9ydHMucmF6b3I=
+build_metadata.AdditionalFiles.CssScope = 
+
+[D:/CareSphere/Modules/Appointments/Layout/AppointmentsLayout.razor]
+build_metadata.AdditionalFiles.TargetPath = TW9kdWxlc1xBcHBvaW50bWVudHNcTGF5b3V0XEFwcG9pbnRtZW50c0xheW91dC5yYXpvcg==
+build_metadata.AdditionalFiles.CssScope = 
+
+[D:/CareSphere/Modules/Appointments/Pages/Book.razor]
+build_metadata.AdditionalFiles.TargetPath = TW9kdWxlc1xBcHBvaW50bWVudHNcUGFnZXNcQm9vay5yYXpvcg==
+build_metadata.AdditionalFiles.CssScope = 
+
+[D:/CareSphere/Modules/Appointments/Pages/Index.razor]
+build_metadata.AdditionalFiles.TargetPath = TW9kdWxlc1xBcHBvaW50bWVudHNcUGFnZXNcSW5kZXgucmF6b3I=
+build_metadata.AdditionalFiles.CssScope = 
+
+[D:/CareSphere/Modules/Appointments/Pages/Schedules.razor]
+build_metadata.AdditionalFiles.TargetPath = TW9kdWxlc1xBcHBvaW50bWVudHNcUGFnZXNcU2NoZWR1bGVzLnJhem9y
+build_metadata.AdditionalFiles.CssScope = 
+
+[D:/CareSphere/Modules/Appointments/Pages/_Imports.razor]
+build_metadata.AdditionalFiles.TargetPath = TW9kdWxlc1xBcHBvaW50bWVudHNcUGFnZXNcX0ltcG9ydHMucmF6b3I=
+build_metadata.AdditionalFiles.CssScope = 
+
 [D:/CareSphere/Modules/Billing/Layout/BillingLayout.razor]
 build_metadata.AdditionalFiles.TargetPath = TW9kdWxlc1xCaWxsaW5nXExheW91dFxCaWxsaW5nTGF5b3V0LnJhem9y
 build_metadata.AdditionalFiles.CssScope = 
@@ -339,8 +371,20 @@ build_metadata.AdditionalFiles.CssScope =
 build_metadata.AdditionalFiles.TargetPath = TW9kdWxlc1xDbGluaWNhbFxQYWdlc1xFbmNvdW50ZXJcVmlldy5yYXpvcg==
 build_metadata.AdditionalFiles.CssScope = 
 
+[D:/CareSphere/Modules/Clinical/Pages/Prescriptions/Index.razor]
+build_metadata.AdditionalFiles.TargetPath = TW9kdWxlc1xDbGluaWNhbFxQYWdlc1xQcmVzY3JpcHRpb25zXEluZGV4LnJhem9y
+build_metadata.AdditionalFiles.CssScope = 
+
 [D:/CareSphere/Modules/Clinical/Pages/Queue/Index.razor]
 build_metadata.AdditionalFiles.TargetPath = TW9kdWxlc1xDbGluaWNhbFxQYWdlc1xRdWV1ZVxJbmRleC5yYXpvcg==
+build_metadata.AdditionalFiles.CssScope = 
+
+[D:/CareSphere/Modules/Clinical/Pages/TeleConsult/Index.razor]
+build_metadata.AdditionalFiles.TargetPath = TW9kdWxlc1xDbGluaWNhbFxQYWdlc1xUZWxlQ29uc3VsdFxJbmRleC5yYXpvcg==
+build_metadata.AdditionalFiles.CssScope = 
+
+[D:/CareSphere/Modules/Clinical/Pages/TeleConsult/JoinRoom.razor]
+build_metadata.AdditionalFiles.TargetPath = TW9kdWxlc1xDbGluaWNhbFxQYWdlc1xUZWxlQ29uc3VsdFxKb2luUm9vbS5yYXpvcg==
 build_metadata.AdditionalFiles.CssScope = 
 
 [D:/CareSphere/Modules/Clinical/Pages/_Imports.razor]
@@ -409,6 +453,30 @@ build_metadata.AdditionalFiles.CssScope =
 
 [D:/CareSphere/Modules/Notifications/Pages/_Imports.razor]
 build_metadata.AdditionalFiles.TargetPath = TW9kdWxlc1xOb3RpZmljYXRpb25zXFBhZ2VzXF9JbXBvcnRzLnJhem9y
+build_metadata.AdditionalFiles.CssScope = 
+
+[D:/CareSphere/Modules/Nursing/Layout/NursingLayout.razor]
+build_metadata.AdditionalFiles.TargetPath = TW9kdWxlc1xOdXJzaW5nXExheW91dFxOdXJzaW5nTGF5b3V0LnJhem9y
+build_metadata.AdditionalFiles.CssScope = 
+
+[D:/CareSphere/Modules/Nursing/Pages/Index.razor]
+build_metadata.AdditionalFiles.TargetPath = TW9kdWxlc1xOdXJzaW5nXFBhZ2VzXEluZGV4LnJhem9y
+build_metadata.AdditionalFiles.CssScope = 
+
+[D:/CareSphere/Modules/Nursing/Pages/Mar.razor]
+build_metadata.AdditionalFiles.TargetPath = TW9kdWxlc1xOdXJzaW5nXFBhZ2VzXE1hci5yYXpvcg==
+build_metadata.AdditionalFiles.CssScope = 
+
+[D:/CareSphere/Modules/Nursing/Pages/Notes.razor]
+build_metadata.AdditionalFiles.TargetPath = TW9kdWxlc1xOdXJzaW5nXFBhZ2VzXE5vdGVzLnJhem9y
+build_metadata.AdditionalFiles.CssScope = 
+
+[D:/CareSphere/Modules/Nursing/Pages/Vitals.razor]
+build_metadata.AdditionalFiles.TargetPath = TW9kdWxlc1xOdXJzaW5nXFBhZ2VzXFZpdGFscy5yYXpvcg==
+build_metadata.AdditionalFiles.CssScope = 
+
+[D:/CareSphere/Modules/Nursing/Pages/_Imports.razor]
+build_metadata.AdditionalFiles.TargetPath = TW9kdWxlc1xOdXJzaW5nXFBhZ2VzXF9JbXBvcnRzLnJhem9y
 build_metadata.AdditionalFiles.CssScope = 
 
 [D:/CareSphere/Modules/Patients/Layout/PatientsLayout.razor]

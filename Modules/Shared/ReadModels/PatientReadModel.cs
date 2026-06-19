@@ -41,17 +41,26 @@ namespace CareSphere.Modules.Shared.ReadModels
 
         public async Task<IEnumerable<PatientSummary>> SearchAsync(string query, Guid tenantId)
         {
+            List<Patient> patients;
+
             if (string.IsNullOrWhiteSpace(query))
-                return Enumerable.Empty<PatientSummary>();
-
-            var cleanQuery = query.Trim().ToLower();
-
-            var patients = await _dbContext.Patients
-                .AsNoTracking()
-                .Where(p => p.Mrn.ToLower() == cleanQuery || 
-                            (p.FirstName + " " + p.LastName).ToLower().Contains(cleanQuery) ||
-                            p.Phone.Contains(cleanQuery))
-                .ToListAsync();
+            {
+                patients = await _dbContext.Patients
+                    .AsNoTracking()
+                    .OrderByDescending(p => p.CreatedAt)
+                    .Take(100)
+                    .ToListAsync();
+            }
+            else
+            {
+                var cleanQuery = query.Trim().ToLower();
+                patients = await _dbContext.Patients
+                    .AsNoTracking()
+                    .Where(p => p.Mrn.ToLower() == cleanQuery || 
+                                (p.FirstName + " " + p.LastName).ToLower().Contains(cleanQuery) ||
+                                p.Phone.Contains(cleanQuery))
+                    .ToListAsync();
+            }
 
             var patientIds = patients.Select(p => p.Id).ToList();
 

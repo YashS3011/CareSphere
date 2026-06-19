@@ -50,6 +50,201 @@ namespace CareSphere.Infrastructure
             var defaultTenantIdStr = _configuration["App:DefaultTenantId"] ?? "00000000-0000-0000-0000-000000000001";
             var defaultTenantId = Guid.Parse(defaultTenantIdStr);
 
+            // Check if already seeded (e.g. if any tenant settings exist)
+            if (await _context.TenantSettings.IgnoreQueryFilters().AnyAsync())
+            {
+                _logger.LogInformation("Database is already seeded. Running check-and-repair pass...");
+
+                // Repair 1: Fix Guid.Empty tenant IDs left by old builds
+                if (_context.Database.IsRelational())
+                {
+                    try
+                    {
+                        await _context.Database.ExecuteSqlRawAsync($@"
+                            DO $$
+                            DECLARE
+                                r RECORD;
+                            BEGIN
+                                FOR r IN (
+                                    SELECT table_name 
+                                    FROM information_schema.columns 
+                                    WHERE table_schema = 'public' 
+                                      AND column_name = 'tenant_id'
+                                ) LOOP
+                                    EXECUTE 'UPDATE ' || quote_ident(r.table_name) || ' SET tenant_id = ''{defaultTenantId}'' WHERE tenant_id = ''00000000-0000-0000-0000-000000000000''';
+                                END LOOP;
+                            END $$;");
+                    }
+                    catch (Exception ex)
+                    {
+                        _logger.LogError(ex, "Error repairing Guid.Empty tenant IDs.");
+                    }
+                }
+
+                TenantContext.BypassTenantId = defaultTenantId;
+                try
+                {
+                    // Repair 2: Ensure nurse2@caresphere.dev exists
+                    var nurse2 = await _userManager.Users.IgnoreQueryFilters()
+                        .FirstOrDefaultAsync(u => u.NormalizedEmail == "NURSE2@CARESPHERE.DEV");
+                    if (nurse2 == null)
+                    {
+                        _logger.LogInformation("Inserting missing nurse2@caresphere.dev account...");
+                        var nurse2User = new ApplicationUser
+                        {
+                            UserName = "nurse2@caresphere.dev",
+                            Email = "nurse2@caresphere.dev",
+                            FullName = "Test Nurse (Nursing Module)",
+                            TenantId = defaultTenantId,
+                            Role = CareSphereRoles.Nurse,
+                            IsActive = true,
+                            CreatedAt = DateTime.UtcNow,
+                            PreferredLanguage = "en",
+                            EmailConfirmed = true
+                        };
+                        var nurse2Res = await _userManager.CreateAsync(nurse2User, "Nurse@123");
+                        if (nurse2Res.Succeeded)
+                            await _userManager.AddToRoleAsync(nurse2User, CareSphereRoles.Nurse);
+                    }
+
+                    // Repair 3: Ensure Warfarin 5mg exists in DrugFormulary
+                    var warExists = await _context.DrugFormulary.IgnoreQueryFilters()
+                        .AnyAsync(d => d.DrugCode == "WAR-5");
+                    if (!warExists)
+                    {
+                        _logger.LogInformation("Inserting missing Warfarin 5mg drug formulary entry...");
+                        _context.DrugFormulary.Add(new DrugFormulary
+                        {
+                            Id = Guid.NewGuid(),
+                            TenantId = defaultTenantId,
+                            DrugCode = "WAR-5",
+                            GenericName = "Warfarin",
+                            BrandName = "Coumadin",
+                            Form = "Tablet",
+                            Strength = "5mg",
+                            Unit = "Tablet",
+                            IsControlled = false,
+                            IsActive = true
+                        });
+                        await _context.SaveChangesAsync();
+                    }
+
+                    // Repair 4: Ensure Warfarin 5mg exists in PharmacyItems & PharmacyBatches
+                    var warItemExists = await _context.PharmacyItems.IgnoreQueryFilters()
+                        .AnyAsync(p => p.ItemCode == "WAR-5");
+                    if (!warItemExists)
+                    {
+                        _logger.LogInformation("Inserting missing Warfarin 5mg pharmacy item...");
+                        var warItemId = Guid.NewGuid();
+                        _context.PharmacyItems.Add(new PharmacyItem
+                        {
+                            Id = warItemId,
+                            TenantId = defaultTenantId,
+                            ItemCode = "WAR-5",
+                            ItemName = "Warfarin 5mg",
+                            GenericName = "Warfarin",
+                            Category = "Medicine",
+                            Form = "Tablet",
+                            Strength = "5mg",
+                            Unit = "Strip",
+                            IsControlled = false,
+                            RequiresPrescription = true,
+                            ReorderLevel = 50,
+                            IsActive = true
+                        });
+
+                        // Find an existing supplier to link the batch to
+                        var anySupplierId = await _context.Suppliers.IgnoreQueryFilters()
+                            .Select(s => s.Id).FirstOrDefaultAsync();
+                        if (anySupplierId != Guid.Empty)
+                        {
+                            _context.PharmacyBatches.Add(new PharmacyBatch
+                            {
+                                Id = Guid.NewGuid(),
+                                TenantId = defaultTenantId,
+                                ItemId = warItemId,
+                                BatchNumber = "BAT-WAR-01",
+                                SupplierId = anySupplierId,
+                                ManufactureDate = DateTime.UtcNow.AddMonths(-3),
+                                ExpiryDate = DateTime.UtcNow.AddYears(2),
+                                PurchasePrice = 25.00m,
+                                SellingPrice = 35.00m,
+                                CurrentStock = 200,
+                                ReservedStock = 0,
+                                IsActive = true
+                            });
+                        }
+                        await _context.SaveChangesAsync();
+                    }
+
+                    // Repair 5: Ensure Aspirin-Warfarin drug interaction exists
+                    var interactionExists = await _context.DrugInteractions.IgnoreQueryFilters()
+                        .AnyAsync(d => d.DrugCodeA == "ASP-75" && d.DrugCodeB == "WAR-5");
+                    if (!interactionExists)
+                    {
+                        _logger.LogInformation("Inserting missing Aspirin-Warfarin drug interaction...");
+                        _context.DrugInteractions.Add(new DrugInteraction
+                        {
+                            Id = Guid.NewGuid(),
+                            TenantId = defaultTenantId,
+                            DrugCodeA = "ASP-75",
+                            DrugCodeB = "WAR-5",
+                            Severity = "Warning",
+                            Description = "Increased risk of bleeding when Aspirin is co-administered with Warfarin."
+                        });
+                        await _context.SaveChangesAsync();
+                    }
+
+                    // Repair 6: Ensure CBC lab test catalog and HB parameter exist
+                    var cbcExists = await _context.LabTestCatalogs.IgnoreQueryFilters()
+                        .AnyAsync(l => l.TestCode == "CBC");
+                    if (!cbcExists)
+                    {
+                        _logger.LogInformation("Inserting missing CBC lab catalog entry...");
+                        var cbcId = Guid.NewGuid();
+                        _context.LabTestCatalogs.Add(new LabTestCatalog
+                        {
+                            Id = cbcId,
+                            TenantId = defaultTenantId,
+                            TestCode = "CBC",
+                            TestName = "Complete Blood Count",
+                            Category = "Hematology",
+                            SampleType = "Blood",
+                            TurnaroundHours = 12,
+                            Price = 350.00m,
+                            IsActive = true
+                        });
+                        _context.LabTestParameters.Add(new LabTestParameter
+                        {
+                            Id = Guid.NewGuid(),
+                            TenantId = defaultTenantId,
+                            TestId = cbcId,
+                            ParameterName = "Hemoglobin",
+                            ParameterCode = "HB",
+                            Unit = "g/dL",
+                            ReferenceRangeLow = 12.0m,
+                            ReferenceRangeHigh = 16.0m,
+                            DataType = "Numeric"
+                        });
+                        await _context.SaveChangesAsync();
+                    }
+
+                    // Repair 7: Re-sync all role permissions from defaults
+                    _logger.LogInformation("Re-seeding role permissions from defaults...");
+                    await _permissionService.SeedRolePermissionsAsync(defaultTenantId);
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogError(ex, "Error during check-and-repair pass.");
+                }
+                finally
+                {
+                    TenantContext.BypassTenantId = null;
+                }
+
+                return;
+            }
+
             var bypassContext = new BypassTenantContext(defaultTenantId);
             TenantContext.BypassTenantId = bypassContext.TenantId;
 
@@ -80,17 +275,25 @@ namespace CareSphere.Infrastructure
                 _logger.LogInformation("Truncating all public database tables (except migration history)...");
 
                 // 1. Truncate all tables in the public schema cascade
-                await _context.Database.ExecuteSqlRawAsync(@"
-                    DO $$ 
-                    DECLARE 
-                        r RECORD;
-                    BEGIN
-                        FOR r IN (SELECT tablename FROM pg_tables WHERE schemaname = 'public' AND tablename <> '__EFMigrationsHistory') LOOP
-                            EXECUTE 'TRUNCATE TABLE ' || quote_ident(r.tablename) || ' CASCADE;';
-                        END LOOP;
-                    END $$;");
+                if (_context.Database.IsRelational())
+                {
+                    await _context.Database.ExecuteSqlRawAsync(@"
+                        DO $$ 
+                        DECLARE 
+                            r RECORD;
+                        BEGIN
+                            FOR r IN (SELECT tablename FROM pg_tables WHERE schemaname = 'public' AND tablename <> '__EFMigrationsHistory') LOOP
+                                EXECUTE 'TRUNCATE TABLE ' || quote_ident(r.tablename) || ' CASCADE;';
+                            END LOOP;
+                        END $$;");
+                }
+                else
+                {
+                    await _context.Database.EnsureDeletedAsync();
+                    await _context.Database.EnsureCreatedAsync();
+                }
 
-                _logger.LogInformation("Database truncation completed. Seeding tenant settings and roles...");
+                _logger.LogInformation("Database truncation/reset completed. Seeding tenant settings and roles...");
 
                 // 2. Seed TenantSettings
                 var tenantSettingsId = Guid.NewGuid();
@@ -182,6 +385,7 @@ namespace CareSphere.Infrastructure
                 var doctorUserId = await CreateUserAsync("doctor@caresphere.dev", "Test Doctor", CareSphereRoles.Doctor, "Doctor@123", doctorId);
                 var pharmacistUserId = await CreateUserAsync("pharmacist@caresphere.dev", "Test Pharmacist", CareSphereRoles.Pharmacist, "Pharmacist@123");
                 var labtechUserId = await CreateUserAsync("labtech@caresphere.dev", "Test Lab Technician", CareSphereRoles.LabTechnician, "LabTech@123");
+                var nurse2UserId = await CreateUserAsync("nurse2@caresphere.dev", "Test Nurse (Nursing Module)", CareSphereRoles.Nurse, "Nurse@123");
 
                 _logger.LogInformation("User accounts seeded. Seeding identity link tables...");
 

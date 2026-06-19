@@ -9,6 +9,7 @@ namespace CareSphere.Modules.Shared.ReadModels
     {
         Task<PrescriptionSummary?> GetSummaryAsync(Guid prescriptionId, Guid tenantId);
         Task<IEnumerable<PrescriptionSummary>> SearchActiveAsync(string query, Guid tenantId);
+        Task<IEnumerable<PrescriptionSummary>> GetActiveByPatientAsync(Guid patientId, Guid tenantId);
     }
 
     public class PrescriptionSummary
@@ -25,6 +26,8 @@ namespace CareSphere.Modules.Shared.ReadModels
         public string Form { get; set; } = string.Empty;
         public string Strength { get; set; } = string.Empty;
         public DateTime IssuedAt { get; set; }
+        public string Route { get; set; } = string.Empty;
+        public string Frequency { get; set; } = string.Empty;
     }
 
     public class PrescriptionItemSummary

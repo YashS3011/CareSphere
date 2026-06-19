@@ -59,5 +59,6 @@ namespace CareSphere.Modules.Notifications.Services
         Task RetryFailedNotificationsAsync();
         Task<bool> RetryLogAsync(Guid logId);
         Task SendLabReportReadyAsync(LabReportReady evt);
+        Task SendAppointmentConfirmationAsync(AppointmentBookedEvent evt);
     }
 }

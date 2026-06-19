@@ -144,6 +144,15 @@ namespace CareSphere.BackgroundServices
                         await service.AddDispenseLineItemAsync(payload);
                     }
                 }
+                else if (envelope.MessageType.Equals("AppointmentBooked", StringComparison.OrdinalIgnoreCase))
+                {
+                    var apptEvent = JsonSerializer.Deserialize<AppointmentBookedEvent>(envelope.Payload);
+                    if (apptEvent != null)
+                    {
+                        var service = scope.ServiceProvider.GetRequiredService<INotificationSenderService>();
+                        await service.SendAppointmentConfirmationAsync(apptEvent);
+                    }
+                }
 
                 await args.CompleteMessageAsync(args.Message);
             }

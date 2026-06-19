@@ -8,7 +8,9 @@
 @using CareSphere.Modules.Admin.Services
 @using CareSphere.Modules.Shared.Services
 @using CareSphere.Models
-@inject ILabNotificationService NotificationService
+@inject IServiceScopeFactory ScopeFactory
+@inject AuthenticationStateProvider AuthStateProvider
+@inject ITenantContext TenantContext
 @implements IDisposable
 
 <div class="dropdown me-3" style="position: relative;">
@@ -64,41 +66,85 @@
 </div>
 
 @code {
-    [Parameter]
-    public string RecipientType { get; set; } = "Doctor";
-
-    [Parameter]
-    public string RecipientId { get; set; } = "00000000-0000-0000-0000-000000000000";
-
     private List<InAppNotification>? notifications;
     private int unreadCount = 0;
     private bool showDropdown = false;
     private System.Timers.Timer? timer;
+    private bool _isDisposed = false;
+
+    // Resolved from auth claims at initialization; no longer passed as hard-coded parameters.
+    private string _recipientType = "User";
+    private string _recipientId = "00000000-0000-0000-0000-000000000000";
 
     protected override async Task OnInitializedAsync()
     {
+        // Resolve the current user's identity to set RecipientType and RecipientId.
+        var authState = await AuthStateProvider.GetAuthenticationStateAsync();
+        var user = authState.User;
+
+        if (user.Identity?.IsAuthenticated == true)
+        {
+            var role = CurrentUserHelper.GetUserRole(user) ?? string.Empty;
+            var doctorId = CurrentUserHelper.GetDoctorId(user);
+            var userId = user.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value
+                         ?? "00000000-0000-0000-0000-000000000000";
+
+            if (role == CareSphereRoles.Doctor && doctorId.HasValue)
+            {
+                _recipientType = "Doctor";
+                _recipientId = doctorId.Value.ToString();
+            }
+            else if (role == CareSphereRoles.Nurse)
+            {
+                _recipientType = "Nurse";
+                _recipientId = userId;
+            }
+            else
+            {
+                _recipientType = "User";
+                _recipientId = userId;
+            }
+        }
+
         await LoadNotifications();
 
         // Refresh every 60 seconds
         timer = new System.Timers.Timer(60000);
-        timer.Elapsed += async (s, e) => await InvokeAsync(async () =>
+        timer.Elapsed += async (s, e) => 
         {
-            await LoadNotifications();
-            StateHasChanged();
-        });
+            if (_isDisposed) return;
+            await InvokeAsync(async () =>
+            {
+                if (_isDisposed) return;
+                await LoadNotifications();
+                StateHasChanged();
+            });
+        };
         timer.Start();
     }
 
     private async Task LoadNotifications()
     {
+        if (_isDisposed) return;
         try
         {
-            unreadCount = await NotificationService.GetNotificationCountAsync(RecipientType, RecipientId);
-            notifications = await NotificationService.GetUnreadNotificationsAsync(RecipientType, RecipientId);
+            using (var scope = ScopeFactory.CreateScope())
+            {
+                // Propagate the tenant context into the child scope so DB query filters work.
+                var scopedTenant = scope.ServiceProvider.GetRequiredService<ITenantContext>();
+                scopedTenant.SetTenantId(TenantContext.TenantId);
+
+                var notificationService = scope.ServiceProvider.GetRequiredService<ILabNotificationService>();
+                unreadCount = await notificationService.GetNotificationCountAsync(_recipientType, _recipientId);
+                notifications = await notificationService.GetUnreadNotificationsAsync(_recipientType, _recipientId);
+            }
         }
         catch (Exception ex)
         {
-            Console.WriteLine($"[NotificationsPanel] Error loading notifications: {ex.Message}");
+            if (!_isDisposed)
+            {
+                Console.WriteLine($"[NotificationsPanel] Error loading notifications: {ex.Message}");
+            }
         }
     }
 
@@ -109,9 +155,17 @@
 
     private async Task MarkAsRead(Guid notificationId)
     {
+        if (_isDisposed) return;
         try
         {
-            await NotificationService.MarkNotificationReadAsync(notificationId);
+            using (var scope = ScopeFactory.CreateScope())
+            {
+                var scopedTenant = scope.ServiceProvider.GetRequiredService<ITenantContext>();
+                scopedTenant.SetTenantId(TenantContext.TenantId);
+
+                var notificationService = scope.ServiceProvider.GetRequiredService<ILabNotificationService>();
+                await notificationService.MarkNotificationReadAsync(notificationId);
+            }
             await LoadNotifications();
             if (unreadCount == 0)
             {
@@ -120,12 +174,16 @@
         }
         catch (Exception ex)
         {
-            Console.WriteLine($"[NotificationsPanel] Error marking notification read: {ex.Message}");
+            if (!_isDisposed)
+            {
+                Console.WriteLine($"[NotificationsPanel] Error marking notification read: {ex.Message}");
+            }
         }
     }
 
     public void Dispose()
     {
+        _isDisposed = true;
         if (timer != null)
         {
             timer.Stop();

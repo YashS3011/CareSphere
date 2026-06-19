@@ -1,0 +1,506 @@
+@page "/nursing/vitals"
+@rendermode InteractiveServer
+@inject CareSphere.Data.ApplicationDbContext DbContext
+@inject IVitalSignsService VitalSignsService
+@inject IPatientReadModel PatientReadModel
+@inject TabIsolatedAuthenticationStateProvider AuthStateProvider
+@inject NavigationManager NavigationManager
+
+<PageTitle>Record Vitals - CareSphere</PageTitle>
+
+<div class="container py-4 animate-fade-in">
+    <!-- Header -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="card bg-dark text-white border-0 shadow">
+                <div class="card-body p-4 d-flex justify-content-between align-items-center">
+                    <div>
+                        <h1 class="h3 mb-1 fw-bold"><i class="bi bi-activity me-2 text-danger"></i>Record Patient Vitals</h1>
+                        <p class="text-light opacity-75 mb-0">Record vitals and trigger real-time critical notifications for physicians</p>
+                    </div>
+                    <div>
+                        <a href="/nursing" class="btn btn-outline-light">
+                            <i class="bi bi-arrow-left me-2"></i>Dashboard
+                        </a>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    @if (!string.IsNullOrEmpty(successMessage))
+    {
+        <div class="alert alert-success alert-dismissible fade show border-0 shadow-sm mb-4" role="alert">
+            <i class="bi bi-check-circle-fill me-2"></i>@successMessage
+            <button type="button" class="btn-close" @onclick="() => successMessage = null"></button>
+        </div>
+    }
+
+    @if (!string.IsNullOrEmpty(warningMessage))
+    {
+        <div class="alert alert-warning alert-dismissible fade show border-0 shadow-sm mb-4" role="alert">
+            <i class="bi bi-exclamation-triangle-fill me-2"></i>@warningMessage
+            <button type="button" class="btn-close" @onclick="() => warningMessage = null"></button>
+        </div>
+    }
+
+    @if (!string.IsNullOrEmpty(errorMessage))
+    {
+        <div class="alert alert-danger alert-dismissible fade show border-0 shadow-sm mb-4" role="alert">
+            <i class="bi bi-x-circle-fill me-2"></i>@errorMessage
+            <button type="button" class="btn-close" @onclick="() => errorMessage = null"></button>
+        </div>
+    }
+
+    <div class="row g-4">
+        <!-- Input Form and Threshold Guide -->
+        <div class="col-lg-5">
+            <!-- Patient Selector -->
+            <div class="card border-0 shadow-sm p-4 bg-white mb-4">
+                <h5 class="fw-bold mb-3 text-dark"><i class="bi bi-person-fill text-primary me-2"></i>Select Patient</h5>
+                <div class="mb-3">
+                    <select class="form-select form-select-lg" @onchange="OnPatientChanged" value="@selectedPatientIdString">
+                        <option value="">-- Choose Admitted Patient --</option>
+                        @foreach (var adm in activeAdmissions)
+                        {
+                            var name = adm.Patient != null ? $"{adm.Patient.FirstName} {adm.Patient.LastName}" : "Unknown";
+                            var mrn = adm.Patient?.Mrn ?? "N/A";
+                            <option value="@adm.PatientId">@name (MRN: @mrn)</option>
+                        }
+                    </select>
+                </div>
+
+                @if (selectedPatient != null)
+                {
+                    <div class="bg-light p-3 rounded-3 mt-2">
+                        <div class="row">
+                            <div class="col-6">
+                                <small class="text-secondary d-block">Patient Name</small>
+                                <strong class="text-dark">@selectedPatient.FullName</strong>
+                            </div>
+                            <div class="col-6">
+                                <small class="text-secondary d-block">MRN</small>
+                                <strong class="text-dark">@selectedPatient.MRN</strong>
+                            </div>
+                        </div>
+                    </div>
+                }
+            </div>
+
+            <!-- Vitals Form -->
+            @if (selectedPatient != null && selectedAllotmentId != Guid.Empty)
+            {
+                <div class="card border-0 shadow-sm p-4 bg-white mb-4">
+                    <h5 class="fw-bold mb-4 text-dark"><i class="bi bi-pencil-square text-primary me-2"></i>Enter Vitals</h5>
+                    
+                    <form @onsubmit="SaveVitals">
+                        <!-- Temperature -->
+                        <div class="mb-3">
+                            <label class="form-label fw-semibold">Temperature (°C)</label>
+                            <input type="number" step="0.1" class="form-control @GetTempClass(newVitals.Temperature)" @bind="newVitals.Temperature" placeholder="e.g. 36.8" />
+                            <small class="text-muted">Normal: 36.0°C - 37.5°C</small>
+                        </div>
+
+                        <!-- Heart Rate -->
+                        <div class="mb-3">
+                            <label class="form-label fw-semibold">Heart Rate (bpm)</label>
+                            <input type="number" class="form-control @GetHrClass(newVitals.HeartRate)" @bind="newVitals.HeartRate" placeholder="e.g. 72" />
+                            <small class="text-muted">Normal: 60 - 100 bpm</small>
+                        </div>
+
+                        <!-- Blood Pressure -->
+                        <div class="row mb-3">
+                            <div class="col">
+                                <label class="form-label fw-semibold">BP Systolic (mmHg)</label>
+                                <input type="number" class="form-control @GetSystolicClass(newVitals.BloodPressureSystolic)" @bind="newVitals.BloodPressureSystolic" placeholder="e.g. 120" />
+                            </div>
+                            <div class="col">
+                                <label class="form-label fw-semibold">BP Diastolic (mmHg)</label>
+                                <input type="number" class="form-control" @bind="newVitals.BloodPressureDiastolic" placeholder="e.g. 80" />
+                            </div>
+                        </div>
+                        <div class="mb-3">
+                            <small class="text-muted">Normal Systolic: 90 - 130 mmHg</small>
+                        </div>
+
+                        <!-- SpO2 -->
+                        <div class="mb-3">
+                            <label class="form-label fw-semibold">SpO2 (%)</label>
+                            <input type="number" min="0" max="100" class="form-control @GetSpO2Class(newVitals.SpO2)" @bind="newVitals.SpO2" placeholder="e.g. 98" />
+                            <small class="text-muted">Normal: &gt;= 95% (Critical: &lt; 92%)</small>
+                        </div>
+
+                        <!-- Respiratory Rate -->
+                        <div class="mb-3">
+                            <label class="form-label fw-semibold">Respiratory Rate (breaths/min)</label>
+                            <input type="number" class="form-control" @bind="newVitals.RespiratoryRate" placeholder="e.g. 16" />
+                        </div>
+
+                        <!-- Weight and Height -->
+                        <div class="row mb-3">
+                            <div class="col">
+                                <label class="form-label fw-semibold">Weight (kg)</label>
+                                <input type="number" step="0.1" class="form-control" @bind="newVitals.Weight" placeholder="e.g. 70" />
+                            </div>
+                            <div class="col">
+                                <label class="form-label fw-semibold">Height (cm)</label>
+                                <input type="number" step="0.1" class="form-control" @bind="newVitals.Height" placeholder="e.g. 175" />
+                            </div>
+                        </div>
+
+                        <!-- Notes -->
+                        <div class="mb-4">
+                            <label class="form-label fw-semibold">Clinical Notes</label>
+                            <textarea class="form-control" rows="2" @bind="newVitals.Notes" placeholder="Any observed symptoms..."></textarea>
+                        </div>
+
+                        <div class="d-grid">
+                            <button type="submit" class="btn btn-primary btn-lg">
+                                <i class="bi bi-save-fill me-2"></i>Record & Save Vitals
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            }
+            else if (selectedPatientId != Guid.Empty)
+            {
+                <div class="alert alert-danger border-0">
+                    <i class="bi bi-exclamation-triangle-fill me-2"></i>Selected patient does not have an active bed allotment. Vitals can only be recorded for admitted patients.
+                </div>
+            }
+            else
+            {
+                <div class="alert alert-warning border-0">
+                    <i class="bi bi-info-circle-fill me-2"></i>Please select a patient to record vitals.
+                </div>
+            }
+
+            <!-- Threshold Guidelines Banner -->
+            <div class="card bg-light border-0 shadow-sm p-3 mb-4">
+                <h6 class="fw-bold text-dark mb-2"><i class="bi bi-shield-fill-exclamation text-warning me-2"></i>Critical Vitals Thresholds</h6>
+                <p class="small text-secondary mb-2">Entering values beyond these thresholds triggers an automated doctor alert:</p>
+                <ul class="small text-secondary ps-3 mb-0">
+                    <li><strong>SpO2:</strong> Below 92%</li>
+                    <li><strong>Heart Rate:</strong> Below 40 bpm or Above 130 bpm</li>
+                    <li><strong>Systolic BP:</strong> Below 80 mmHg or Above 180 mmHg</li>
+                    <li><strong>Temperature:</strong> Below 35.0°C or Above 39.5°C</li>
+                </ul>
+            </div>
+        </div>
+
+        <!-- Vitals History List -->
+        <div class="col-lg-7">
+            <div class="card border-0 shadow-sm p-4 bg-white h-100">
+                <h5 class="fw-bold mb-4 text-dark"><i class="bi bi-clock-history text-primary me-2"></i>Vitals Log History</h5>
+
+                @if (selectedPatient == null)
+                {
+                    <div class="text-center py-5 text-muted">
+                        <i class="bi bi-activity fs-1 d-block mb-3 opacity-25"></i>
+                        Select a patient to load vitals history logs
+                    </div>
+                }
+                else if (historyLoading)
+                {
+                    <div class="d-flex align-items-center py-4">
+                        <div class="spinner-border text-primary me-3" role="status"></div>
+                        <span class="text-secondary">Loading vitals history...</span>
+                    </div>
+                }
+                else if (vitalsHistory.Count == 0)
+                {
+                    <div class="alert alert-light border text-center py-4 mb-0">
+                        <i class="bi bi-info-circle-fill me-2 text-muted"></i>No vitals have been recorded yet for @selectedPatient.FullName.
+                    </div>
+                }
+                else
+                {
+                    <div class="table-responsive">
+                        <table class="table table-hover align-middle table-sm border">
+                            <thead class="bg-light">
+                                <tr>
+                                    <th>Date/Time</th>
+                                    <th>Temp</th>
+                                    <th>HR</th>
+                                    <th>BP (S/D)</th>
+                                    <th>SpO2</th>
+                                    <th>RR</th>
+                                    <th>Notes</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                @foreach (var v in vitalsHistory)
+                                {
+                                    <tr>
+                                        <td>
+                                            <div class="small">@v.RecordedAt.ToLocalTime().ToString("dd MMM yyyy")</div>
+                                            <div class="text-muted small">@v.RecordedAt.ToLocalTime().ToString("hh:mm tt")</div>
+                                        </td>
+                                        <td>
+                                            <span class="@GetTempBadgeClass(v.Temperature)">
+                                                @(v.Temperature?.ToString("F1") ?? "-") °C
+                                            </span>
+                                        </td>
+                                        <td>
+                                            <span class="@GetHrBadgeClass(v.HeartRate)">
+                                                @(v.HeartRate?.ToString() ?? "-") bpm
+                                            </span>
+                                        </td>
+                                        <td>
+                                            <span class="@GetBpBadgeClass(v.BloodPressureSystolic)">
+                                                @(v.BloodPressureSystolic?.ToString() ?? "-") / @(v.BloodPressureDiastolic?.ToString() ?? "-")
+                                            </span>
+                                        </td>
+                                        <td>
+                                            <span class="@GetSpO2BadgeClass(v.SpO2)">
+                                                @(v.SpO2?.ToString() ?? "-") %
+                                            </span>
+                                        </td>
+                                        <td>@(v.RespiratoryRate?.ToString() ?? "-")</td>
+                                        <td>
+                                            <span class="small text-wrap d-inline-block" style="max-width: 150px;" title="@v.Notes">
+                                                @v.Notes
+                                            </span>
+                                        </td>
+                                    </tr>
+                                }
+                            </tbody>
+                        </table>
+                    </div>
+                }
+            </div>
+        </div>
+    </div>
+</div>
+
+@code {
+    [Parameter]
+    [SupplyParameterFromQuery]
+    public string? PatientId { get; set; }
+
+    private List<BedAllotment> activeAdmissions = new();
+    private Guid selectedPatientId = Guid.Empty;
+    private string selectedPatientIdString = string.Empty;
+    private PatientSummary? selectedPatient;
+    private Guid selectedAllotmentId = Guid.Empty;
+
+    private List<VitalSigns> vitalsHistory = new();
+    private VitalSigns newVitals = new();
+
+    private bool historyLoading = false;
+    private string? successMessage;
+    private string? warningMessage;
+    private string? errorMessage;
+
+    private Guid currentTenantId = Guid.Empty;
+    private string currentUserId = "system";
+
+    protected override async Task OnInitializedAsync()
+    {
+        var authState = await AuthStateProvider.GetAuthenticationStateAsync();
+        var user = authState.User;
+        var tenantIdOpt = CurrentUserHelper.GetTenantId(user);
+        var userIdOpt = CurrentUserHelper.GetUserId(user);
+
+        if (tenantIdOpt.HasValue)
+        {
+            currentTenantId = tenantIdOpt.Value;
+            currentUserId = userIdOpt ?? "system";
+
+            // Load active admissions
+            activeAdmissions = await DbContext.BedAllotments
+                .Include(a => a.Patient)
+                .Where(a => a.Status == "Active" && a.TenantId == currentTenantId)
+                .OrderByDescending(a => a.AdmissionDate)
+                .ToListAsync();
+        }
+    }
+
+    protected override async Task OnParametersSetAsync()
+    {
+        if (!string.IsNullOrEmpty(PatientId) && Guid.TryParse(PatientId, out var parsedId))
+        {
+            selectedPatientId = parsedId;
+            selectedPatientIdString = parsedId.ToString();
+            await LoadPatientDataAsync();
+        }
+        else
+        {
+            ResetPatientSelection();
+        }
+    }
+
+    private async Task OnPatientChanged(ChangeEventArgs e)
+    {
+        var val = e.Value?.ToString();
+        if (!string.IsNullOrEmpty(val) && Guid.TryParse(val, out var parsedId))
+        {
+            selectedPatientId = parsedId;
+            selectedPatientIdString = parsedId.ToString();
+            await LoadPatientDataAsync();
+        }
+        else
+        {
+            ResetPatientSelection();
+        }
+    }
+
+    private void ResetPatientSelection()
+    {
+        selectedPatientId = Guid.Empty;
+        selectedPatientIdString = string.Empty;
+        selectedPatient = null;
+        selectedAllotmentId = Guid.Empty;
+        vitalsHistory.Clear();
+        newVitals = new();
+        successMessage = null;
+        warningMessage = null;
+        errorMessage = null;
+    }
+
+    private async Task LoadPatientDataAsync()
+    {
+        successMessage = null;
+        warningMessage = null;
+        errorMessage = null;
+        historyLoading = true;
+
+        try
+        {
+            selectedPatient = await PatientReadModel.GetSummaryAsync(selectedPatientId, currentTenantId);
+            
+            var allotment = activeAdmissions.FirstOrDefault(a => a.PatientId == selectedPatientId);
+            if (allotment != null)
+            {
+                selectedAllotmentId = allotment.Id;
+            }
+            else
+            {
+                selectedAllotmentId = Guid.Empty;
+            }
+
+            if (selectedPatient != null)
+            {
+                await LoadHistoryAsync();
+            }
+
+            // Initialize new vitals model
+            newVitals = new VitalSigns
+            {
+                PatientId = selectedPatientId,
+                BedAllotmentId = selectedAllotmentId,
+                RecordedAt = DateTime.UtcNow,
+                RecordedByUserId = currentUserId
+            };
+        }
+        catch (Exception ex)
+        {
+            errorMessage = "Failed to load patient: " + ex.Message;
+        }
+        finally
+        {
+            historyLoading = false;
+        }
+    }
+
+    private async Task LoadHistoryAsync()
+    {
+        vitalsHistory = await VitalSignsService.GetHistoryAsync(selectedPatientId, currentTenantId, 15);
+    }
+
+    private async Task SaveVitals()
+    {
+        successMessage = null;
+        warningMessage = null;
+        errorMessage = null;
+
+        if (newVitals.Temperature == null && newVitals.HeartRate == null && 
+            newVitals.BloodPressureSystolic == null && newVitals.SpO2 == null && 
+            newVitals.RespiratoryRate == null)
+        {
+            errorMessage = "Please enter at least one vital sign value.";
+            return;
+        }
+
+        try
+        {
+            // Set fields explicitly to ensure consistency
+            newVitals.PatientId = selectedPatientId;
+            newVitals.BedAllotmentId = selectedAllotmentId;
+            newVitals.RecordedByUserId = currentUserId;
+            newVitals.RecordedAt = DateTime.UtcNow;
+
+            var result = await VitalSignsService.RecordAsync(newVitals, currentTenantId);
+
+            // Check if there was any threshold breach to show visual warning in Blazor UI
+            var breaches = new List<string>();
+            if (result.SpO2.HasValue && result.SpO2.Value < 92)
+                breaches.Add($"SpO2 ({result.SpO2.Value}%)");
+            if (result.HeartRate.HasValue && (result.HeartRate.Value > 130 || result.HeartRate.Value < 40))
+                breaches.Add($"Heart Rate ({result.HeartRate.Value} bpm)");
+            if (result.BloodPressureSystolic.HasValue && (result.BloodPressureSystolic.Value > 180 || result.BloodPressureSystolic.Value < 80))
+                breaches.Add($"Systolic BP ({result.BloodPressureSystolic.Value} mmHg)");
+            if (result.Temperature.HasValue && (result.Temperature.Value > 39.5m || result.Temperature.Value < 35.0m))
+                breaches.Add($"Temperature ({result.Temperature.Value}°C)");
+
+            if (breaches.Count > 0)
+            {
+                warningMessage = $"⚠️ Critical alert triggered! The following values breached thresholds: {string.Join(", ", breaches)}. Admitting doctor has been notified via In-App Alert.";
+            }
+            else
+            {
+                successMessage = "Vitals recorded successfully.";
+            }
+
+            // Reload history
+            await LoadHistoryAsync();
+
+            // Reset form
+            newVitals = new VitalSigns
+            {
+                PatientId = selectedPatientId,
+                BedAllotmentId = selectedAllotmentId,
+                RecordedAt = DateTime.UtcNow,
+                RecordedByUserId = currentUserId
+            };
+        }
+        catch (Exception ex)
+        {
+            errorMessage = "Save failed: " + ex.Message;
+        }
+    }
+
+    // --- Dynamic Class Utilities for Real-time Form Indicators ---
+    private string GetTempClass(decimal? val) =>
+        val.HasValue && (val.Value > 39.5m || val.Value < 35.0m) ? "is-invalid border-danger bg-danger bg-opacity-10" : "";
+
+    private string GetHrClass(int? val) =>
+        val.HasValue && (val.Value > 130 || val.Value < 40) ? "is-invalid border-danger bg-danger bg-opacity-10" : "";
+
+    private string GetSystolicClass(int? val) =>
+        val.HasValue && (val.Value > 180 || val.Value < 80) ? "is-invalid border-danger bg-danger bg-opacity-10" : "";
+
+    private string GetSpO2Class(int? val) =>
+        val.HasValue && val.Value < 92 ? "is-invalid border-danger bg-danger bg-opacity-10" : "";
+
+    // --- Badges for History Table ---
+    private string GetTempBadgeClass(decimal? val) =>
+        !val.HasValue ? "text-muted" :
+        (val.Value > 39.5m || val.Value < 35.0m) ? "badge bg-danger text-white" :
+        (val.Value > 37.5m || val.Value < 36.0m) ? "badge bg-warning text-dark" : "badge bg-success text-white";
+
+    private string GetHrBadgeClass(int? val) =>
+        !val.HasValue ? "text-muted" :
+        (val.Value > 130 || val.Value < 40) ? "badge bg-danger text-white" :
+        (val.Value > 100 || val.Value < 60) ? "badge bg-warning text-dark" : "badge bg-success text-white";
+
+    private string GetBpBadgeClass(int? val) =>
+        !val.HasValue ? "text-muted" :
+        (val.Value > 180 || val.Value < 80) ? "badge bg-danger text-white" :
+        (val.Value > 130 || val.Value < 90) ? "badge bg-warning text-dark" : "badge bg-success text-white";
+
+    private string GetSpO2BadgeClass(int? val) =>
+        !val.HasValue ? "text-muted" :
+        (val.Value < 92) ? "badge bg-danger text-white" :
+        (val.Value < 95) ? "badge bg-warning text-dark" : "badge bg-success text-white";
+}

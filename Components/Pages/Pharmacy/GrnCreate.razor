@@ -16,6 +16,7 @@
 @inject ISupplierService SupplierService
 @inject IPharmacyItemService ItemService
 @inject NavigationManager NavigationManager
+@inject ITenantContext TenantContext
 @rendermode InteractiveServer
 
 <PageTitle>Create Goods Received Note - CareSphere</PageTitle>
@@ -247,8 +248,8 @@
 
     protected override async Task OnInitializedAsync()
     {
-        suppliers = await SupplierService.GetSuppliersAsync(Guid.Empty);
-        pharmacyItems = await ItemService.GetActiveItemsAsync(Guid.Empty);
+        suppliers = await SupplierService.GetSuppliersAsync(TenantContext.TenantId);
+        pharmacyItems = await ItemService.GetActiveItemsAsync(TenantContext.TenantId);
 
         if (poId.HasValue && poId.Value != Guid.Empty)
         {
@@ -359,7 +360,7 @@
         showGlobalScanner = false;
         scannerMessage = string.Empty;
 
-        var matchingItem = await ItemService.GetItemByBarcodeAsync(Guid.Empty, barcode);
+        var matchingItem = await ItemService.GetItemByBarcodeAsync(TenantContext.TenantId, barcode);
         if (matchingItem != null)
         {
             // Add or append row with this item
@@ -422,7 +423,7 @@
         {
             isSubmitting = true;
             errorMessage = string.Empty;
-            grn.TenantId = Guid.Empty;
+            grn.TenantId = TenantContext.TenantId;
 
             await GrnService.CreateGrnAsync(grn);
             NavigationManager.NavigateTo("/pharmacy/grn");

@@ -1,0 +1,384 @@
+@page "/teleconsult"
+@attribute [Authorize(Policy = PolicyNames.Permission_Encounters_View)]
+@using CareSphere.Data
+@using Microsoft.EntityFrameworkCore
+@inject IServiceScopeFactory ScopeFactory
+@inject ITenantContext TenantContext
+@inject NavigationManager NavigationManager
+@rendermode InteractiveServer
+
+<PageTitle>Teleconsult Sessions - CareSphere</PageTitle>
+
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <div>
+        <h2><i class="bi bi-camera-video me-2 text-primary"></i>Teleconsult Sessions</h2>
+        <p class="text-muted mb-0">View scheduled and past remote clinical consultations</p>
+    </div>
+    <div>
+        <button class="btn btn-primary shadow-sm" @onclick="OpenCreateModal">
+            <i class="bi bi-plus-circle me-1"></i>Schedule Session
+        </button>
+    </div>
+</div>
+
+<div class="card mb-4 border-0 shadow-sm">
+    <div class="card-body">
+        <div class="row g-3">
+            <div class="col-md-6">
+                <div class="input-group">
+                    <span class="input-group-text bg-white border-end-0 text-muted">
+                        <i class="bi bi-search"></i>
+                    </span>
+                    <input type="text" class="form-control border-start-0 ps-0" placeholder="Search by patient name, MRN, or doctor..." @bind="SearchTerm" @bind:event="oninput" @onkeyup="HandleSearch" />
+                    <button class="btn btn-primary" type="button" @onclick="LoadSessions">Search</button>
+                </div>
+            </div>
+            <div class="col-md-3">
+                <select class="form-select" @bind="StatusFilter" @bind:after="LoadSessions">
+                    <option value="">All Statuses</option>
+                    <option value="Scheduled">Scheduled</option>
+                    <option value="Active">Active</option>
+                    <option value="Ended">Ended</option>
+                </select>
+            </div>
+        </div>
+    </div>
+</div>
+
+@if (sessions == null)
+{
+    <div class="d-flex justify-content-center my-5">
+        <div class="spinner-border text-primary" role="status">
+            <span class="visually-hidden">Loading sessions...</span>
+        </div>
+    </div>
+}
+else if (!sessions.Any())
+{
+    <div class="alert alert-info border-0 shadow-sm"><i class="bi bi-info-circle me-2"></i>No teleconsult sessions found.</div>
+}
+else
+{
+    <div class="card border-0 shadow-sm">
+        <div class="table-responsive">
+            <table class="table table-hover align-middle mb-0">
+                <thead class="table-light">
+                    <tr>
+                        <th class="ps-4">Patient</th>
+                        <th>Doctor</th>
+                        <th>Type</th>
+                        <th>Status</th>
+                        <th>Started At</th>
+                        <th>Ended At</th>
+                        <th>Duration</th>
+                        <th class="text-end pe-4">Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var s in sessions)
+                    {
+                        <tr>
+                            <td class="ps-4">
+                                <span class="fw-semibold text-dark">@s.Patient.FirstName @s.Patient.LastName</span>
+                                <br /><span class="badge bg-secondary opacity-75" style="font-size: 0.75rem;">@s.Patient.Mrn</span>
+                            </td>
+                            <td>Dr. @s.Doctor.FirstName @s.Doctor.LastName</td>
+                            <td>
+                                <span class="badge rounded-pill bg-info text-dark">@s.SessionType</span>
+                            </td>
+                            <td>
+                                @switch (s.Status)
+                                {
+                                    case "Scheduled":
+                                        <span class="badge bg-warning text-dark">Scheduled</span>
+                                        break;
+                                    case "Active":
+                                        <span class="badge bg-success">Active</span>
+                                        break;
+                                    case "Ended":
+                                        <span class="badge bg-secondary">Ended</span>
+                                        break;
+                                    default:
+                                        <span class="badge bg-secondary">@s.Status</span>
+                                        break;
+                                }
+                            </td>
+                            <td>@(s.StartedAt?.ToLocalTime().ToString("dd MMM HH:mm") ?? "—")</td>
+                            <td>@(s.EndedAt?.ToLocalTime().ToString("dd MMM HH:mm") ?? "—")</td>
+                            <td>@(s.DurationMinutes.HasValue ? $"{s.DurationMinutes} min" : "—")</td>
+                            <td class="text-end pe-4">
+                                <div class="d-flex justify-content-end gap-2">
+                                    @if (s.Status == "Scheduled")
+                                    {
+                                        <button class="btn btn-sm btn-success" @onclick="() => StartSession(s.Id)">
+                                            <i class="bi bi-play-fill"></i> Start
+                                        </button>
+                                    }
+                                    @if (s.Status == "Active")
+                                    {
+                                        <a href="@s.MeetingLink" class="btn btn-sm btn-primary">
+                                            <i class="bi bi-camera-video"></i> Join Room
+                                        </a>
+                                        <button class="btn btn-sm btn-danger" @onclick="() => EndSession(s.Id)">
+                                            <i class="bi bi-stop-circle"></i> End
+                                        </button>
+                                    }
+                                    @if (s.Status == "Ended")
+                                    {
+                                        <a href="/encounter/view/@s.EncounterId" class="btn btn-sm btn-outline-secondary">
+                                            <i class="bi bi-eye"></i> Encounter
+                                        </a>
+                                    }
+                                </div>
+                            </td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+    </div>
+}
+
+@* Schedule Session Modal *@
+@if (showCreateModal)
+{
+    <div class="modal fade show d-block" tabindex="-1" role="dialog" style="background-color: rgba(0,0,0,0.5);">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content border-0 shadow">
+                <div class="modal-header bg-primary text-white border-0">
+                    <h5 class="modal-title fw-bold"><i class="bi bi-calendar-plus me-2"></i>Schedule Teleconsult</h5>
+                    <button type="button" class="btn-close btn-close-white" @onclick="CloseCreateModal"></button>
+                </div>
+                <div class="modal-body py-4">
+                    <div class="mb-3">
+                        <label class="form-label fw-bold">Select Active Encounter *</label>
+                        <select class="form-select" @bind="selectedEncounterId">
+                            <option value="">-- Choose Encounter --</option>
+                            @if (activeEncounters != null)
+                            {
+                                @foreach (var enc in activeEncounters)
+                                {
+                                    <option value="@enc.Id">@enc.Patient.FirstName @enc.Patient.LastName (Dr. @enc.Doctor.LastName) - @enc.EncounterType</option>
+                                }
+                            }
+                        </select>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label fw-bold">Session Type</label>
+                        <select class="form-select" @bind="newSessionType">
+                            <option value="Consultation">Consultation</option>
+                            <option value="ICU">ICU</option>
+                        </select>
+                    </div>
+                    @if (!string.IsNullOrEmpty(errorMessage))
+                    {
+                        <div class="alert alert-danger mb-0 py-2"><i class="bi bi-exclamation-octagon me-2"></i>@errorMessage</div>
+                    }
+                </div>
+                <div class="modal-footer border-0">
+                    <button type="button" class="btn btn-light" @onclick="CloseCreateModal">Close</button>
+                    <button type="button" class="btn btn-primary" @onclick="CreateSession" disabled="@isCreating">
+                        @if (isCreating) { <span class="spinner-border spinner-border-sm me-1"></span> }
+                        Schedule
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+}
+
+@code {
+    private List<TeleConsultSession>? sessions;
+    private List<Encounter>? activeEncounters;
+    private string SearchTerm { get; set; } = string.Empty;
+    private string StatusFilter { get; set; } = string.Empty;
+
+    private bool showCreateModal = false;
+    private string selectedEncounterId = string.Empty;
+    private string newSessionType = "Consultation";
+    private bool isCreating = false;
+    private string errorMessage = string.Empty;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadSessions();
+    }
+
+    private async Task HandleSearch(KeyboardEventArgs e)
+    {
+        if (e.Key == "Enter")
+        {
+            await LoadSessions();
+        }
+    }
+
+    private async Task LoadSessions()
+    {
+        try
+        {
+            using (var scope = ScopeFactory.CreateScope())
+            {
+                var scopedTenant = scope.ServiceProvider.GetRequiredService<ITenantContext>();
+                scopedTenant.SetTenantId(TenantContext.TenantId);
+
+                var dbContext = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
+
+                var query = dbContext.TeleConsultSessions
+                    .Include(s => s.Patient)
+                    .Include(s => s.Doctor)
+                    .AsNoTracking();
+
+                if (!string.IsNullOrWhiteSpace(SearchTerm))
+                {
+                    var lower = SearchTerm.ToLower();
+                    query = query.Where(s => s.Patient.FirstName.ToLower().Contains(lower) ||
+                                             s.Patient.LastName.ToLower().Contains(lower) ||
+                                             s.Patient.Mrn.ToLower().Contains(lower) ||
+                                             s.Doctor.FirstName.ToLower().Contains(lower) ||
+                                             s.Doctor.LastName.ToLower().Contains(lower));
+                }
+
+                if (!string.IsNullOrWhiteSpace(StatusFilter))
+                {
+                    query = query.Where(s => s.Status == StatusFilter);
+                }
+
+                sessions = await query
+                    .OrderByDescending(s => s.StartedAt ?? DateTime.MinValue)
+                    .OrderByDescending(s => s.Id)
+                    .ToListAsync();
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"[TeleConsultIndex] Error loading sessions: {ex.Message}");
+            sessions = new List<TeleConsultSession>();
+        }
+    }
+
+    private async Task LoadActiveEncounters()
+    {
+        try
+        {
+            using (var scope = ScopeFactory.CreateScope())
+            {
+                var scopedTenant = scope.ServiceProvider.GetRequiredService<ITenantContext>();
+                scopedTenant.SetTenantId(TenantContext.TenantId);
+
+                var dbContext = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
+                activeEncounters = await dbContext.Encounters
+                    .Include(e => e.Patient)
+                    .Include(e => e.Doctor)
+                    .Where(e => e.Status == "Planned" || e.Status == "InProgress")
+                    .AsNoTracking()
+                    .ToListAsync();
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"[TeleConsultIndex] Error loading encounters: {ex.Message}");
+            activeEncounters = new List<Encounter>();
+        }
+    }
+
+    private async Task OpenCreateModal()
+    {
+        selectedEncounterId = string.Empty;
+        newSessionType = "Consultation";
+        errorMessage = string.Empty;
+        await LoadActiveEncounters();
+        showCreateModal = true;
+    }
+
+    private void CloseCreateModal()
+    {
+        showCreateModal = false;
+    }
+
+    private async Task CreateSession()
+    {
+        if (string.IsNullOrEmpty(selectedEncounterId))
+        {
+            errorMessage = "Please select an encounter.";
+            return;
+        }
+
+        try
+        {
+            isCreating = true;
+            errorMessage = string.Empty;
+
+            using (var scope = ScopeFactory.CreateScope())
+            {
+                var scopedTenant = scope.ServiceProvider.GetRequiredService<ITenantContext>();
+                scopedTenant.SetTenantId(TenantContext.TenantId);
+
+                var dbContext = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
+                var encounter = await dbContext.Encounters.FindAsync(Guid.Parse(selectedEncounterId));
+                if (encounter == null) throw new InvalidOperationException("Encounter not found.");
+
+                var teleService = scope.ServiceProvider.GetRequiredService<ITeleConsultService>();
+                await teleService.CreateSessionAsync(new TeleConsultSession
+                {
+                    EncounterId = encounter.Id,
+                    DoctorId = encounter.DoctorId,
+                    PatientId = encounter.PatientId,
+                    SessionType = newSessionType,
+                    TenantId = TenantContext.TenantId
+                });
+            }
+
+            showCreateModal = false;
+            await LoadSessions();
+        }
+        catch (Exception ex)
+        {
+            errorMessage = ex.Message;
+        }
+        finally
+        {
+            isCreating = false;
+        }
+    }
+
+    private async Task StartSession(Guid id)
+    {
+        try
+        {
+            using (var scope = ScopeFactory.CreateScope())
+            {
+                var scopedTenant = scope.ServiceProvider.GetRequiredService<ITenantContext>();
+                scopedTenant.SetTenantId(TenantContext.TenantId);
+
+                var teleService = scope.ServiceProvider.GetRequiredService<ITeleConsultService>();
+                await teleService.StartSessionAsync(id);
+            }
+            await LoadSessions();
+            NavigationManager.NavigateTo($"/teleconsult/join/{id}");
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"[TeleConsultIndex] Error starting session: {ex.Message}");
+        }
+    }
+
+    private async Task EndSession(Guid id)
+    {
+        try
+        {
+            using (var scope = ScopeFactory.CreateScope())
+            {
+                var scopedTenant = scope.ServiceProvider.GetRequiredService<ITenantContext>();
+                scopedTenant.SetTenantId(TenantContext.TenantId);
+
+                var teleService = scope.ServiceProvider.GetRequiredService<ITeleConsultService>();
+                await teleService.EndSessionAsync(id);
+            }
+            await LoadSessions();
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"[TeleConsultIndex] Error ending session: {ex.Message}");
+        }
+    }
+}

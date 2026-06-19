@@ -9,6 +9,9 @@ namespace CareSphere.Infrastructure
         private readonly IHttpContextAccessor _httpContextAccessor;
         private static readonly AsyncLocal<Guid?> _bypassTenantId = new();
 
+        // Explicit override set by the Blazor auth layer when cookies are absent.
+        private Guid? _overrideTenantId;
+
         public TenantContext(IHttpContextAccessor httpContextAccessor)
         {
             _httpContextAccessor = httpContextAccessor;
@@ -24,28 +27,38 @@ namespace CareSphere.Infrastructure
             set => _bypassTenantId.Value = value;
         }
 
+        /// <summary>
+        /// Explicitly sets the tenant ID for this scoped instance.
+        /// Called by TabIsolatedAuthenticationStateProvider after resolving a valid session,
+        /// so that EF query filters work correctly even without a cookie.
+        /// </summary>
+        public void SetTenantId(Guid tenantId)
+        {
+            _overrideTenantId = tenantId;
+        }
+
         public Guid TenantId
         {
             get
             {
+                // 1. Background job / seeder bypass
                 if (_bypassTenantId.Value.HasValue)
-                {
                     return _bypassTenantId.Value.Value;
-                }
 
+                // 2. Explicitly set by the Blazor auth layer (window.name session)
+                if (_overrideTenantId.HasValue)
+                    return _overrideTenantId.Value;
+
+                // 3. Fallback: read from cookie-based HttpContext.User (legacy path)
                 var httpContext = _httpContextAccessor.HttpContext;
                 if (httpContext == null)
-                {
                     return Guid.Empty;
-                }
 
                 var value = httpContext.User?.FindFirstValue("tenant_id")
                             ?? httpContext.User?.FindFirstValue(CareSphereClaimTypes.TenantId);
 
                 if (string.IsNullOrEmpty(value))
-                {
                     return Guid.Empty;
-                }
 
                 return Guid.Parse(value);
             }

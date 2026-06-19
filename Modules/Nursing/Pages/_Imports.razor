@@ -1,0 +1,17 @@
+@using System.Net.Http
+@using Microsoft.AspNetCore.Authorization
+@using Microsoft.AspNetCore.Components.Authorization
+@using Microsoft.AspNetCore.Components.Forms
+@using Microsoft.AspNetCore.Components.Routing
+@using Microsoft.AspNetCore.Components.Web
+@using Microsoft.JSInterop
+@using CareSphere
+@using CareSphere.Infrastructure
+@using CareSphere.Modules.Nursing.Services
+@using CareSphere.Modules.Nursing.Layout
+@using CareSphere.Authorization
+@using CareSphere.Modules.Shared.ReadModels
+@using CareSphere.Models
+@using Microsoft.EntityFrameworkCore
+@layout NursingLayout
+@attribute [Authorize(Policy = "HasPermission")]

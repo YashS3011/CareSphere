@@ -105,12 +105,15 @@
     private static readonly Dictionary<string, List<string>> permissionModules = new()
     {
         ["Patients"] = new() { CareSpherePermissions.Patients_View, CareSpherePermissions.Patients_Create, CareSpherePermissions.Patients_Edit, CareSpherePermissions.Patients_Delete },
-        ["Beds"] = new() { CareSpherePermissions.Beds_View, CareSpherePermissions.Beds_Manage, CareSpherePermissions.Beds_Allocate },
-        ["Doctor/EMR"] = new() { CareSpherePermissions.Encounters_View, CareSpherePermissions.Encounters_Create, CareSpherePermissions.SoapNotes_Write, CareSpherePermissions.Prescriptions_Write, CareSpherePermissions.Queue_View, CareSpherePermissions.Queue_Manage },
-        ["Pharmacy"] = new() { CareSpherePermissions.Pharmacy_ViewStock, CareSpherePermissions.Pharmacy_Dispense, CareSpherePermissions.Pharmacy_ManageInventory },
+        ["Beds"] = new() { CareSpherePermissions.Beds_View, CareSpherePermissions.Beds_Manage, CareSpherePermissions.Beds_Allocate, CareSpherePermissions.BedAllotment_View },
+        ["Doctor/EMR"] = new() { CareSpherePermissions.Encounters_View, CareSpherePermissions.Encounters_Create, CareSpherePermissions.SoapNotes_Write, CareSpherePermissions.SoapNotes_Finalize, CareSpherePermissions.Prescriptions_Write, CareSpherePermissions.Prescriptions_Cancel, CareSpherePermissions.TeleConsult_Start, CareSpherePermissions.Queue_View, CareSpherePermissions.Queue_Manage, CareSpherePermissions.DoctorSchedule_Manage },
+        ["Pharmacy"] = new() { CareSpherePermissions.Pharmacy_ViewStock, CareSpherePermissions.Pharmacy_Dispense, CareSpherePermissions.Pharmacy_ManageInventory, CareSpherePermissions.Pharmacy_OtcSale, CareSpherePermissions.Pharmacy_ManagePO },
         ["Laboratory"] = new() { CareSpherePermissions.Lab_OrderTests, CareSpherePermissions.Lab_CollectSample, CareSpherePermissions.Lab_EnterResults, CareSpherePermissions.Lab_VerifyResults, CareSpherePermissions.Lab_ViewReports },
-        ["Billing"] = new() { CareSpherePermissions.Billing_ViewInvoices, CareSpherePermissions.Billing_CreateInvoices, CareSpherePermissions.Billing_RecordPayments, CareSpherePermissions.Billing_ManageClaims },
+        ["Billing"] = new() { CareSpherePermissions.Billing_ViewInvoices, CareSpherePermissions.Billing_CreateInvoices, CareSpherePermissions.Billing_RecordPayments, CareSpherePermissions.Billing_ManageClaims, CareSpherePermissions.Billing_View, CareSpherePermissions.Billing_Create, CareSpherePermissions.Billing_Edit, CareSpherePermissions.Payments_Manage, CareSpherePermissions.InsuranceClaims_Manage, CareSpherePermissions.InsuranceClaims_View },
         ["Admin"] = new() { CareSpherePermissions.Admin_ManageUsers, CareSpherePermissions.Admin_ManageRoles, CareSpherePermissions.Admin_ViewAuditLog, CareSpherePermissions.Admin_ManageTenant },
+        ["Appointments"] = new() { CareSpherePermissions.Appointments_Book, CareSpherePermissions.Appointments_Create, CareSpherePermissions.Appointments_View },
+        ["Nursing"] = new() { CareSpherePermissions.Vitals_Create, CareSpherePermissions.Vitals_View, CareSpherePermissions.NursingNotes_Create, CareSpherePermissions.NursingNotes_View, CareSpherePermissions.MedicationAdmin_Create, CareSpherePermissions.MedicationAdmin_View },
+        ["Analytics"] = new() { CareSpherePermissions.Analytics_View }
     };
 
     private string selectedRole = "";

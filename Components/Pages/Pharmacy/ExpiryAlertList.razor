@@ -12,6 +12,7 @@
 @using CareSphere.Modules.Shared.Services
 @inject IExpiryAlertService AlertService
 @inject NavigationManager NavigationManager
+@inject ITenantContext TenantContext
 @rendermode InteractiveServer
 
 <PageTitle>Expiry Alerts - CareSphere</PageTitle>
@@ -131,6 +132,7 @@
 
     protected override async Task OnInitializedAsync()
     {
+        currentTenantId = TenantContext.TenantId;
         await LoadAlerts();
     }
 

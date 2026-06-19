@@ -201,6 +201,7 @@ namespace CareSphere.Controllers
                         new Claim(ClaimTypes.NameIdentifier, superAdminUser.Id),
                         new Claim(ClaimTypes.Name, superAdminUser.UserName ?? superAdminUser.Email ?? ""),
                         new Claim(ClaimTypes.Email, superAdminUser.Email ?? ""),
+                        new Claim(ClaimTypes.Role, "platform_super_admin"),
                         new Claim("role", "platform_super_admin")
                     };
 

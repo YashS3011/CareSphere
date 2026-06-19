@@ -44,6 +44,16 @@ namespace CareSphere.Models
                 CareSpherePermissions.Admin_ManageRoles,
                 CareSpherePermissions.Admin_ViewAuditLog,
                 CareSpherePermissions.Admin_ManageTenant,
+                CareSpherePermissions.Appointments_Create,
+                CareSpherePermissions.Appointments_View,
+                CareSpherePermissions.DoctorSchedule_Manage,
+                CareSpherePermissions.Analytics_View,
+                CareSpherePermissions.Vitals_Create,
+                CareSpherePermissions.Vitals_View,
+                CareSpherePermissions.NursingNotes_Create,
+                CareSpherePermissions.NursingNotes_View,
+                CareSpherePermissions.MedicationAdmin_Create,
+                CareSpherePermissions.MedicationAdmin_View,
             },
 
             // HospitalAdmin — all except clinical write permissions
@@ -75,6 +85,10 @@ namespace CareSphere.Models
                 CareSpherePermissions.Admin_ManageRoles,
                 CareSpherePermissions.Admin_ViewAuditLog,
                 CareSpherePermissions.Admin_ManageTenant,
+                CareSpherePermissions.Appointments_View,
+                CareSpherePermissions.Appointments_Create,
+                CareSpherePermissions.DoctorSchedule_Manage,
+                CareSpherePermissions.Analytics_View,
                 // Excluded: SoapNotes_Write, SoapNotes_Finalize, Prescriptions_Write,
                 //           Prescriptions_Cancel, Lab_EnterResults, Lab_VerifyResults
             },
@@ -93,6 +107,8 @@ namespace CareSphere.Models
                 CareSpherePermissions.Lab_OrderTests,
                 CareSpherePermissions.Lab_ViewReports,
                 CareSpherePermissions.Billing_ViewInvoices,
+                CareSpherePermissions.Appointments_View,
+                CareSpherePermissions.DoctorSchedule_Manage,
             },
 
             // Nurse — ward nursing staff
@@ -101,6 +117,7 @@ namespace CareSphere.Models
             [CareSphereRoles.Nurse] = new List<string>
             {
                 CareSpherePermissions.Patients_View,
+                CareSpherePermissions.Beds_View,
                 CareSpherePermissions.BedAllotment_View,
                 CareSpherePermissions.Vitals_Create,
                 CareSpherePermissions.Vitals_View,
@@ -108,7 +125,8 @@ namespace CareSphere.Models
                 CareSpherePermissions.NursingNotes_View,
                 CareSpherePermissions.MedicationAdmin_Create,
                 CareSpherePermissions.MedicationAdmin_View,
-                CareSpherePermissions.Queue_View
+                CareSpherePermissions.Queue_View,
+                CareSpherePermissions.Appointments_View,
             },
 
             // Pharmacist — pharmacy operations
@@ -190,12 +208,10 @@ namespace CareSphere.Models
             [CareSphereRoles.BillingStaff] = new List<string>
             {
                 CareSpherePermissions.Patients_View,
-                CareSpherePermissions.Billing_View,
-                CareSpherePermissions.Billing_Create,
-                CareSpherePermissions.Billing_Edit,
-                CareSpherePermissions.Payments_Manage,
-                CareSpherePermissions.InsuranceClaims_Manage,
-                CareSpherePermissions.InsuranceClaims_View
+                CareSpherePermissions.Billing_ViewInvoices,
+                CareSpherePermissions.Billing_CreateInvoices,
+                CareSpherePermissions.Billing_RecordPayments,
+                CareSpherePermissions.Billing_ManageClaims,
             },
         };
     }

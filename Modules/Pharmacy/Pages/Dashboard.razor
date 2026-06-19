@@ -6,6 +6,7 @@
 @inject IExpiryAlertService AlertService
 @inject IPharmacyItemService ItemService
 @inject NavigationManager NavigationManager
+@inject ITenantContext TenantContext
 @rendermode InteractiveServer
 
 <PageTitle>Pharmacy Dashboard - CareSphere</PageTitle>
@@ -214,6 +215,7 @@
         try
         {
             loading = true;
+            currentTenantId = TenantContext.TenantId;
 
             await AlertService.CheckAndGenerateExpiryAlertsAsync(currentTenantId);
 

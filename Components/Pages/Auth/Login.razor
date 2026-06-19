@@ -1,9 +1,14 @@
 @page "/auth/login"
+@rendermode @(new InteractiveServerRenderMode(prerender: false))
+@using System.Security.Claims
 @inject IAuthService AuthService
 @inject ITenantService TenantService
 @inject NavigationManager NavigationManager
 @inject IHttpContextAccessor HttpContextAccessor
 @inject IConfiguration Configuration
+@inject IJSRuntime JS
+@inject AuthenticationStateProvider AuthStateProvider
+@inject CareSphere.Modules.Admin.Services.IPermissionService PermissionService
 
 <PageTitle>Sign In — CareSphere</PageTitle>
 
@@ -133,6 +138,25 @@
         catch { /* Use defaults */ }
     }
 
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (!firstRender) return;
+
+        // If the user already has a valid tab session (e.g. after F5 redirect from a protected page),
+        // skip the login form and send them straight to their dashboard.
+        // Must be in OnAfterRenderAsync because JS interop (window.name) requires a connected circuit.
+        try
+        {
+            var authState = await AuthStateProvider.GetAuthenticationStateAsync();
+            if (authState.User.Identity?.IsAuthenticated == true && string.IsNullOrEmpty(errorMessage))
+            {
+                var destination = ReturnUrl ?? "/";
+                NavigationManager.NavigateTo(destination, forceLoad: false);
+            }
+        }
+        catch { /* Ignore: JS interop not available */ }
+    }
+
     private async Task HandleLogin()
     {
         isLoading = true;
@@ -143,15 +167,54 @@
             var tenantIdStr = Configuration["App:DefaultTenantId"] ?? "00000000-0000-0000-0000-000000000001";
             var tenantId = Guid.Parse(tenantIdStr);
 
-            var ipAddress = HttpContextAccessor.HttpContext?.Connection?.RemoteIpAddress?.ToString();
-            var userAgent = HttpContextAccessor.HttpContext?.Request.Headers["User-Agent"].ToString();
+            string? ipAddress = null;
+            string? userAgent = null;
+
+            var httpContext = HttpContextAccessor.HttpContext;
+            if (httpContext != null)
+            {
+                ipAddress = httpContext.Connection?.RemoteIpAddress?.ToString();
+                userAgent = httpContext.Request?.Headers["User-Agent"].ToString();
+            }
 
             var result = await AuthService.LoginAsync(model.Email, model.Password, tenantId, ipAddress, userAgent);
 
             if (result.Success)
             {
+                // Store session token in window.name for tab-level isolation
+                await JS.InvokeVoidAsync("eval", $"window.name = '{result.SessionToken}'");
+
+                // Get user permissions
+                var permissions = await PermissionService.GetUserPermissionsAsync(result.User!.TenantId, result.User!.Id);
+
+                // Notify custom AuthenticationStateProvider to switch UI state immediately
+                if (AuthStateProvider is CareSphere.Authorization.TabIsolatedAuthenticationStateProvider tabProvider)
+                {
+                    var claims = new List<Claim>
+                    {
+                        new Claim(ClaimTypes.NameIdentifier, result.User.Id),
+                        new Claim(ClaimTypes.Name, result.User.UserName ?? result.User.Email ?? ""),
+                        new Claim(CareSphereClaimTypes.TenantId, result.User.TenantId.ToString()),
+                        new Claim(CareSphereClaimTypes.FullName, result.User.FullName),
+                        new Claim(ClaimTypes.Role, result.User.Role),
+                        new Claim("role", result.User.Role),
+                        new Claim("session_token", result.SessionToken ?? "")
+                    };
+
+                    if (result.User.DoctorId.HasValue)
+                        claims.Add(new Claim(CareSphereClaimTypes.DoctorId, result.User.DoctorId.Value.ToString()));
+
+                    foreach (var perm in permissions)
+                    {
+                        claims.Add(new Claim(CareSphereClaimTypes.Permission, perm));
+                    }
+
+                    var identity = new ClaimsIdentity(claims, "TabIsolatedAuth");
+                    tabProvider.NotifyUserLogin(new ClaimsPrincipal(identity));
+                }
+
                 var returnUrl = ReturnUrl ?? "/";
-                NavigationManager.NavigateTo(returnUrl, forceLoad: true);
+                NavigationManager.NavigateTo(returnUrl, forceLoad: false);
             }
             else
             {
@@ -164,6 +227,7 @@
         }
         catch (Exception ex)
         {
+            System.Console.WriteLine($"[Login Exception]: {ex}");
             errorMessage = "An unexpected error occurred. Please try again.";
         }
         finally

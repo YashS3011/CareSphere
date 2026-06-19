@@ -14,6 +14,7 @@
 @inject ISupplierService SupplierService
 @inject IPharmacyItemService ItemService
 @inject NavigationManager NavigationManager
+@inject ITenantContext TenantContext
 @rendermode InteractiveServer
 
 <PageTitle>Create Purchase Order - CareSphere</PageTitle>
@@ -165,8 +166,8 @@
 
     protected override async Task OnInitializedAsync()
     {
-        suppliers = await SupplierService.GetSuppliersAsync(Guid.Empty);
-        pharmacyItems = await ItemService.GetActiveItemsAsync(Guid.Empty);
+        suppliers = await SupplierService.GetSuppliersAsync(TenantContext.TenantId);
+        pharmacyItems = await ItemService.GetActiveItemsAsync(TenantContext.TenantId);
         
         // Start with one empty row
         AddLineItem();
@@ -218,7 +219,7 @@
         {
             isSubmitting = true;
             errorMessage = string.Empty;
-            po.TenantId = Guid.Empty;
+            po.TenantId = TenantContext.TenantId;
             po.OrderDate = DateTime.UtcNow;
 
             await PoService.CreatePurchaseOrderAsync(po);

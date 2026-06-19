@@ -4,6 +4,7 @@
 @using CareSphere.Modules.Laboratory.Services
 @using CareSphere.Modules.Shared.Services
 @inject ILabCatalogService CatalogService
+@inject ITenantContext TenantContext
 @inject NavigationManager NavigationManager
 @rendermode InteractiveServer
 
@@ -191,8 +192,6 @@
     private List<LabTestCatalog>? tests;
     private HashSet<Guid> expandedTests = new();
 
-    private Guid currentTenantId = Guid.Empty;
-
     protected override async Task OnInitializedAsync()
     {
         await LoadCatalog();
@@ -208,7 +207,7 @@
             if (selectedStatus == "Active") isActive = true;
             else if (selectedStatus == "Inactive") isActive = false;
 
-            tests = await CatalogService.GetAllTestsAsync(currentTenantId, searchQuery, selectedCategory, isActive);
+            tests = await CatalogService.GetAllTestsAsync(TenantContext.TenantId, searchQuery, selectedCategory, isActive);
         }
         catch (Exception ex)
         {

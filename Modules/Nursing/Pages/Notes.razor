@@ -1,0 +1,369 @@
+@page "/nursing/notes"
+@rendermode InteractiveServer
+@inject CareSphere.Data.ApplicationDbContext DbContext
+@inject INursingNoteService NursingNoteService
+@inject IPatientReadModel PatientReadModel
+@inject TabIsolatedAuthenticationStateProvider AuthStateProvider
+@inject NavigationManager NavigationManager
+
+<PageTitle>Nursing Notes - CareSphere</PageTitle>
+
+<div class="container py-4 animate-fade-in">
+    <!-- Header -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="card bg-dark text-white border-0 shadow">
+                <div class="card-body p-4 d-flex justify-content-between align-items-center">
+                    <div>
+                        <h1 class="h3 mb-1 fw-bold"><i class="bi bi-clipboard-pulse me-2 text-success"></i>Nursing Notes</h1>
+                        <p class="text-light opacity-75 mb-0">Record shift handovers, patient incidents, pre/post-op logs, and general observations</p>
+                    </div>
+                    <div>
+                        <a href="/nursing" class="btn btn-outline-light">
+                            <i class="bi bi-arrow-left me-2"></i>Dashboard
+                        </a>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    @if (!string.IsNullOrEmpty(successMessage))
+    {
+        <div class="alert alert-success alert-dismissible fade show border-0 shadow-sm mb-4" role="alert">
+            <i class="bi bi-check-circle-fill me-2"></i>@successMessage
+            <button type="button" class="btn-close" @onclick="() => successMessage = null"></button>
+        </div>
+    }
+
+    @if (!string.IsNullOrEmpty(errorMessage))
+    {
+        <div class="alert alert-danger alert-dismissible fade show border-0 shadow-sm mb-4" role="alert">
+            <i class="bi bi-x-circle-fill me-2"></i>@errorMessage
+            <button type="button" class="btn-close" @onclick="() => errorMessage = null"></button>
+        </div>
+    }
+
+    <div class="row g-4">
+        <!-- Input Form -->
+        <div class="col-lg-5">
+            <!-- Patient Selector -->
+            <div class="card border-0 shadow-sm p-4 bg-white mb-4">
+                <h5 class="fw-bold mb-3 text-dark"><i class="bi bi-person-fill text-primary me-2"></i>Select Patient</h5>
+                <div class="mb-3">
+                    <select class="form-select form-select-lg" @onchange="OnPatientChanged" value="@selectedPatientIdString">
+                        <option value="">-- Choose Admitted Patient --</option>
+                        @foreach (var adm in activeAdmissions)
+                        {
+                            var name = adm.Patient != null ? $"{adm.Patient.FirstName} {adm.Patient.LastName}" : "Unknown";
+                            var mrn = adm.Patient?.Mrn ?? "N/A";
+                            <option value="@adm.PatientId">@name (MRN: @mrn)</option>
+                        }
+                    </select>
+                </div>
+
+                @if (selectedPatient != null)
+                {
+                    <div class="bg-light p-3 rounded-3 mt-2">
+                        <div class="row">
+                            <div class="col-6">
+                                <small class="text-secondary d-block">Patient Name</small>
+                                <strong class="text-dark">@selectedPatient.FullName</strong>
+                            </div>
+                            <div class="col-6">
+                                <small class="text-secondary d-block">MRN</small>
+                                <strong class="text-dark">@selectedPatient.MRN</strong>
+                            </div>
+                        </div>
+                    </div>
+                }
+            </div>
+
+            <!-- Notes Form -->
+            @if (selectedPatient != null && selectedAllotmentId != Guid.Empty)
+            {
+                <div class="card border-0 shadow-sm p-4 bg-white mb-4">
+                    <h5 class="fw-bold mb-4 text-dark"><i class="bi bi-pencil-square text-primary me-2"></i>New Nursing Log Entry</h5>
+                    
+                    <form @onsubmit="SaveNote">
+                        <!-- Note Type -->
+                        <div class="mb-3">
+                            <label class="form-label fw-semibold">Note Category</label>
+                            <select class="form-select" @bind="newNote.NoteType" required>
+                                <option value="General">General Observation</option>
+                                <option value="PreOp">Pre-Op Details</option>
+                                <option value="PostOp">Post-Op Details</option>
+                                <option value="Handover">Shift Handover</option>
+                                <option value="Incident">Incident Report</option>
+                            </select>
+                        </div>
+
+                        <!-- Note Content -->
+                        <div class="mb-4">
+                            <label class="form-label fw-semibold">Note Description</label>
+                            <textarea class="form-control" rows="6" @bind="newNote.Note" placeholder="Write clinical notes here..." required></textarea>
+                        </div>
+
+                        <div class="d-grid">
+                            <button type="submit" class="btn btn-success btn-lg" disabled="@(string.IsNullOrWhiteSpace(newNote.Note))">
+                                <i class="bi bi-save-fill me-2"></i>Save Log Entry
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            }
+            else if (selectedPatientId != Guid.Empty)
+            {
+                <div class="alert alert-danger border-0">
+                    <i class="bi bi-exclamation-triangle-fill me-2"></i>Selected patient does not have an active bed allotment.
+                </div>
+            }
+            else
+            {
+                <div class="alert alert-warning border-0">
+                    <i class="bi bi-info-circle-fill me-2"></i>Please select a patient to record logs.
+                </div>
+            }
+        </div>
+
+        <!-- Notes History List -->
+        <div class="col-lg-7">
+            <div class="card border-0 shadow-sm p-4 bg-white h-100">
+                <h5 class="fw-bold mb-4 text-dark"><i class="bi bi-clock-history text-primary me-2"></i>Nursing Logs History</h5>
+
+                @if (selectedPatient == null)
+                {
+                    <div class="text-center py-5 text-muted">
+                        <i class="bi bi-clipboard-pulse fs-1 d-block mb-3 opacity-25"></i>
+                        Select a patient to load nursing notes logs history
+                    </div>
+                }
+                else if (historyLoading)
+                {
+                    <div class="d-flex align-items-center py-4">
+                        <div class="spinner-border text-primary me-3" role="status"></div>
+                        <span class="text-secondary">Loading logs history...</span>
+                    </div>
+                }
+                else if (notesHistory.Count == 0)
+                {
+                    <div class="alert alert-light border text-center py-4 mb-0">
+                        <i class="bi bi-info-circle-fill me-2 text-muted"></i>No nursing logs recorded yet for @selectedPatient.FullName.
+                    </div>
+                }
+                else
+                {
+                    <div class="d-flex flex-column gap-3 overflow-auto" style="max-height: 700px;">
+                        @foreach (var note in notesHistory)
+                        {
+                            <div class="card border shadow-sm p-3">
+                                <div class="d-flex justify-content-between align-items-center mb-2">
+                                    <div>
+                                        <span class="@GetNoteTypeClass(note.NoteType)">@note.NoteType</span>
+                                        <span class="small text-muted ms-2"><i class="bi bi-person text-muted"></i> Nurse ID: @note.NurseUserId</span>
+                                    </div>
+                                    <div class="small text-secondary">
+                                        <i class="bi bi-clock"></i> @note.NoteDateTime.ToLocalTime().ToString("dd MMM yyyy, hh:mm tt")
+                                    </div>
+                                </div>
+                                <p class="text-dark mb-0 style-preserve-newlines text-wrap">
+                                    @note.Note
+                                </p>
+                            </div>
+                        }
+                    </div>
+                }
+            </div>
+        </div>
+    </div>
+</div>
+
+<style>
+    .style-preserve-newlines {
+        white-space: pre-wrap;
+    }
+</style>
+
+@code {
+    [Parameter]
+    [SupplyParameterFromQuery]
+    public string? PatientId { get; set; }
+
+    private List<BedAllotment> activeAdmissions = new();
+    private Guid selectedPatientId = Guid.Empty;
+    private string selectedPatientIdString = string.Empty;
+    private PatientSummary? selectedPatient;
+    private Guid selectedAllotmentId = Guid.Empty;
+
+    private List<NursingNote> notesHistory = new();
+    private NursingNote newNote = new();
+
+    private bool historyLoading = false;
+    private string? successMessage;
+    private string? errorMessage;
+
+    private Guid currentTenantId = Guid.Empty;
+    private string currentUserId = "system";
+
+    protected override async Task OnInitializedAsync()
+    {
+        var authState = await AuthStateProvider.GetAuthenticationStateAsync();
+        var user = authState.User;
+        var tenantIdOpt = CurrentUserHelper.GetTenantId(user);
+        var userIdOpt = CurrentUserHelper.GetUserId(user);
+
+        if (tenantIdOpt.HasValue)
+        {
+            currentTenantId = tenantIdOpt.Value;
+            currentUserId = userIdOpt ?? "system";
+
+            // Load active admissions
+            activeAdmissions = await DbContext.BedAllotments
+                .Include(a => a.Patient)
+                .Where(a => a.Status == "Active" && a.TenantId == currentTenantId)
+                .OrderByDescending(a => a.AdmissionDate)
+                .ToListAsync();
+        }
+    }
+
+    protected override async Task OnParametersSetAsync()
+    {
+        if (!string.IsNullOrEmpty(PatientId) && Guid.TryParse(PatientId, out var parsedId))
+        {
+            selectedPatientId = parsedId;
+            selectedPatientIdString = parsedId.ToString();
+            await LoadPatientDataAsync();
+        }
+        else
+        {
+            ResetPatientSelection();
+        }
+    }
+
+    private async Task OnPatientChanged(ChangeEventArgs e)
+    {
+        var val = e.Value?.ToString();
+        if (!string.IsNullOrEmpty(val) && Guid.TryParse(val, out var parsedId))
+        {
+            selectedPatientId = parsedId;
+            selectedPatientIdString = parsedId.ToString();
+            await LoadPatientDataAsync();
+        }
+        else
+        {
+            ResetPatientSelection();
+        }
+    }
+
+    private void ResetPatientSelection()
+    {
+        selectedPatientId = Guid.Empty;
+        selectedPatientIdString = string.Empty;
+        selectedPatient = null;
+        selectedAllotmentId = Guid.Empty;
+        notesHistory.Clear();
+        newNote = new();
+        successMessage = null;
+        errorMessage = null;
+    }
+
+    private async Task LoadPatientDataAsync()
+    {
+        successMessage = null;
+        errorMessage = null;
+        historyLoading = true;
+
+        try
+        {
+            selectedPatient = await PatientReadModel.GetSummaryAsync(selectedPatientId, currentTenantId);
+            
+            var allotment = activeAdmissions.FirstOrDefault(a => a.PatientId == selectedPatientId);
+            if (allotment != null)
+            {
+                selectedAllotmentId = allotment.Id;
+            }
+            else
+            {
+                selectedAllotmentId = Guid.Empty;
+            }
+
+            if (selectedPatient != null)
+            {
+                await LoadHistoryAsync();
+            }
+
+            // Initialize new note model
+            newNote = new NursingNote
+            {
+                PatientId = selectedPatientId,
+                BedAllotmentId = selectedAllotmentId,
+                NoteType = "General",
+                NoteDateTime = DateTime.UtcNow,
+                NurseUserId = currentUserId
+            };
+        }
+        catch (Exception ex)
+        {
+            errorMessage = "Failed to load patient: " + ex.Message;
+        }
+        finally
+        {
+            historyLoading = false;
+        }
+    }
+
+    private async Task LoadHistoryAsync()
+    {
+        notesHistory = await NursingNoteService.GetByPatientAsync(selectedPatientId, currentTenantId);
+    }
+
+    private async Task SaveNote()
+    {
+        successMessage = null;
+        errorMessage = null;
+
+        if (string.IsNullOrWhiteSpace(newNote.Note))
+        {
+            errorMessage = "Note description cannot be empty.";
+            return;
+        }
+
+        try
+        {
+            newNote.PatientId = selectedPatientId;
+            newNote.BedAllotmentId = selectedAllotmentId;
+            newNote.NurseUserId = currentUserId;
+            newNote.NoteDateTime = DateTime.UtcNow;
+
+            await NursingNoteService.AddNoteAsync(newNote, currentTenantId);
+
+            successMessage = "Nursing note saved successfully.";
+
+            // Reload history
+            await LoadHistoryAsync();
+
+            // Reset form
+            newNote = new NursingNote
+            {
+                PatientId = selectedPatientId,
+                BedAllotmentId = selectedAllotmentId,
+                NoteType = "General",
+                NoteDateTime = DateTime.UtcNow,
+                NurseUserId = currentUserId
+            };
+        }
+        catch (Exception ex)
+        {
+            errorMessage = "Save failed: " + ex.Message;
+        }
+    }
+
+    private string GetNoteTypeClass(string type) => type switch
+    {
+        "PreOp" => "badge bg-info text-dark",
+        "PostOp" => "badge bg-primary text-white",
+        "Handover" => "badge bg-secondary text-white",
+        "Incident" => "badge bg-danger text-white",
+        _ => "badge bg-success text-white"
+    };
+}

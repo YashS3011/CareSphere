@@ -12,6 +12,7 @@
 @using CareSphere.Modules.Shared.Services
 @inject IStockLedgerService LedgerService
 @inject NavigationManager NavigationManager
+@inject ITenantContext TenantContext
 @rendermode InteractiveServer
 
 <PageTitle>Stock Ledger - CareSphere</PageTitle>
@@ -200,7 +201,6 @@
     private int currentPage = 1;
     private int pageSize = 15;
     private int totalPages = 1;
-    private Guid currentTenantId = Guid.Empty;
 
     protected override async Task OnInitializedAsync()
     {
@@ -209,7 +209,7 @@
 
     private async Task LoadSummaries()
     {
-        summaries = await LedgerService.GetStockSummaryAsync(currentTenantId, SearchQuery);
+        summaries = await LedgerService.GetStockSummaryAsync(TenantContext.TenantId, SearchQuery);
     }
 
     private async Task HandleSearch()

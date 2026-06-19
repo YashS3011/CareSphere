@@ -4,6 +4,7 @@ D:\CareSphere\Tests\bin\Debug\net10.0\testhost.dll
 D:\CareSphere\Tests\bin\Debug\net10.0\xunit.abstractions.dll
 D:\CareSphere\Tests\bin\Debug\net10.0\CareSphere.deps.json
 D:\CareSphere\Tests\bin\Debug\net10.0\CareSphere.runtimeconfig.json
+D:\CareSphere\Tests\bin\Debug\net10.0\nuget.config
 D:\CareSphere\Tests\bin\Debug\net10.0\appsettings.Development.json
 D:\CareSphere\Tests\bin\Debug\net10.0\appsettings.json
 D:\CareSphere\Tests\bin\Debug\net10.0\CareSphere.staticwebassets.runtime.json
@@ -55,6 +56,7 @@ D:\CareSphere\Tests\bin\Debug\net10.0\Microsoft.Bcl.AsyncInterfaces.dll
 D:\CareSphere\Tests\bin\Debug\net10.0\Microsoft.VisualStudio.CodeCoverage.Shim.dll
 D:\CareSphere\Tests\bin\Debug\net10.0\Microsoft.EntityFrameworkCore.dll
 D:\CareSphere\Tests\bin\Debug\net10.0\Microsoft.EntityFrameworkCore.Abstractions.dll
+D:\CareSphere\Tests\bin\Debug\net10.0\Microsoft.EntityFrameworkCore.InMemory.dll
 D:\CareSphere\Tests\bin\Debug\net10.0\Microsoft.EntityFrameworkCore.Relational.dll
 D:\CareSphere\Tests\bin\Debug\net10.0\Microsoft.IdentityModel.Abstractions.dll
 D:\CareSphere\Tests\bin\Debug\net10.0\Microsoft.IdentityModel.JsonWebTokens.dll
@@ -187,4 +189,3 @@ D:\CareSphere\Tests\obj\Debug\net10.0\refint\Tests.dll
 D:\CareSphere\Tests\obj\Debug\net10.0\Tests.pdb
 D:\CareSphere\Tests\obj\Debug\net10.0\Tests.genruntimeconfig.cache
 D:\CareSphere\Tests\obj\Debug\net10.0\ref\Tests.dll
-D:\CareSphere\Tests\bin\Debug\net10.0\Microsoft.EntityFrameworkCore.InMemory.dll

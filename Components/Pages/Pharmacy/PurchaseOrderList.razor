@@ -15,6 +15,7 @@
 @inject IPurchaseOrderService PoService
 @inject ISupplierService SupplierService
 @inject NavigationManager NavigationManager
+@inject ITenantContext TenantContext
 @rendermode InteractiveServer
 
 <PageTitle>Purchase Orders - CareSphere</PageTitle>
@@ -177,11 +178,9 @@
     private int currentPage = 1;
     private int pageSize = 10;
     private int totalPages = 1;
-    private Guid currentTenantId = Guid.Empty;
-
     protected override async Task OnInitializedAsync()
     {
-        suppliers = await SupplierService.GetSuppliersAsync(currentTenantId);
+        suppliers = await SupplierService.GetSuppliersAsync(TenantContext.TenantId);
         await LoadPOs();
     }
 
@@ -193,13 +192,13 @@
             suppId = sGuid;
         }
 
-        var totalPOs = await PoService.GetPurchaseOrdersCountAsync(currentTenantId, SelectedStatus, suppId);
+        var totalPOs = await PoService.GetPurchaseOrdersCountAsync(TenantContext.TenantId, SelectedStatus, suppId);
         totalPages = (int)Math.Ceiling((double)totalPOs / pageSize);
         if (totalPages == 0) totalPages = 1;
 
         if (currentPage > totalPages) currentPage = totalPages;
 
-        purchaseOrders = await PoService.GetPurchaseOrdersAsync(currentTenantId, SelectedStatus, suppId, currentPage, pageSize);
+        purchaseOrders = await PoService.GetPurchaseOrdersAsync(TenantContext.TenantId, SelectedStatus, suppId, currentPage, pageSize);
     }
 
     private async Task FilterChanged()

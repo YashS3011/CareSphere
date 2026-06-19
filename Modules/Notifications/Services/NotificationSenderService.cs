@@ -688,6 +688,12 @@ namespace CareSphere.Modules.Notifications.Services
             // TODO: Implement notifications sending (SMS/Email/InApp) for lab report ready event
             return Task.CompletedTask;
         }
+
+        public Task SendAppointmentConfirmationAsync(AppointmentBookedEvent evt)
+        {
+            // TODO: Implement SMS/email confirmation using existing Twilio/template pipeline
+            return Task.CompletedTask;
+        }
     }
 }
 

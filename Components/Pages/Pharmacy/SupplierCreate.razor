@@ -12,6 +12,7 @@
 @using CareSphere.Modules.Shared.Services
 @inject ISupplierService SupplierService
 @inject NavigationManager NavigationManager
+@inject ITenantContext TenantContext
 @rendermode InteractiveServer
 
 <PageTitle>Add Supplier - CareSphere</PageTitle>
@@ -110,7 +111,7 @@
         {
             isSubmitting = true;
             errorMessage = string.Empty;
-            supplier.TenantId = Guid.Empty; // using default Guid
+            supplier.TenantId = TenantContext.TenantId;
 
             await SupplierService.CreateSupplierAsync(supplier);
             NavigationManager.NavigateTo("/pharmacy/suppliers");

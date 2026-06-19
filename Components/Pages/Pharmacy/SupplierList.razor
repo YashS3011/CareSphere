@@ -12,6 +12,7 @@
 @using CareSphere.Modules.Shared.Services
 @inject ISupplierService SupplierService
 @inject NavigationManager NavigationManager
+@inject ITenantContext TenantContext
 @rendermode InteractiveServer
 
 <PageTitle>Suppliers - CareSphere</PageTitle>
@@ -125,7 +126,6 @@
 @code {
     private List<Supplier>? suppliers;
     private string SearchTerm { get; set; } = string.Empty;
-    private Guid currentTenantId = Guid.Empty; // Using default Guid.Empty for tenant discovery
 
     protected override async Task OnInitializedAsync()
     {
@@ -134,7 +134,7 @@
 
     private async Task LoadSuppliers()
     {
-        suppliers = await SupplierService.GetSuppliersAsync(currentTenantId, SearchTerm);
+        suppliers = await SupplierService.GetSuppliersAsync(TenantContext.TenantId, SearchTerm);
     }
 
     private async Task HandleSearch()

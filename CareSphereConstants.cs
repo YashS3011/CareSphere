@@ -57,6 +57,7 @@ namespace CareSphere
         public const string NursingNotes_View = "NursingNotes.View";
         public const string MedicationAdmin_Create = "MedicationAdmin.Create";
         public const string MedicationAdmin_View = "MedicationAdmin.View";
+        public const string DoctorSchedule_Manage = "DoctorSchedule.Manage";
 
         // --- Pharmacy Module ---
         public const string Pharmacy_ViewStock = "Pharmacy.ViewStock";
@@ -89,6 +90,9 @@ namespace CareSphere
         public const string Admin_ManageRoles = "Admin.ManageRoles";
         public const string Admin_ViewAuditLog = "Admin.ViewAuditLog";
         public const string Admin_ManageTenant = "Admin.ManageTenant";
+
+        // --- Analytics Module ---
+        public const string Analytics_View = "Analytics.View";
     }
 
     /// <summary>
@@ -130,6 +134,7 @@ namespace CareSphere
         public const string Permission_NursingNotes_View = "Permission_NursingNotes_View";
         public const string Permission_MedicationAdmin_Create = "Permission_MedicationAdmin_Create";
         public const string Permission_MedicationAdmin_View = "Permission_MedicationAdmin_View";
+        public const string Permission_DoctorSchedule_Manage = "Permission_DoctorSchedule_Manage";
 
         // Pharmacy
         public const string Permission_Pharmacy_ViewStock = "Permission_Pharmacy_ViewStock";
@@ -162,6 +167,9 @@ namespace CareSphere
         public const string Permission_Admin_ManageRoles = "Permission_Admin_ManageRoles";
         public const string Permission_Admin_ViewAuditLog = "Permission_Admin_ViewAuditLog";
         public const string Permission_Admin_ManageTenant = "Permission_Admin_ManageTenant";
+
+        // Analytics
+        public const string Permission_Analytics_View = "Permission_Analytics_View";
     }
 
     /// <summary>
