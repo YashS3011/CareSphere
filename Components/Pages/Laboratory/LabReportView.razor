@@ -16,6 +16,8 @@
 @inject ILabNotificationService NotificationService
 @inject ApplicationDbContext DbContext
 @inject NavigationManager NavigationManager
+@inject CareSphere.Authorization.TabIsolatedAuthenticationStateProvider AuthStateProvider
+@inject ITenantContext TenantContext
 @rendermode InteractiveServer
 
 <PageTitle>Lab Report View - CareSphere</PageTitle>
@@ -171,6 +173,7 @@
 
     protected override async Task OnInitializedAsync()
     {
+        var authState = await AuthStateProvider.GetAuthenticationStateAsync();
         await LoadReportDetails();
     }
 
@@ -203,7 +206,7 @@
             regenerating = true;
             successMessage = string.Empty;
 
-            var newReport = await ReportService.GenerateReportAsync(Guid.Empty, requisitionId);
+            var newReport = await ReportService.GenerateReportAsync(TenantContext.TenantId, requisitionId);
             successMessage = "Lab report regenerated and new version released.";
             await LoadReportDetails();
         }

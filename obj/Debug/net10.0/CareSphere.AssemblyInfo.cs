@@ -13,7 +13,7 @@ using System.Reflection;
 [assembly: System.Reflection.AssemblyCompanyAttribute("CareSphere")]
 [assembly: System.Reflection.AssemblyConfigurationAttribute("Debug")]
 [assembly: System.Reflection.AssemblyFileVersionAttribute("1.0.0.0")]
-[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+4111f0ed356e17afcb3137a4c4643d9289e5a3ab")]
+[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+0e7ab9bb860a8eb47eac1d34da89c8a2b68cb773")]
 [assembly: System.Reflection.AssemblyProductAttribute("CareSphere")]
 [assembly: System.Reflection.AssemblyTitleAttribute("CareSphere")]
 [assembly: System.Reflection.AssemblyVersionAttribute("1.0.0.0")]

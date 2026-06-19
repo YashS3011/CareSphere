@@ -8,119 +8,110 @@
 
 @if (encounter == null && !isNotFound)
 {
-    <p><em>Loading encounter...</em></p>
+    <div class="loading-state"><div class="spinner-border text-primary" role="status"></div><p class="mt-3 text-muted">Loading encounter workspace...</p></div>
 }
 else if (isNotFound)
 {
-    <div class="alert alert-danger">Encounter not found.</div>
+    <div class="alert alert-danger"><i class="bi bi-exclamation-triangle me-2"></i>Encounter not found.</div>
     <a href="/encounters" class="btn btn-primary">Back to Encounters</a>
 }
 else if (encounter != null)
 {
-    @* Encounter Header *@
-    <div class="d-flex justify-content-between align-items-center mb-3">
-        <div>
-            <h2><i class="bi bi-clipboard2-pulse me-2"></i>Clinical Workspace</h2>
-            <p class="text-muted mb-0">
-                @encounter.Patient.FirstName @encounter.Patient.LastName
-                <span class="badge bg-secondary ms-1">@encounter.Patient.Mrn</span>
-            </p>
-        </div>
-        <div class="d-flex gap-2">
-            @if (encounter.Status == "Planned")
-            {
-                <button class="btn btn-success" @onclick='() => UpdateStatus("InProgress")'>
-                    <i class="bi bi-play-fill me-1"></i> Start Encounter
-                </button>
-            }
-            @if (encounter.Status == "InProgress")
-            {
-                <button class="btn btn-warning" @onclick='() => UpdateStatus("Completed")'>
-                    <i class="bi bi-check-circle me-1"></i> Complete Encounter
-                </button>
-            }
-            <a href="/encounters" class="btn btn-outline-secondary">
-                <i class="bi bi-arrow-left me-1"></i> Back
-            </a>
-        </div>
-    </div>
-
-    @* Encounter Details Card *@
-    <div class="card mb-4">
-        <div class="card-header bg-primary text-white d-flex justify-content-between align-items-center">
-            <h5 class="mb-0">Encounter Details</h5>
-            <div>
-                @switch (encounter.Status)
-                {
-                    case "Planned":
-                        <span class="badge bg-warning text-dark">Planned</span>
-                        break;
-                    case "InProgress":
-                        <span class="badge bg-success">In Progress</span>
-                        break;
-                    case "Completed":
-                        <span class="badge bg-light text-dark">Completed</span>
-                        break;
-                }
+    <div class="page-header">
+        <div class="page-header-content">
+            <div class="page-title-group">
+                <div class="page-icon"><i class="bi bi-clipboard2-pulse-fill"></i></div>
+                <div>
+                    <h1 class="page-title">Clinical Workspace</h1>
+                    <p class="page-subtitle">
+                        @encounter.Patient.FirstName @encounter.Patient.LastName
+                        <span class="badge bg-secondary-subtle text-secondary ms-1">@encounter.Patient.Mrn</span>
+                        &mdash;
+                        @switch (encounter.Status)
+                        {
+                            case "Planned": <span class="badge bg-warning-subtle text-warning ms-1">Planned</span> break;
+                            case "InProgress": <span class="badge bg-success-subtle text-success ms-1">In Progress</span> break;
+                            case "Completed": <span class="badge bg-secondary-subtle text-secondary ms-1">Completed</span> break;
+                        }
+                    </p>
+                </div>
             </div>
-        </div>
-        <div class="card-body">
-            <div class="row">
-                <div class="col-md-3">
-                    <strong>Patient:</strong><br />
-                    @encounter.Patient.FirstName @encounter.Patient.LastName
-                </div>
-                <div class="col-md-3">
-                    <strong>Doctor:</strong><br />
-                    Dr. @encounter.Doctor.FirstName @encounter.Doctor.LastName
-                    <br /><small class="text-muted">@encounter.Doctor.Specialization</small>
-                </div>
-                <div class="col-md-2">
-                    <strong>Type:</strong><br />
-                    @switch (encounter.EncounterType)
-                    {
-                        case "OPD":
-                            <span class="badge bg-info">OPD</span>
-                            break;
-                        case "IPD":
-                            <span class="badge bg-primary">IPD</span>
-                            break;
-                        case "Emergency":
-                            <span class="badge bg-danger">Emergency</span>
-                            break;
-                    }
-                </div>
-                <div class="col-md-2">
-                    <strong>Date:</strong><br />
-                    @encounter.AdmissionDate.ToLocalTime().ToString("dd MMM yyyy")
-                </div>
-                <div class="col-md-2">
-                    <strong>Chief Complaint:</strong><br />
-                    @(string.IsNullOrEmpty(encounter.ChiefComplaint) ? "—" : encounter.ChiefComplaint)
-                </div>
+            <div class="page-actions">
+                @if (encounter.Status == "Planned")
+                {
+                    <button class="btn btn-success" @onclick='() => UpdateStatus("InProgress")'><i class="bi bi-play-fill me-1"></i> Start Encounter</button>
+                }
+                @if (encounter.Status == "InProgress")
+                {
+                    <a href="/laboratory/requisitions/create?patientId=@encounter.PatientId&encounterId=@encounter.Id" class="btn btn-outline-primary"><i class="bi bi-flask me-1"></i> Order Lab</a>
+                    <button class="btn btn-warning" @onclick='() => UpdateStatus("Completed")'><i class="bi bi-check-circle me-1"></i> Complete</button>
+                }
+                <a href="/encounters" class="btn btn-outline-secondary"><i class="bi bi-arrow-left me-1"></i> Back</a>
             </div>
         </div>
     </div>
 
     @if (!string.IsNullOrEmpty(statusMessage))
     {
-        <div class="alert alert-success py-2">@statusMessage</div>
+        <div class="alert alert-success"><i class="bi bi-check-circle me-2"></i>@statusMessage</div>
     }
 
-    @* SOAP Note Section *@
+    <!-- Encounter Summary -->
+    <div class="content-card mb-4">
+        <div class="content-card-header">
+            <h5 class="content-card-title"><i class="bi bi-info-circle me-2"></i>Encounter Summary</h5>
+        </div>
+        <div class="content-card-body">
+            <div class="row g-3">
+                <div class="col-md-3">
+                    <div class="detail-item">
+                        <span class="detail-label">Patient</span>
+                        <span class="detail-value fw-semibold">@encounter.Patient.FirstName @encounter.Patient.LastName</span>
+                    </div>
+                </div>
+                <div class="col-md-3">
+                    <div class="detail-item">
+                        <span class="detail-label">Doctor</span>
+                        <span class="detail-value">Dr. @encounter.Doctor.FirstName @encounter.Doctor.LastName<br/><small class="text-muted">@encounter.Doctor.Specialization</small></span>
+                    </div>
+                </div>
+                <div class="col-md-2">
+                    <div class="detail-item">
+                        <span class="detail-label">Type</span>
+                        <span class="detail-value">
+                            @switch (encounter.EncounterType)
+                            {
+                                case "OPD": <span class="badge bg-info-subtle text-info">OPD</span> break;
+                                case "IPD": <span class="badge bg-primary-subtle text-primary">IPD</span> break;
+                                case "Emergency": <span class="badge bg-danger-subtle text-danger">Emergency</span> break;
+                                default: <span class="badge bg-secondary-subtle text-secondary">@encounter.EncounterType</span> break;
+                            }
+                        </span>
+                    </div>
+                </div>
+                <div class="col-md-2">
+                    <div class="detail-item">
+                        <span class="detail-label">Date</span>
+                        <span class="detail-value">@encounter.AdmissionDate.ToLocalTime().ToString("dd MMM yyyy")</span>
+                    </div>
+                </div>
+                <div class="col-md-2">
+                    <div class="detail-item">
+                        <span class="detail-label">Chief Complaint</span>
+                        <span class="detail-value">@(string.IsNullOrEmpty(encounter.ChiefComplaint) ? "—" : encounter.ChiefComplaint)</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <SoapNoteEditor EncounterId="encounter.Id" DoctorId="encounter.DoctorId" />
-
-    @* Prescriptions Section *@
     <PrescriptionPanel EncounterId="encounter.Id" PatientId="encounter.PatientId" DoctorId="encounter.DoctorId" />
-
-    @* Tele-Consult Section *@
     <TeleConsultPanel EncounterId="encounter.Id" DoctorId="encounter.DoctorId" PatientId="encounter.PatientId" />
 }
 
 @code {
-    [Parameter]
-    public Guid id { get; set; }
-
+    [Parameter] public Guid id { get; set; }
     private Encounter? encounter;
     private bool isNotFound = false;
     private string statusMessage = string.Empty;
@@ -128,10 +119,7 @@ else if (encounter != null)
     protected override async Task OnInitializedAsync()
     {
         encounter = await EncounterService.GetEncounterByIdAsync(id);
-        if (encounter == null)
-        {
-            isNotFound = true;
-        }
+        if (encounter == null) isNotFound = true;
     }
 
     private async Task UpdateStatus(string newStatus)
@@ -143,9 +131,6 @@ else if (encounter != null)
             statusMessage = $"Encounter status updated to {newStatus}.";
             _ = Task.Delay(3000).ContinueWith(_ => InvokeAsync(() => { statusMessage = string.Empty; StateHasChanged(); }));
         }
-        catch (Exception ex)
-        {
-            statusMessage = $"Error: {ex.Message}";
-        }
+        catch (Exception ex) { statusMessage = $"Error: {ex.Message}"; }
     }
 }

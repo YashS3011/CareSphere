@@ -55,11 +55,25 @@ namespace CareSphere.Modules.Analytics.Services
             };
         }
 
+        private static DateTime NormalizeToUtc(DateTime dt, bool endOfDay = false)
+        {
+            var utc = dt.Kind switch
+            {
+                DateTimeKind.Utc => dt,
+                DateTimeKind.Local => dt.ToUniversalTime(),
+                _ => DateTime.SpecifyKind(dt, DateTimeKind.Utc)
+            };
+            return endOfDay ? utc.Date.AddDays(1).AddTicks(-1) : utc.Date;
+        }
+
         public async Task<RevenueMetrics> GetRevenueAsync(Guid tenantId, DateTime from, DateTime to)
         {
+            var fromUtc = NormalizeToUtc(from, false);
+            var toUtc = NormalizeToUtc(to, true);
+
             var invoices = await _dbContext.BillingInvoices
                 .AsNoTracking()
-                .Where(i => i.TenantId == tenantId && i.CreatedAt >= from && i.CreatedAt <= to)
+                .Where(i => i.TenantId == tenantId && i.CreatedAt >= fromUtc && i.CreatedAt <= toUtc)
                 .ToListAsync();
 
             return new RevenueMetrics

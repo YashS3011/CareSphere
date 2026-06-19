@@ -15,6 +15,7 @@
 @inject IInvoiceService InvoiceService
 @inject NavigationManager NavigationManager
 @inject IJSRuntime JSRuntime
+@inject CareSphere.Authorization.TabIsolatedAuthenticationStateProvider AuthStateProvider
 @rendermode InteractiveServer
 
 <PageTitle>Create Invoice - CareSphere</PageTitle>
@@ -264,8 +265,9 @@
     private bool isSaving = false;
     private bool finalizeOnSave = false;
 
-    protected override void OnInitialized()
+    protected override async Task OnInitializedAsync()
     {
+        await AuthStateProvider.GetAuthenticationStateAsync();
         AddEmptyRow();
     }
 

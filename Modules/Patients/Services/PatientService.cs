@@ -29,9 +29,10 @@ namespace CareSphere.Modules.Patients.Services
 
             if (!string.IsNullOrWhiteSpace(searchTerm))
             {
-                var lowerSearchTerm = searchTerm.ToLower();
+                var lowerSearchTerm = searchTerm.ToLower().Trim();
                 query = query.Where(p => p.FirstName.ToLower().Contains(lowerSearchTerm) ||
                                          p.LastName.ToLower().Contains(lowerSearchTerm) ||
+                                         (p.FirstName + " " + p.LastName).ToLower().Contains(lowerSearchTerm) ||
                                          p.Mrn.ToLower().Contains(lowerSearchTerm));
             }
 

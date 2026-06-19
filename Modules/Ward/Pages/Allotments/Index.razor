@@ -9,107 +9,121 @@
 
 <PageTitle>Allotment History - CareSphere</PageTitle>
 
-<div class="d-flex justify-content-between align-items-center mb-4">
-    <h2>Allotments & Discharges</h2>
-    <a href="/allotments/create" class="btn btn-success"><i class="bi bi-box-arrow-in-right"></i> Admit Patient</a>
+<div class="page-header">
+    <div class="page-header-content">
+        <div class="page-title-group">
+            <div class="page-icon"><i class="bi bi-person-vcard-fill"></i></div>
+            <div>
+                <h1 class="page-title">Allotments &amp; Discharges</h1>
+                <p class="page-subtitle">Track patient bed admissions, transfers, and discharges</p>
+            </div>
+        </div>
+        <div class="page-actions">
+            <a href="/allotments/create" class="btn btn-success"><i class="bi bi-box-arrow-in-right me-1"></i> Admit Patient</a>
+        </div>
+    </div>
 </div>
 
 @if (allotments == null)
 {
-    <p><em>Loading...</em></p>
+    <div class="loading-state">
+        <div class="spinner-border text-primary" role="status"><span class="visually-hidden">Loading...</span></div>
+        <p class="mt-3 text-muted">Loading allotments...</p>
+    </div>
 }
 else if (!allotments.Any())
 {
-    <div class="alert alert-info">No allotments found.</div>
+    <div class="empty-state-card">
+        <i class="bi bi-inbox"></i>
+        <h5>No allotments found</h5>
+        <p>No bed allotment records exist yet. Start by admitting a patient.</p>
+        <a href="/allotments/create" class="btn btn-success mt-2"><i class="bi bi-box-arrow-in-right me-1"></i> Admit Patient</a>
+    </div>
 }
 else
 {
-    <div class="table-responsive">
-        <table class="table table-striped table-hover">
-            <thead>
-                <tr>
-                    <th>Date</th>
-                    <th>Patient</th>
-                    <th>Bed</th>
-                    <th>Type</th>
-                    <th>Status</th>
-                    <th>Actions</th>
-                </tr>
-            </thead>
-            <tbody>
-                @foreach (var alt in allotments)
-                {
-                    var patient = patientSummaries.TryGetValue(alt.PatientId, out var p) ? p : null;
-                    <tr>
-                        <td>@alt.AdmissionDate.ToLocalTime().ToString("dd MMM yyyy")</td>
-                        <td>
-                            @if (patient != null)
-                            {
-                                <span>@patient.FullName</span> <br/><small class="text-muted">@patient.MRN</small>
-                            }
-                            else
-                            {
-                                <span class="text-muted">Loading Patient...</span>
-                            }
-                        </td>
-                        <td><strong>@alt.Bed?.BedNumber</strong> <br/><small class="text-muted">@alt.Bed?.Ward?.Name</small></td>
-                        <td>@alt.AdmissionType</td>
-                        <td>
-                            @switch (alt.Status)
-                            {
-                                case "Active":
-                                    <span class="badge bg-success">Active</span>
-                                    break;
-                                case "Discharged":
-                                    <span class="badge bg-secondary">Discharged</span>
-                                    break;
-                                case "Transferred":
-                                    <span class="badge bg-warning text-dark">Transferred</span>
-                                    break;
-                                default:
-                                    <span class="badge bg-secondary">@alt.Status</span>
-                                    break;
-                            }
-                        </td>
-                        <td>
-                            @if (alt.Status == "Active")
-                            {
-                                <div class="btn-group btn-group-sm">
-                                    <a href="/allotments/transfer/@alt.Id" class="btn btn-warning" title="Transfer"><i class="bi bi-arrow-left-right"></i> Transfer</a>
-                                    <button class="btn btn-danger" @onclick="() => ConfirmDischarge(alt.Id)" title="Discharge"><i class="bi bi-box-arrow-right"></i> Discharge</button>
-                                </div>
-                            }
-                        </td>
-                    </tr>
-                }
-            </tbody>
-        </table>
+    <div class="content-card">
+        <div class="content-card-body p-0">
+            <div class="table-responsive">
+                <table class="table table-hover data-table mb-0">
+                    <thead>
+                        <tr>
+                            <th>Date</th>
+                            <th>Patient</th>
+                            <th>Bed / Ward</th>
+                            <th>Type</th>
+                            <th>Status</th>
+                            <th class="text-end">Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var alt in allotments)
+                        {
+                            var patient = patientSummaries.TryGetValue(alt.PatientId, out var p) ? p : null;
+                            <tr>
+                                <td><span class="text-muted small">@alt.AdmissionDate.ToLocalTime().ToString("dd MMM yyyy")</span></td>
+                                <td>
+                                    @if (patient != null)
+                                    {
+                                        <div class="fw-semibold">@patient.FullName</div>
+                                        <div class="text-muted small">@patient.MRN</div>
+                                    }
+                                    else { <span class="text-muted small">Loading...</span> }
+                                </td>
+                                <td>
+                                    <div class="fw-semibold">@alt.Bed?.BedNumber</div>
+                                    <div class="text-muted small">@alt.Bed?.Ward?.Name</div>
+                                </td>
+                                <td><span class="badge bg-secondary-subtle text-secondary">@alt.AdmissionType</span></td>
+                                <td>
+                                    @switch (alt.Status)
+                                    {
+                                        case "Active": <span class="badge bg-success-subtle text-success">Active</span> break;
+                                        case "Discharged": <span class="badge bg-secondary-subtle text-secondary">Discharged</span> break;
+                                        case "Transferred": <span class="badge bg-warning-subtle text-warning">Transferred</span> break;
+                                        default: <span class="badge bg-secondary-subtle text-secondary">@alt.Status</span> break;
+                                    }
+                                </td>
+                                <td class="text-end">
+                                    @if (alt.Status == "Active")
+                                    {
+                                        <div class="btn-group btn-group-sm">
+                                            <a href="/allotments/transfer/@alt.Id" class="btn btn-outline-warning" title="Transfer"><i class="bi bi-arrow-left-right"></i> Transfer</a>
+                                            <button class="btn btn-outline-danger" @onclick="() => ConfirmDischarge(alt.Id)" title="Discharge"><i class="bi bi-box-arrow-right"></i> Discharge</button>
+                                        </div>
+                                    }
+                                </td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+        </div>
     </div>
 }
 
 @if (showDischargeConfirm)
 {
-    <div class="modal fade show" style="display: block; background: rgba(0,0,0,0.5);" tabindex="-1">
-        <div class="modal-dialog">
-            <div class="modal-content">
-                <div class="modal-header">
-                    <h5 class="modal-title">Discharge Patient</h5>
+    <div class="modal fade show" style="display:block;background:rgba(0,0,0,0.5);" tabindex="-1">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content border-0 shadow-lg">
+                <div class="modal-header border-0 pb-0">
+                    <h5 class="modal-title"><i class="bi bi-box-arrow-right me-2 text-danger"></i>Discharge Patient</h5>
                     <button type="button" class="btn-close" @onclick="CancelDischarge"></button>
                 </div>
                 <div class="modal-body">
-                    <p>Are you sure you want to discharge this patient from the current bed?</p>
-                    <div class="mb-3">
-                        <label class="form-label">Discharge Notes</label>
-                        <textarea class="form-control" @bind="dischargeNotes" rows="3"></textarea>
+                    <p class="text-muted mb-3">Are you sure you want to discharge this patient from the current bed?</p>
+                    <div class="mb-0">
+                        <label class="form-label fw-semibold">Discharge Notes</label>
+                        <textarea class="form-control" @bind="dischargeNotes" rows="3" placeholder="Optional notes about the discharge..."></textarea>
                     </div>
-                    @if (dischargeError != null)
-                    {
-                        <div class="alert alert-danger mt-2">@dischargeError</div>
-                    }
+                    @if (dischargeError != null) { <div class="alert alert-danger mt-3">@dischargeError</div> }
                 </div>
-                <div class="modal-footer">
-                    <button type="button" class="btn btn-secondary" @onclick="CancelDischarge">Cancel</button>
-                    <button type="button" class="btn btn-danger" @onclick="@(() => ProcessDischarge(allotmentIdToDischarge, dischargeNotes ?? ""))">Confirm Discharge</button>
+                <div class="modal-footer border-0">
+                    <button type="button" class="btn btn-outline-secondary" @onclick="CancelDischarge">Cancel</button>
+                    <button type="button" class="btn btn-danger" @onclick="@(() => ProcessDischarge(allotmentIdToDischarge, dischargeNotes ?? ""))">
+                        <i class="bi bi-box-arrow-right me-1"></i> Confirm Discharge
+                    </button>
                 </div>
             </div>
         </div>
@@ -119,50 +133,29 @@ else
 @code {
     private List<BedAllotment>? allotments;
     private Dictionary<Guid, PatientSummary> patientSummaries = new();
-    
     private bool showDischargeConfirm = false;
     private Guid allotmentIdToDischarge = Guid.Empty;
     private string? dischargeNotes;
     private string? dischargeError;
 
-    protected override async Task OnInitializedAsync()
-    {
-        await LoadAllotments();
-    }
+    protected override async Task OnInitializedAsync() { await LoadAllotments(); }
 
     private async Task LoadAllotments()
     {
         allotments = await DbContext.BedAllotments
             .Include(a => a.Bed).ThenInclude(b => b.Ward)
             .OrderByDescending(a => a.AdmissionDate)
-            .Take(100)
-            .ToListAsync();
-
+            .Take(100).ToListAsync();
         var patientIds = allotments.Select(a => a.PatientId).Distinct().ToList();
         foreach (var pId in patientIds)
         {
             var summary = await PatientReadModel.GetSummaryAsync(pId, Guid.Empty);
-            if (summary != null)
-            {
-                patientSummaries[pId] = summary;
-            }
+            if (summary != null) patientSummaries[pId] = summary;
         }
     }
 
-    private void ConfirmDischarge(Guid id)
-    {
-        allotmentIdToDischarge = id;
-        showDischargeConfirm = true;
-        dischargeError = null;
-        dischargeNotes = "";
-    }
-
-    private void CancelDischarge()
-    {
-        showDischargeConfirm = false;
-        allotmentIdToDischarge = Guid.Empty;
-        dischargeError = null;
-    }
+    private void ConfirmDischarge(Guid id) { allotmentIdToDischarge = id; showDischargeConfirm = true; dischargeError = null; dischargeNotes = ""; }
+    private void CancelDischarge() { showDischargeConfirm = false; allotmentIdToDischarge = Guid.Empty; dischargeError = null; }
 
     private async Task ProcessDischarge(Guid id, string notes)
     {
@@ -174,14 +167,7 @@ else
             dischargeNotes = null;
             NavigationManager.NavigateTo("/allotments");
         }
-        catch (Microsoft.AspNetCore.Components.NavigationException)
-        {
-            throw;
-        }
-        catch (Exception ex)
-        {
-            dischargeError = ex.Message;
-            showDischargeConfirm = true;
-        }
+        catch (Microsoft.AspNetCore.Components.NavigationException) { throw; }
+        catch (Exception ex) { dischargeError = ex.Message; showDischargeConfirm = true; }
     }
 }

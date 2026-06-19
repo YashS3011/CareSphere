@@ -6,52 +6,71 @@
 
 <PageTitle>Wards - CareSphere</PageTitle>
 
-<div class="d-flex justify-content-between align-items-center mb-4">
-    <h2>Ward Management</h2>
-    <a href="/wards/create" class="btn btn-primary"><i class="bi bi-plus-circle"></i> Add New Ward</a>
+<div class="page-header d-flex justify-content-between align-items-center mb-4">
+    <div>
+        <h3 class="mb-1"><i class="bi bi-building text-primary"></i> Ward Management</h3>
+        <p class="text-muted small mb-0">Configure and manage hospital wards</p>
+    </div>
+    <div class="page-actions">
+        <a href="/wards/create" class="btn btn-primary shadow-sm"><i class="bi bi-plus-circle me-1"></i> Add New Ward</a>
+    </div>
 </div>
 
 @if (wards == null)
 {
-    <p><em>Loading...</em></p>
+    <div class="text-center py-5 bg-white rounded shadow-sm">
+        <div class="spinner-border text-primary" role="status"><span class="visually-hidden">Loading...</span></div>
+        <p class="text-muted mt-2 mb-0">Loading wards...</p>
+    </div>
 }
 else if (!wards.Any())
 {
-    <div class="alert alert-info">No wards found.</div>
+    <div class="text-center py-5 text-muted bg-white rounded shadow-sm">
+        <i class="bi bi-building display-3 opacity-50 mb-3 d-block text-secondary"></i>
+        <h5>No Wards Configured</h5>
+        <p class="small text-muted">Create a hospital ward to start registering and assigning beds.</p>
+        <a href="/wards/create" class="btn btn-primary btn-sm mt-2">
+            <i class="bi bi-plus-circle me-1"></i> Add Ward
+        </a>
+    </div>
 }
 else
 {
-    <div class="table-responsive">
-        <table class="table table-striped table-hover">
-            <thead>
-                <tr>
-                    <th>Name</th>
-                    <th>Type</th>
-                    <th>Floor</th>
-                    <th>Building</th>
-                    <th>Total Beds</th>
-                    <th>Actions</th>
-                </tr>
-            </thead>
-            <tbody>
-                @foreach (var ward in wards)
-                {
-                    <tr>
-                        <td><strong>@ward.Name</strong></td>
-                        <td><span class="badge bg-secondary">@ward.WardType</span></td>
-                        <td>@ward.Floor</td>
-                        <td>@ward.Building</td>
-                        <td>@ward.TotalBeds</td>
-                        <td>
-                            <div class="btn-group btn-group-sm">
-                                <a href="/wards/edit/@ward.Id" class="btn btn-warning" title="Edit"><i class="bi bi-pencil"></i> Edit</a>
-                                <button class="btn btn-danger" @onclick="() => ConfirmDelete(ward.Id, ward.TotalBeds)" title="Delete"><i class="bi bi-trash"></i> Delete</button>
-                            </div>
-                        </td>
-                    </tr>
-                }
-            </tbody>
-        </table>
+    <div class="card shadow-sm border-0">
+        <div class="card-body p-0">
+            <div class="table-responsive">
+                <table class="table table-hover align-middle mb-0">
+                    <thead>
+                        <tr>
+                            <th class="ps-4">Name</th>
+                            <th>Type</th>
+                            <th>Floor</th>
+                            <th>Building</th>
+                            <th>Total Beds</th>
+                            <th class="text-end pe-4">Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var ward in wards)
+                        {
+                            <tr>
+                                <td class="ps-4 fw-semibold text-dark">@ward.Name</td>
+                                <td><span class="badge bg-secondary-subtle text-secondary border">@ward.WardType</span></td>
+                                <td>@ward.Floor</td>
+                                <td>@ward.Building</td>
+                                <td><span class="badge bg-info-subtle text-info border font-monospace fw-bold">@ward.TotalBeds</span></td>
+                                <td class="text-end pe-4">
+                                    <div class="btn-group btn-group-sm">
+                                        <a href="/wards/edit/@ward.Id" class="btn btn-outline-warning" title="Edit"><i class="bi bi-pencil-fill me-1"></i>Edit</a>
+                                        <button class="btn btn-outline-danger" @onclick="() => ConfirmDelete(ward.Id, ward.TotalBeds)" title="Delete"><i class="bi bi-trash-fill me-1"></i>Delete</button>
+                                    </div>
+                                </td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+        </div>
     </div>
 }
 
@@ -59,21 +78,24 @@ else
 {
     <div class="modal fade show" style="display: block; background: rgba(0,0,0,0.5);" tabindex="-1">
         <div class="modal-dialog">
-            <div class="modal-content">
-                <div class="modal-header">
-                    <h5 class="modal-title text-danger">Confirm Delete</h5>
-                    <button type="button" class="btn-close" @onclick="CancelDelete"></button>
+            <div class="modal-content border-0 shadow-lg">
+                <div class="modal-header bg-danger text-white">
+                    <h5 class="modal-title"><i class="bi bi-exclamation-triangle-fill me-2"></i>Confirm Delete</h5>
+                    <button type="button" class="btn-close btn-close-white" @onclick="CancelDelete"></button>
                 </div>
-                <div class="modal-body">
-                    <p>Are you sure you want to delete this ward?</p>
+                <div class="modal-body p-4">
+                    <p class="mb-0">Are you sure you want to delete this ward?</p>
                     @if (deleteError != null)
                     {
-                        <div class="alert alert-danger">@deleteError</div>
+                        <div class="alert alert-danger d-flex align-items-center mt-3" role="alert">
+                            <i class="bi bi-exclamation-triangle-fill me-2"></i>
+                            <div>@deleteError</div>
+                        </div>
                     }
                 </div>
-                <div class="modal-footer">
+                <div class="modal-footer bg-light">
                     <button type="button" class="btn btn-secondary" @onclick="CancelDelete">Cancel</button>
-                    <button type="button" class="btn btn-danger" @onclick="DeleteWard">Delete</button>
+                    <button type="button" class="btn btn-danger" @onclick="DeleteWard" disabled="@(deleteError != null)">Delete</button>
                 </div>
             </div>
         </div>

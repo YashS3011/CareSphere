@@ -3,6 +3,7 @@
 @using Microsoft.JSInterop
 @inject IClaimService ClaimService
 @inject IJSRuntime JSRuntime
+@inject CareSphere.Authorization.TabIsolatedAuthenticationStateProvider AuthStateProvider
 @rendermode InteractiveServer
 
 <PageTitle>Claims - CareSphere</PageTitle>
@@ -140,7 +141,11 @@
     private int totalCount = 0;
     private int totalPages => (int)Math.Ceiling((double)totalCount / pageSize);
 
-    protected override async Task OnInitializedAsync() => await LoadClaims();
+    protected override async Task OnInitializedAsync()
+    {
+        await AuthStateProvider.GetAuthenticationStateAsync();
+        await LoadClaims();
+    }
 
     private async Task LoadClaims()
     {

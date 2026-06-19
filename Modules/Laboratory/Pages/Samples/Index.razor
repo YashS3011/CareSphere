@@ -6,70 +6,67 @@
 @using Microsoft.EntityFrameworkCore
 @inject ApplicationDbContext DbContext
 @inject NavigationManager NavigationManager
+@inject CareSphere.Authorization.TabIsolatedAuthenticationStateProvider AuthStateProvider
+@inject ITenantContext TenantContext
 @rendermode InteractiveServer
 
 <PageTitle>Sample Collection - CareSphere</PageTitle>
 
-<div class="container-fluid py-4">
-    <!-- Header -->
-    <div class="mb-4">
-        <h1 class="h3 mb-1 text-dark fw-bold"><i class="bi bi-droplet me-2 text-primary"></i>Sample Collection Queue</h1>
-        <p class="text-muted mb-0">List of laboratory requisitions pending specimen sample collection</p>
-    </div>
-
-    @if (loading)
-    {
-        <div class="d-flex justify-content-center my-5">
-            <div class="spinner-border text-primary" role="status">
-                <span class="visually-hidden">Loading queue...</span>
+<div class="page-header">
+    <div class="page-header-content">
+        <div class="page-title-group">
+            <div class="page-icon"><i class="bi bi-droplet-fill"></i></div>
+            <div>
+                <h1 class="page-title">Sample Collection Queue</h1>
+                <p class="page-subtitle">Lab requisitions pending specimen collection</p>
             </div>
         </div>
-    }
-    else
-    {
-        <div class="card border-0 shadow-sm rounded-4">
+    </div>
+</div>
+
+@if (loading)
+{
+    <div class="loading-state"><div class="spinner-border text-primary" role="status"></div><p class="mt-3 text-muted">Loading queue...</p></div>
+}
+else
+{
+    <div class="content-card">
+        <div class="content-card-body p-0">
             <div class="table-responsive">
-                <table class="table align-middle mb-0 small">
-                    <thead class="table-light fs-8 text-uppercase text-muted">
+                <table class="table table-hover data-table mb-0 small">
+                    <thead>
                         <tr>
                             <th>Requisition #</th>
-                            <th>Patient Name</th>
-                            <th>MRN</th>
-                            <th>Doctor Name</th>
+                            <th>Patient</th>
+                            <th>Doctor</th>
                             <th>Ordered At</th>
                             <th>Priority</th>
                             <th>Tests</th>
-                            <th class="text-center" style="width: 15%;">Actions</th>
+                            <th class="text-end">Actions</th>
                         </tr>
                     </thead>
                     <tbody>
                         @if (pendingRequisitions == null || !pendingRequisitions.Any())
                         {
-                            <tr>
-                                <td colspan="8" class="text-center py-4 text-muted">No pending sample collections found.</td>
-                            </tr>
+                            <tr><td colspan="7" class="text-center py-4 text-muted">No pending sample collections found.</td></tr>
                         }
                         else
                         {
                             @foreach (var req in pendingRequisitions)
                             {
                                 <tr>
-                                    <td class="fw-bold text-dark font-monospace text-uppercase">@req.RequisitionNumber</td>
-                                    <td>@req.Patient.FirstName @req.Patient.LastName</td>
-                                    <td class="font-monospace text-muted">@req.Patient.Mrn</td>
+                                    <td class="fw-semibold font-monospace text-uppercase">@req.RequisitionNumber</td>
+                                    <td>
+                                        <div>@req.Patient.FirstName @req.Patient.LastName</div>
+                                        <div class="text-muted small">@req.Patient.Mrn</div>
+                                    </td>
                                     <td>Dr. @req.OrderedByDoctor.FirstName @req.OrderedByDoctor.LastName</td>
-                                    <td class="text-muted">@req.OrderedAt.ToLocalTime().ToString("g")</td>
-                                    <td>
-                                        <span class="badge @GetPriorityBadgeClass(req.Priority)">
-                                            @req.Priority
-                                        </span>
-                                    </td>
-                                    <td>
-                                        @string.Join(", ", req.Items.Select(i => i.Test.TestName))
-                                    </td>
-                                    <td class="text-center">
-                                        <a href="/laboratory/requisitions/@req.Id/collect-sample" class="btn btn-xs btn-warning px-3 py-1 fs-8">
-                                            <i class="bi bi-droplet-fill me-1"></i> Collect
+                                    <td class="text-muted small">@req.OrderedAt.ToLocalTime().ToString("g")</td>
+                                    <td><span class="badge @GetPriorityBadgeClass(req.Priority)">@req.Priority</span></td>
+                                    <td class="text-muted small">@string.Join(", ", req.Items.Select(i => i.Test.TestName))</td>
+                                    <td class="text-end">
+                                        <a href="/laboratory/requisitions/@req.Id/collect-sample" class="btn btn-sm btn-warning">
+                                            <i class="bi bi-droplet-fill me-1"></i> Collect Sample
                                         </a>
                                     </td>
                                 </tr>
@@ -79,8 +76,8 @@
                 </table>
             </div>
         </div>
-    }
-</div>
+    </div>
+}
 
 @code {
     private bool loading = true;
@@ -89,6 +86,8 @@
 
     protected override async Task OnInitializedAsync()
     {
+        var authState = await AuthStateProvider.GetAuthenticationStateAsync();
+        currentTenantId = TenantContext.TenantId;
         await LoadQueue();
     }
 
@@ -98,41 +97,19 @@
         {
             loading = true;
             pendingRequisitions = await DbContext.LabRequisitions
-                .Include(r => r.Patient)
-                .Include(r => r.OrderedByDoctor)
-                .Include(r => r.Items)
-                    .ThenInclude(i => i.Test)
+                .Include(r => r.Patient).Include(r => r.OrderedByDoctor)
+                .Include(r => r.Items).ThenInclude(i => i.Test)
                 .Where(r => r.TenantId == currentTenantId && r.Status == "Ordered")
-                .OrderByDescending(r => r.OrderedAt)
-                .ToListAsync();
+                .OrderByDescending(r => r.OrderedAt).ToListAsync();
         }
-        catch (Exception ex)
-        {
-            Console.WriteLine($"Error loading sample collection queue: {ex.Message}");
-        }
-        finally
-        {
-            loading = false;
-        }
+        catch (Exception ex) { Console.WriteLine($"Error loading sample collection queue: {ex.Message}"); }
+        finally { loading = false; }
     }
 
-    private string GetPriorityBadgeClass(string priority)
+    private string GetPriorityBadgeClass(string priority) => priority switch
     {
-        return priority switch
-        {
-            "Stat" => "bg-danger text-white",
-            "Urgent" => "bg-warning text-dark",
-            _ => "bg-success text-white"
-        };
-    }
+        "Stat" => "bg-danger-subtle text-danger",
+        "Urgent" => "bg-warning-subtle text-warning",
+        _ => "bg-success-subtle text-success"
+    };
 }
-
-<style>
-    .fs-8 { font-size: 0.8rem !important; }
-    .btn-xs {
-        padding: 0.15rem 0.4rem;
-        font-size: 0.75rem;
-        line-height: 1.5;
-        border-radius: 0.2rem;
-    }
-</style>

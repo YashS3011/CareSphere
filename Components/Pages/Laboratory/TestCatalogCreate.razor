@@ -1,4 +1,4 @@
-@page "/lab/catalog/create"
+@page "/laboratory/catalog/create"
 @attribute [Microsoft.AspNetCore.Authorization.Authorize(Policy = PolicyNames.Permission_Lab_ViewReports)]
 @using CareSphere.Models
 @using CareSphere.Modules.Clinical.Services
@@ -12,6 +12,8 @@
 @using CareSphere.Modules.Shared.Services
 @inject ILabCatalogService CatalogService
 @inject NavigationManager NavigationManager
+@inject CareSphere.Authorization.TabIsolatedAuthenticationStateProvider AuthStateProvider
+@inject ITenantContext TenantContext
 @rendermode InteractiveServer
 
 <PageTitle>Create Lab Test Catalog - CareSphere</PageTitle>
@@ -19,7 +21,7 @@
 <div class="container py-4" style="max-width: 900px;">
     <!-- Back Link -->
     <div class="mb-3">
-        <a href="/lab/catalog" class="btn btn-link p-0 text-decoration-none link-secondary small">
+        <a href="/laboratory/catalog" class="btn btn-link p-0 text-decoration-none link-secondary small">
             <i class="bi bi-arrow-left"></i> Back to Test Catalog
         </a>
     </div>
@@ -202,7 +204,7 @@
                 }
                 Save Catalog
             </button>
-            <a href="/lab/catalog" class="btn btn-light px-4">Cancel</a>
+            <a href="/laboratory/catalog" class="btn btn-light px-4">Cancel</a>
         </div>
     </EditForm>
 </div>
@@ -214,8 +216,10 @@
     private bool isSubmitting = false;
     private string errorMessage = string.Empty;
 
-    protected override void OnInitialized()
+    protected override async Task OnInitializedAsync()
     {
+        var authState = await AuthStateProvider.GetAuthenticationStateAsync();
+        testCatalog.TenantId = TenantContext.TenantId;
         // Add a default parameter row on init
         AddParameterRow();
     }
@@ -260,7 +264,7 @@
                 await CatalogService.AddParameterAsync(createdTest.Id, param);
             }
 
-            NavigationManager.NavigateTo("/lab/catalog");
+            NavigationManager.NavigateTo("/laboratory/catalog");
         }
         catch (Exception ex)
         {

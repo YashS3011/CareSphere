@@ -5,53 +5,52 @@
 @inject IPatientReadModel PatientReadModel
 @inject TabIsolatedAuthenticationStateProvider AuthStateProvider
 @inject NavigationManager NavigationManager
+@using Microsoft.EntityFrameworkCore
 
 <PageTitle>Nursing Notes - CareSphere</PageTitle>
 
-<div class="container py-4 animate-fade-in">
-    <!-- Header -->
-    <div class="row mb-4">
-        <div class="col-12">
-            <div class="card bg-dark text-white border-0 shadow">
-                <div class="card-body p-4 d-flex justify-content-between align-items-center">
-                    <div>
-                        <h1 class="h3 mb-1 fw-bold"><i class="bi bi-clipboard-pulse me-2 text-success"></i>Nursing Notes</h1>
-                        <p class="text-light opacity-75 mb-0">Record shift handovers, patient incidents, pre/post-op logs, and general observations</p>
-                    </div>
-                    <div>
-                        <a href="/nursing" class="btn btn-outline-light">
-                            <i class="bi bi-arrow-left me-2"></i>Dashboard
-                        </a>
-                    </div>
-                </div>
+<div class="page-header">
+    <div class="page-header-content">
+        <div class="page-title-group">
+            <div class="page-icon"><i class="bi bi-clipboard-pulse text-success"></i></div>
+            <div>
+                <h1 class="page-title">Nursing Notes</h1>
+                <p class="page-subtitle">Record shift handovers, patient incidents, pre/post-op logs, and general observations</p>
             </div>
         </div>
+        <div class="page-actions">
+            <a href="/nursing" class="btn btn-outline-secondary">
+                <i class="bi bi-arrow-left me-1"></i> Dashboard
+            </a>
+        </div>
     </div>
+</div>
 
-    @if (!string.IsNullOrEmpty(successMessage))
-    {
-        <div class="alert alert-success alert-dismissible fade show border-0 shadow-sm mb-4" role="alert">
-            <i class="bi bi-check-circle-fill me-2"></i>@successMessage
-            <button type="button" class="btn-close" @onclick="() => successMessage = null"></button>
-        </div>
-    }
+@if (!string.IsNullOrEmpty(successMessage))
+{
+    <div class="alert alert-success alert-dismissible fade show border-0 shadow-sm mb-4" role="alert">
+        <i class="bi bi-check-circle-fill me-2"></i>@successMessage
+        <button type="button" class="btn-close" @onclick="() => successMessage = null"></button>
+    </div>
+}
 
-    @if (!string.IsNullOrEmpty(errorMessage))
-    {
-        <div class="alert alert-danger alert-dismissible fade show border-0 shadow-sm mb-4" role="alert">
-            <i class="bi bi-x-circle-fill me-2"></i>@errorMessage
-            <button type="button" class="btn-close" @onclick="() => errorMessage = null"></button>
-        </div>
-    }
+@if (!string.IsNullOrEmpty(errorMessage))
+{
+    <div class="alert alert-danger alert-dismissible fade show border-0 shadow-sm mb-4" role="alert">
+        <i class="bi bi-x-circle-fill me-2"></i>@errorMessage
+        <button type="button" class="btn-close" @onclick="() => errorMessage = null"></button>
+    </div>
+}
 
-    <div class="row g-4">
-        <!-- Input Form -->
-        <div class="col-lg-5">
-            <!-- Patient Selector -->
-            <div class="card border-0 shadow-sm p-4 bg-white mb-4">
+<div class="row g-4">
+    <!-- Input Form -->
+    <div class="col-lg-5">
+        <!-- Patient Selector -->
+        <div class="content-card mb-4">
+            <div class="content-card-body p-4">
                 <h5 class="fw-bold mb-3 text-dark"><i class="bi bi-person-fill text-primary me-2"></i>Select Patient</h5>
                 <div class="mb-3">
-                    <select class="form-select form-select-lg" @onchange="OnPatientChanged" value="@selectedPatientIdString">
+                    <select class="form-select form-select-lg text-dark" @onchange="OnPatientChanged" value="@selectedPatientIdString">
                         <option value="">-- Choose Admitted Patient --</option>
                         @foreach (var adm in activeAdmissions)
                         {
@@ -64,32 +63,35 @@
 
                 @if (selectedPatient != null)
                 {
-                    <div class="bg-light p-3 rounded-3 mt-2">
+                    <div class="bg-light p-3 rounded-3 mt-2 border border-light-subtle">
                         <div class="row">
                             <div class="col-6">
-                                <small class="text-secondary d-block">Patient Name</small>
+                                <small class="text-muted d-block small">Patient Name</small>
                                 <strong class="text-dark">@selectedPatient.FullName</strong>
                             </div>
                             <div class="col-6">
-                                <small class="text-secondary d-block">MRN</small>
-                                <strong class="text-dark">@selectedPatient.MRN</strong>
+                                <small class="text-muted d-block small">MRN</small>
+                                <strong class="text-dark font-monospace">@selectedPatient.MRN</strong>
                             </div>
                         </div>
                     </div>
                 }
             </div>
+        </div>
 
-            <!-- Notes Form -->
-            @if (selectedPatient != null && selectedAllotmentId != Guid.Empty)
-            {
-                <div class="card border-0 shadow-sm p-4 bg-white mb-4">
-                    <h5 class="fw-bold mb-4 text-dark"><i class="bi bi-pencil-square text-primary me-2"></i>New Nursing Log Entry</h5>
-                    
+        <!-- Notes Form -->
+        @if (selectedPatient != null && selectedAllotmentId != Guid.Empty)
+        {
+            <div class="content-card mb-4">
+                <div class="content-card-header">
+                    <h5 class="content-card-title"><i class="bi bi-pencil-square text-primary me-2"></i>New Nursing Log Entry</h5>
+                </div>
+                <div class="content-card-body p-4">
                     <form @onsubmit="SaveNote">
                         <!-- Note Type -->
                         <div class="mb-3">
-                            <label class="form-label fw-semibold">Note Category</label>
-                            <select class="form-select" @bind="newNote.NoteType" required>
+                            <label class="form-label text-dark fw-semibold">Note Category</label>
+                            <select class="form-select text-dark" @bind="newNote.NoteType" required>
                                 <option value="General">General Observation</option>
                                 <option value="PreOp">Pre-Op Details</option>
                                 <option value="PostOp">Post-Op Details</option>
@@ -100,55 +102,61 @@
 
                         <!-- Note Content -->
                         <div class="mb-4">
-                            <label class="form-label fw-semibold">Note Description</label>
-                            <textarea class="form-control" rows="6" @bind="newNote.Note" placeholder="Write clinical notes here..." required></textarea>
+                            <label class="form-label text-dark fw-semibold">Note Description</label>
+                            <textarea class="form-control text-dark" rows="6" @bind="newNote.Note" placeholder="Write clinical notes here..." required></textarea>
                         </div>
 
                         <div class="d-grid">
-                            <button type="submit" class="btn btn-success btn-lg" disabled="@(string.IsNullOrWhiteSpace(newNote.Note))">
-                                <i class="bi bi-save-fill me-2"></i>Save Log Entry
+                            <button type="submit" class="btn btn-success btn-lg shadow-sm" disabled="@(string.IsNullOrWhiteSpace(newNote.Note))">
+                                <i class="bi bi-save-fill me-2"></i> Save Log Entry
                             </button>
                         </div>
                     </form>
                 </div>
-            }
-            else if (selectedPatientId != Guid.Empty)
-            {
-                <div class="alert alert-danger border-0">
-                    <i class="bi bi-exclamation-triangle-fill me-2"></i>Selected patient does not have an active bed allotment.
-                </div>
-            }
-            else
-            {
-                <div class="alert alert-warning border-0">
-                    <i class="bi bi-info-circle-fill me-2"></i>Please select a patient to record logs.
-                </div>
-            }
-        </div>
+            </div>
+        }
+        else if (selectedPatientId != Guid.Empty)
+        {
+            <div class="alert alert-danger border-0 shadow-sm mb-4">
+                <i class="bi bi-exclamation-triangle-fill me-2"></i> Selected patient does not have an active bed allotment.
+            </div>
+        }
+        else
+        {
+            <div class="alert alert-warning border-0 shadow-sm mb-4">
+                <i class="bi bi-info-circle-fill me-2 text-warning"></i> Please select a patient to record logs.
+            </div>
+        }
+    </div>
 
-        <!-- Notes History List -->
-        <div class="col-lg-7">
-            <div class="card border-0 shadow-sm p-4 bg-white h-100">
-                <h5 class="fw-bold mb-4 text-dark"><i class="bi bi-clock-history text-primary me-2"></i>Nursing Logs History</h5>
-
+    <!-- Notes History List -->
+    <div class="col-lg-7">
+        <div class="content-card mb-4 h-100">
+            <div class="content-card-header">
+                <h5 class="content-card-title"><i class="bi bi-clock-history text-primary me-2"></i>Nursing Logs History</h5>
+            </div>
+            <div class="content-card-body p-4">
                 @if (selectedPatient == null)
                 {
-                    <div class="text-center py-5 text-muted">
-                        <i class="bi bi-clipboard-pulse fs-1 d-block mb-3 opacity-25"></i>
-                        Select a patient to load nursing notes logs history
+                    <div class="loading-state py-5">
+                        <i class="bi bi-clipboard-pulse text-muted display-4 mb-3 d-block"></i>
+                        <h5 class="fw-bold">No Patient Selected</h5>
+                        <p class="text-muted small">Select a patient to load nursing notes logs history.</p>
                     </div>
                 }
                 else if (historyLoading)
                 {
-                    <div class="d-flex align-items-center py-4">
-                        <div class="spinner-border text-primary me-3" role="status"></div>
-                        <span class="text-secondary">Loading logs history...</span>
+                    <div class="loading-state py-5">
+                        <div class="spinner-border text-primary" role="status"></div>
+                        <p class="mt-3 text-muted">Loading logs history...</p>
                     </div>
                 }
                 else if (notesHistory.Count == 0)
                 {
-                    <div class="alert alert-light border text-center py-4 mb-0">
-                        <i class="bi bi-info-circle-fill me-2 text-muted"></i>No nursing logs recorded yet for @selectedPatient.FullName.
+                    <div class="loading-state py-5">
+                        <i class="bi bi-clipboard-pulse text-muted display-4 mb-3 d-block"></i>
+                        <h5 class="fw-bold">No Records Found</h5>
+                        <p class="text-muted small">No nursing logs recorded yet for @selectedPatient.FullName.</p>
                     </div>
                 }
                 else
@@ -156,17 +164,17 @@
                     <div class="d-flex flex-column gap-3 overflow-auto" style="max-height: 700px;">
                         @foreach (var note in notesHistory)
                         {
-                            <div class="card border shadow-sm p-3">
+                            <div class="card border border-light-subtle shadow-sm p-3 bg-light-subtle rounded-3">
                                 <div class="d-flex justify-content-between align-items-center mb-2">
                                     <div>
                                         <span class="@GetNoteTypeClass(note.NoteType)">@note.NoteType</span>
-                                        <span class="small text-muted ms-2"><i class="bi bi-person text-muted"></i> Nurse ID: @note.NurseUserId</span>
+                                        <span class="small text-muted ms-2"><i class="bi bi-person text-muted me-1"></i>Nurse: @note.NurseUserId</span>
                                     </div>
                                     <div class="small text-secondary">
-                                        <i class="bi bi-clock"></i> @note.NoteDateTime.ToLocalTime().ToString("dd MMM yyyy, hh:mm tt")
+                                        <i class="bi bi-clock me-1"></i> @note.NoteDateTime.ToLocalTime().ToString("dd MMM yyyy, hh:mm tt")
                                     </div>
                                 </div>
-                                <p class="text-dark mb-0 style-preserve-newlines text-wrap">
+                                <p class="text-dark mb-0 style-preserve-newlines text-wrap fw-medium" style="font-size: 0.9rem;">
                                     @note.Note
                                 </p>
                             </div>
@@ -360,10 +368,10 @@
 
     private string GetNoteTypeClass(string type) => type switch
     {
-        "PreOp" => "badge bg-info text-dark",
-        "PostOp" => "badge bg-primary text-white",
-        "Handover" => "badge bg-secondary text-white",
-        "Incident" => "badge bg-danger text-white",
-        _ => "badge bg-success text-white"
+        "PreOp" => "badge bg-info-subtle text-info border border-info-subtle",
+        "PostOp" => "badge bg-primary-subtle text-primary border border-primary-subtle",
+        "Handover" => "badge bg-secondary-subtle text-secondary border border-secondary-subtle",
+        "Incident" => "badge bg-danger-subtle text-danger border border-danger-subtle",
+        _ => "badge bg-success-subtle text-success border border-success-subtle"
     };
 }

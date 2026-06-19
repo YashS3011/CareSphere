@@ -7,118 +7,136 @@
 
 <PageTitle>Tenant Settings — CareSphere</PageTitle>
 
-<h2 class="mb-4"><i class="bi bi-gear-fill me-2 text-primary"></i>Tenant Settings</h2>
+<div class="page-header">
+    <div class="page-header-content">
+        <div class="page-title-group">
+            <div class="page-icon"><i class="bi bi-gear-fill"></i></div>
+            <div>
+                <h1 class="page-title">Tenant Settings</h1>
+                <p class="page-subtitle">Configure hospital metadata, active status, Single Sign-On providers, and subscriptions</p>
+            </div>
+        </div>
+    </div>
+</div>
 
 @if (settings == null)
 {
-    <div class="d-flex justify-content-center py-5">
+    <div class="loading-state py-5">
         <div class="spinner-border text-primary" role="status"></div>
+        <p class="mt-3 text-muted">Loading settings...</p>
     </div>
 }
 else
 {
     @if (!string.IsNullOrEmpty(saveMessage))
     {
-        <div class="alert alert-@(saveSuccess ? "success" : "danger") alert-dismissible">
+        <div class="alert alert-@(saveSuccess ? "success" : "danger") alert-dismissible fade show border-0 shadow-sm mb-4" role="alert">
             <i class="bi @(saveSuccess ? "bi-check-circle-fill" : "bi-exclamation-triangle-fill") me-2"></i>
             @saveMessage
             <button type="button" class="btn-close" @onclick='() => saveMessage = null'></button>
         </div>
     }
 
-    <!-- Tabs -->
-    <ul class="nav nav-tabs mb-4">
+    <!-- Custom Nav Tabs -->
+    <ul class="nav nav-tabs mb-4 border-bottom-0" style="gap: 8px;">
         <li class="nav-item">
-            <button class="nav-link @(activeTab == "general" ? "active" : "")" @onclick='() => activeTab = "general"'>
-                <i class="bi bi-building me-2"></i>General
+            <button class="nav-link px-4 py-2.5 rounded border-0 fw-semibold d-flex align-items-center gap-2 @(activeTab == "general" ? "bg-primary text-white" : "bg-light text-dark")" @onclick='() => activeTab = "general"' style="transition: all 0.2s;">
+                <i class="bi bi-building"></i> General
             </button>
         </li>
         <li class="nav-item">
-            <button class="nav-link @(activeTab == "sso" ? "active" : "")" @onclick='() => activeTab = "sso"'>
-                <i class="bi bi-key me-2"></i>SSO
+            <button class="nav-link px-4 py-2.5 rounded border-0 fw-semibold d-flex align-items-center gap-2 @(activeTab == "sso" ? "bg-primary text-white" : "bg-light text-dark")" @onclick='() => activeTab = "sso"' style="transition: all 0.2s;">
+                <i class="bi bi-key"></i> SSO
             </button>
         </li>
         <li class="nav-item">
-            <button class="nav-link @(activeTab == "subscription" ? "active" : "")" @onclick='() => activeTab = "subscription"'>
-                <i class="bi bi-gem me-2"></i>Subscription
+            <button class="nav-link px-4 py-2.5 rounded border-0 fw-semibold d-flex align-items-center gap-2 @(activeTab == "subscription" ? "bg-primary text-white" : "bg-light text-dark")" @onclick='() => activeTab = "subscription"' style="transition: all 0.2s;">
+                <i class="bi bi-gem"></i> Subscription
             </button>
         </li>
     </ul>
 
-    <div class="card border-0 shadow-sm" style="max-width: 800px;">
-        <div class="card-body p-4">
+    <div class="content-card mb-4" style="max-width: 800px;">
+        <div class="content-card-body p-4">
             @if (activeTab == "general")
             {
                 <div class="row g-3">
                     <div class="col-md-8">
-                        <label class="form-label fw-semibold">Hospital Name *</label>
+                        <label class="form-label fw-semibold text-dark">Hospital Name <span class="text-danger">*</span></label>
                         <input class="form-control" @bind="settings.HospitalName" placeholder="CareSphere Hospital" />
                     </div>
                     <div class="col-md-4">
-                        <label class="form-label fw-semibold">Logo Path</label>
+                        <label class="form-label fw-semibold text-dark">Logo Path</label>
                         <input class="form-control" @bind="settings.HospitalLogoPath" placeholder="/images/logo.png" />
                     </div>
                     <div class="col-12">
-                        <label class="form-label fw-semibold">Address Line 1</label>
+                        <label class="form-label fw-semibold text-dark">Address Line 1</label>
                         <input class="form-control" @bind="settings.AddressLine1" />
                     </div>
                     <div class="col-12">
-                        <label class="form-label fw-semibold">Address Line 2</label>
+                        <label class="form-label fw-semibold text-dark">Address Line 2</label>
                         <input class="form-control" @bind="settings.AddressLine2" />
                     </div>
                     <div class="col-md-4">
-                        <label class="form-label fw-semibold">City</label>
+                        <label class="form-label fw-semibold text-dark">City</label>
                         <input class="form-control" @bind="settings.City" />
                     </div>
                     <div class="col-md-4">
-                        <label class="form-label fw-semibold">State</label>
+                        <label class="form-label fw-semibold text-dark">State</label>
                         <input class="form-control" @bind="settings.State" />
                     </div>
                     <div class="col-md-4">
-                        <label class="form-label fw-semibold">PIN Code</label>
+                        <label class="form-label fw-semibold text-dark">PIN Code</label>
                         <input class="form-control" @bind="settings.PinCode" />
                     </div>
                     <div class="col-md-6">
-                        <label class="form-label fw-semibold">Phone</label>
+                        <label class="form-label fw-semibold text-dark">Phone</label>
                         <input class="form-control" @bind="settings.Phone" type="tel" />
                     </div>
                     <div class="col-md-6">
-                        <label class="form-label fw-semibold">Email</label>
+                        <label class="form-label fw-semibold text-dark">Email</label>
                         <input class="form-control" @bind="settings.Email" type="email" />
                     </div>
-                    <div class="col-12 mt-3">
+                    <div class="col-12 mt-4 pt-3 border-top">
                         <div class="form-check form-switch">
-                            <input class="form-check-input" type="checkbox" id="tenantActive" @bind="settings.IsActive" />
-                            <label class="form-check-label fw-semibold" for="tenantActive">Tenant Status (Active)</label>
+                            <input class="form-check-input" type="checkbox" id="tenantActive" @bind="settings.IsActive" style="width: 2em; height: 1em;" />
+                            <label class="form-check-label fw-bold text-dark ms-2" for="tenantActive">Tenant Status (Active)</label>
                         </div>
                         <div class="form-text text-muted">Deactivating the tenant freezes all logins for this tenant.</div>
                     </div>
                 </div>
-                <div class="mt-4">
+                <div class="mt-4 pt-3 border-top d-flex gap-2">
                     <button class="btn btn-primary" @onclick="SaveGeneral" disabled="@isSaving">
-                        @if (isSaving) { <span class="spinner-border spinner-border-sm me-2"></span> }
-                        <i class="bi bi-floppy me-2"></i>Save General Settings
+                        @if (isSaving)
+                        {
+                            <span class="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true"></span>
+                        }
+                        else
+                        {
+                            <i class="bi bi-floppy-fill me-2"></i>
+                        }
+                        Save General Settings
                     </button>
                 </div>
             }
 
             @if (activeTab == "sso")
             {
-                <div class="alert alert-warning d-flex align-items-center mb-4">
+                <div class="alert alert-warning d-flex align-items-center mb-4 border-0 shadow-sm">
                     <i class="bi bi-exclamation-triangle-fill me-2"></i>
                     <div><strong>Warning:</strong> SSO configuration changes require an application restart to take effect.</div>
                 </div>
                 <div class="row g-3">
                     <div class="col-12">
                         <div class="form-check form-switch">
-                            <input class="form-check-input" type="checkbox" id="ssoEnabled" @bind="settings.SsoEnabled" />
-                            <label class="form-check-label fw-semibold" for="ssoEnabled">Enable SSO Authentication</label>
+                            <input class="form-check-input" type="checkbox" id="ssoEnabled" @bind="settings.SsoEnabled" style="width: 2em; height: 1em;" />
+                            <label class="form-check-label fw-bold text-dark ms-2" for="ssoEnabled">Enable SSO Authentication</label>
                         </div>
                     </div>
                     @if (settings.SsoEnabled)
                     {
                         <div class="col-md-6">
-                            <label class="form-label fw-semibold">SSO Provider</label>
+                            <label class="form-label fw-semibold text-dark">SSO Provider</label>
                             <select class="form-select" @bind="settings.SsoProvider">
                                 <option value="">— Select Provider —</option>
                                 <option value="Google">Google</option>
@@ -128,19 +146,26 @@ else
                             </select>
                         </div>
                         <div class="col-md-6">
-                            <label class="form-label fw-semibold">Client ID</label>
+                            <label class="form-label fw-semibold text-dark">Client ID</label>
                             <input class="form-control" @bind="settings.OidcClientId" />
                         </div>
                         <div class="col-md-6">
-                            <label class="form-label fw-semibold">Client Secret</label>
+                            <label class="form-label fw-semibold text-dark">Client Secret</label>
                             <input class="form-control" type="password" @bind="settings.OidcClientSecret" />
                         </div>
                     }
                 </div>
-                <div class="mt-4">
+                <div class="mt-4 pt-3 border-top">
                     <button class="btn btn-primary" @onclick="SaveSso" disabled="@isSaving">
-                        @if (isSaving) { <span class="spinner-border spinner-border-sm me-2"></span> }
-                        <i class="bi bi-floppy me-2"></i>Save SSO Settings
+                        @if (isSaving)
+                        {
+                            <span class="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true"></span>
+                        }
+                        else
+                        {
+                            <i class="bi bi-floppy-fill me-2"></i>
+                        }
+                        Save SSO Settings
                     </button>
                 </div>
             }
@@ -149,14 +174,14 @@ else
             {
                 <div class="row g-3">
                     <div class="col-md-6">
-                        <label class="form-label fw-semibold">Subscription Tier</label>
+                        <label class="form-label fw-semibold text-dark">Subscription Tier</label>
                         <input class="form-control bg-light" value="@settings.SubscriptionTier" disabled />
                         <div class="form-text">Contact support to upgrade your subscription tier.</div>
                     </div>
-                    <div class="col-12">
-                        <div class="alert alert-info">
-                            <i class="bi bi-info-circle me-2"></i>
-                            To upgrade your plan, please contact <strong>@(string.IsNullOrEmpty(settings.Email) ? "support@caresphere.in" : settings.Email)</strong>.
+                    <div class="col-12 mt-3">
+                        <div class="alert alert-info border-0 shadow-sm d-flex align-items-center">
+                            <i class="bi bi-info-circle-fill me-2 fs-5 text-primary"></i>
+                            <div>To upgrade your plan, please contact <strong>@(string.IsNullOrEmpty(settings.Email) ? "support@caresphere.in" : settings.Email)</strong>.</div>
                         </div>
                     </div>
                 </div>

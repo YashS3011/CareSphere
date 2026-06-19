@@ -12,36 +12,48 @@
 
 <PageTitle>Transfer Patient - CareSphere</PageTitle>
 
-<h2>Transfer Patient</h2>
-<hr />
+<div class="page-header">
+    <div class="page-header-content">
+        <div class="page-title-group">
+            <div class="page-icon"><i class="bi bi-arrow-left-right"></i></div>
+            <div>
+                <h1 class="page-title">Transfer Patient</h1>
+                <p class="page-subtitle">Move a patient to a different available bed</p>
+            </div>
+        </div>
+        <div class="page-actions">
+            <a href="/allotments" class="btn btn-outline-secondary"><i class="bi bi-arrow-left me-1"></i> Allotments</a>
+        </div>
+    </div>
+</div>
 
 @if (Id == Guid.Empty)
 {
-    <div class="card shadow-sm border-0 mb-4">
-        <div class="card-header bg-primary text-white py-3">
-            <h5 class="m-0 fw-bold">Select Active Allotment to Transfer</h5>
+    <div class="content-card">
+        <div class="content-card-header">
+            <h5 class="content-card-title"><i class="bi bi-list-ul me-2"></i>Select Active Allotment to Transfer</h5>
         </div>
-        <div class="card-body p-4">
+        <div class="content-card-body">
             @if (activeAllotments == null)
             {
-                <p><em>Loading active allotments...</em></p>
+                <div class="loading-state"><div class="spinner-border text-primary" role="status"></div><p class="mt-3 text-muted">Loading active allotments...</p></div>
             }
             else if (!activeAllotments.Any())
             {
-                <div class="alert alert-info">No active bed allotments found to transfer.</div>
+                <div class="empty-state"><i class="bi bi-inbox"></i><p>No active bed allotments found to transfer.</p></div>
             }
             else
             {
-                <div class="list-group">
+                <div class="patient-search-results">
                     @foreach (var alt in activeAllotments)
                     {
                         var patient = patientSummaries.TryGetValue(alt.PatientId, out var p) ? p : null;
-                        <button class="list-group-item list-group-item-action d-flex justify-content-between align-items-center" @onclick="() => SelectAllotment(alt.Id)">
+                        <button class="patient-result-item" @onclick="() => SelectAllotment(alt.Id)">
                             <div>
-                                <h6 class="mb-1 fw-bold">Patient: @(patient?.FullName ?? "Loading...") (MRN: @(patient?.MRN ?? ""))</h6>
-                                <small class="text-muted">Current Bed: @alt.Bed?.BedNumber (@alt.Bed?.Ward?.Name) | Admitted: @alt.AdmissionDate.ToLocalTime().ToString("dd MMM yyyy")</small>
+                                <div class="fw-semibold">@(patient?.FullName ?? "Loading...") <span class="text-muted small">(MRN: @(patient?.MRN ?? ""))</span></div>
+                                <div class="text-muted small">Bed: @alt.Bed?.BedNumber &mdash; @alt.Bed?.Ward?.Name &mdash; Admitted @alt.AdmissionDate.ToLocalTime().ToString("dd MMM yyyy")</div>
                             </div>
-                            <span class="badge bg-primary rounded-pill">Select</span>
+                            <span class="badge bg-primary-subtle text-primary">Select <i class="bi bi-chevron-right ms-1"></i></span>
                         </button>
                     }
                 </div>
@@ -53,39 +65,59 @@ else
 {
     @if (activeAllotment == null && !string.IsNullOrEmpty(errorMessage) && isNotFound)
     {
-        <div class="alert alert-danger">@errorMessage</div>
+        <div class="alert alert-danger"><i class="bi bi-exclamation-triangle me-2"></i>@errorMessage</div>
         <a href="/allotments" class="btn btn-primary">Back to Allotments</a>
     }
     else if (activeAllotment == null)
     {
-        <p><em>Loading...</em></p>
+        <div class="loading-state"><div class="spinner-border text-primary" role="status"></div><p class="mt-3 text-muted">Loading allotment details...</p></div>
     }
     else
     {
-        <div class="alert alert-info">
-            <h5>Current Admission Details:</h5>
-            <strong>Patient:</strong> @(patientSummary?.FullName ?? "Unknown") (MRN: @(patientSummary?.MRN ?? "Unknown"))<br />
-            <strong>Current Bed:</strong> @activeAllotment.Bed.BedNumber (@activeAllotment.Bed.Ward.Name)<br />
-            <strong>Admitted On:</strong> @activeAllotment.AdmissionDate.ToString("dd MMM yyyy HH:mm")
+        <!-- Current Admission Banner -->
+        <div class="content-card mb-4">
+            <div class="content-card-header">
+                <h5 class="content-card-title"><i class="bi bi-person-fill me-2"></i>Current Admission</h5>
+            </div>
+            <div class="content-card-body">
+                <div class="row g-3">
+                    <div class="col-md-4">
+                        <div class="detail-item"><span class="detail-label">Patient</span><span class="detail-value fw-semibold">@(patientSummary?.FullName ?? "Unknown")</span></div>
+                    </div>
+                    <div class="col-md-4">
+                        <div class="detail-item"><span class="detail-label">MRN</span><span class="detail-value">@(patientSummary?.MRN ?? "Unknown")</span></div>
+                    </div>
+                    <div class="col-md-4">
+                        <div class="detail-item"><span class="detail-label">Current Bed</span><span class="detail-value">@activeAllotment.Bed.BedNumber — @activeAllotment.Bed.Ward.Name</span></div>
+                    </div>
+                    <div class="col-md-4">
+                        <div class="detail-item"><span class="detail-label">Admitted On</span><span class="detail-value">@activeAllotment.AdmissionDate.ToString("dd MMM yyyy HH:mm")</span></div>
+                    </div>
+                </div>
+            </div>
         </div>
 
-        <div class="row">
-            <div class="col-md-6">
-                <EditForm Model="@transfer" FormName="transferPatient" OnValidSubmit="ProcessValidSubmit">
-                    <DataAnnotationsValidator />
-                    <ValidationSummary class="alert alert-danger" />
-                    
-                    <div class="card mb-4">
-                        <div class="card-body">
+        <!-- Transfer Form -->
+        <div class="row justify-content-center">
+            <div class="col-lg-7">
+                <div class="content-card">
+                    <div class="content-card-header">
+                        <h5 class="content-card-title"><i class="bi bi-arrow-left-right me-2"></i>Transfer Details</h5>
+                    </div>
+                    <div class="content-card-body">
+                        <EditForm Model="@transfer" FormName="transferPatient" OnValidSubmit="ProcessValidSubmit">
+                            <DataAnnotationsValidator />
+                            <ValidationSummary class="alert alert-danger" />
+
                             <div class="mb-3">
-                                <label class="form-label">Select New Available Bed *</label>
+                                <label class="form-label fw-semibold">New Available Bed <span class="text-danger">*</span></label>
                                 <InputSelect class="form-select" @bind-Value="transfer.NewBedIdAsString">
                                     <option value="">Select a Bed</option>
                                     @if (availableBeds != null)
                                     {
                                         @foreach (var b in availableBeds)
                                         {
-                                            <option value="@b.Id">@b.Ward.Name - Bed: @b.BedNumber (@b.BedType)</option>
+                                            <option value="@b.Id">@b.Ward.Name — Bed: @b.BedNumber (@b.BedType)</option>
                                         }
                                     }
                                 </InputSelect>
@@ -93,37 +125,33 @@ else
                             </div>
 
                             <div class="mb-3">
-                                <label class="form-label">Transfer Reason *</label>
-                                <InputTextArea class="form-control" @bind-Value="transfer.Reason" rows="3" />
+                                <label class="form-label fw-semibold">Transfer Reason <span class="text-danger">*</span></label>
+                                <InputTextArea class="form-control" @bind-Value="transfer.Reason" rows="3" placeholder="Reason for the transfer..." />
                                 <ValidationMessage For="@(() => transfer.Reason)" />
                             </div>
-                        </div>
-                    </div>
 
-                    <div class="d-flex gap-2">
-                        <button type="submit" class="btn btn-primary" disabled="@isSubmitting">
-                            @if (isSubmitting)
+                            @if (!string.IsNullOrEmpty(errorMessage) && !isNotFound)
                             {
-                                <span class="spinner-border spinner-border-sm me-1"></span>
+                                <div class="alert alert-danger"><i class="bi bi-exclamation-triangle me-2"></i>@errorMessage</div>
                             }
-                            Confirm Transfer
-                        </button>
-                        <a href="/allotments" class="btn btn-secondary">Cancel</a>
-                    </div>
 
-                    @if (!string.IsNullOrEmpty(errorMessage) && !isNotFound)
-                    {
-                        <div class="alert alert-danger mt-3">@errorMessage</div>
-                    }
-                </EditForm>
+                            <div class="form-actions">
+                                <button type="submit" class="btn btn-primary" disabled="@isSubmitting">
+                                    @if (isSubmitting) { <span class="spinner-border spinner-border-sm me-1"></span> }
+                                    <i class="bi bi-arrow-left-right me-1"></i> Confirm Transfer
+                                </button>
+                                <a href="/allotments" class="btn btn-outline-secondary">Cancel</a>
+                            </div>
+                        </EditForm>
+                    </div>
+                </div>
             </div>
         </div>
     }
 }
 
 @code {
-    [Parameter]
-    public Guid Id { get; set; } = Guid.Empty;
+    [Parameter] public Guid Id { get; set; } = Guid.Empty;
 
     [SupplyParameterFromForm]
     public TransferFormModel transfer { get; set; } = new();
@@ -132,14 +160,12 @@ else
     {
         [System.ComponentModel.DataAnnotations.Required(ErrorMessage = "Please select a new bed.")]
         public string NewBedIdAsString { get; set; } = string.Empty;
-        
         [System.ComponentModel.DataAnnotations.Required(ErrorMessage = "Please enter a reason for the transfer.")]
         public string Reason { get; set; } = string.Empty;
     }
 
     private List<BedAllotment>? activeAllotments;
     private Dictionary<Guid, PatientSummary> patientSummaries = new();
-
     private BedAllotment? activeAllotment;
     private PatientSummary? patientSummary;
     private List<Bed>? availableBeds;
@@ -154,17 +180,12 @@ else
             activeAllotments = await DbContext.BedAllotments
                 .Include(a => a.Bed).ThenInclude(b => b.Ward)
                 .Where(a => a.Status == "Active")
-                .OrderByDescending(a => a.AdmissionDate)
-                .ToListAsync();
-
+                .OrderByDescending(a => a.AdmissionDate).ToListAsync();
             var patientIds = activeAllotments.Select(a => a.PatientId).Distinct().ToList();
             foreach (var pId in patientIds)
             {
                 var summary = await PatientReadModel.GetSummaryAsync(pId, Guid.Empty);
-                if (summary != null)
-                {
-                    patientSummaries[pId] = summary;
-                }
+                if (summary != null) patientSummaries[pId] = summary;
             }
         }
         else
@@ -172,43 +193,23 @@ else
             activeAllotment = await DbContext.BedAllotments
                 .Include(a => a.Bed).ThenInclude(b => b.Ward)
                 .FirstOrDefaultAsync(a => a.Id == Id && a.Status == "Active");
-
-            if (activeAllotment == null)
-            {
-                isNotFound = true;
-                errorMessage = "Allotment not found or is no longer active.";
-                return;
-            }
-
+            if (activeAllotment == null) { isNotFound = true; errorMessage = "Allotment not found or is no longer active."; return; }
             patientSummary = await PatientReadModel.GetSummaryAsync(activeAllotment.PatientId, Guid.Empty);
             availableBeds = await BedService.GetAvailableBedsAsync();
         }
     }
 
-    private void SelectAllotment(Guid allotmentId)
-    {
-        NavigationManager.NavigateTo($"/allotments/transfer/{allotmentId}");
-    }
+    private void SelectAllotment(Guid allotmentId) { NavigationManager.NavigateTo($"/allotments/transfer/{allotmentId}"); }
 
     private async Task ProcessValidSubmit()
     {
         try
         {
-            isSubmitting = true;
-            errorMessage = string.Empty;
-
+            isSubmitting = true; errorMessage = string.Empty;
             await BedService.TransferPatientAsync(Id, Guid.Parse(transfer.NewBedIdAsString), transfer.Reason);
-
             NavigationManager.NavigateTo("/allotments");
         }
-        catch (Microsoft.AspNetCore.Components.NavigationException)
-        {
-            throw; // Expected during redirect
-        }
-        catch (Exception ex)
-        {
-            errorMessage = $"Error transferring patient: {ex.Message}";
-            isSubmitting = false;
-        }
+        catch (Microsoft.AspNetCore.Components.NavigationException) { throw; }
+        catch (Exception ex) { errorMessage = $"Error transferring patient: {ex.Message}"; isSubmitting = false; }
     }
 }

@@ -10,6 +10,8 @@
 @inject ILabReportService ReportService
 @inject ApplicationDbContext DbContext
 @inject NavigationManager NavigationManager
+@inject CareSphere.Authorization.TabIsolatedAuthenticationStateProvider AuthStateProvider
+@inject ITenantContext TenantContext
 @rendermode InteractiveServer
 
 <PageTitle>Lab Requisition Details - CareSphere</PageTitle>
@@ -23,19 +25,23 @@
         <div class="d-flex gap-2">
             @if (requisition != null)
             {
-                @if (requisition.Status == "Ordered")
-                {
-                    <a href="/laboratory/requisitions/@requisition.Id/collect-sample" class="btn btn-warning shadow-sm small-btn">
-                        <i class="bi bi-droplet-fill me-1"></i> Collect Sample
-                    </a>
-                }
-                
-                @if (unreceivedSample != null)
-                {
-                    <button class="btn btn-info text-white shadow-sm small-btn" @onclick="ReceiveSample">
-                        <i class="bi bi-box-arrow-in-right me-1"></i> Receive Sample
-                    </button>
-                }
+                <AuthorizeView Policy="@PolicyNames.Permission_Lab_CollectSample">
+                    <Authorized>
+                        @if (requisition.Status == "Ordered")
+                        {
+                            <a href="/laboratory/requisitions/@requisition.Id/collect-sample" class="btn btn-warning shadow-sm small-btn">
+                                <i class="bi bi-droplet-fill me-1"></i> Collect Sample
+                            </a>
+                        }
+                        
+                        @if (unreceivedSample != null)
+                        {
+                            <button class="btn btn-info text-white shadow-sm small-btn" @onclick="ReceiveSample">
+                                <i class="bi bi-box-arrow-in-right me-1"></i> Receive Sample
+                            </button>
+                        }
+                    </Authorized>
+                </AuthorizeView>
 
                 @if (requisition.Status == "Completed" || requisition.Items.All(i => i.Status == "Completed"))
                 {
@@ -154,9 +160,13 @@
                                 <td class="text-center">
                                     @if (item.Status == "Processing" || requisition.Status == "Processing")
                                     {
-                                        <a href="/laboratory/requisitions/@item.Id/results" class="btn btn-xs btn-outline-primary px-3 fs-8">
-                                            <i class="bi bi-pencil-square me-1"></i> Enter Results
-                                        </a>
+                                        <AuthorizeView Policy="@PolicyNames.Permission_Lab_EnterResults">
+                                            <Authorized>
+                                                <a href="/laboratory/requisitions/@item.Id/results" class="btn btn-xs btn-outline-primary px-3 fs-8">
+                                                    <i class="bi bi-pencil-square me-1"></i> Enter Results
+                                                </a>
+                                            </Authorized>
+                                        </AuthorizeView>
                                     }
                                     else if (item.Status == "Completed")
                                     {
@@ -246,6 +256,7 @@
 
     protected override async Task OnInitializedAsync()
     {
+        var authState = await AuthStateProvider.GetAuthenticationStateAsync();
         await LoadRequisitionDetails();
     }
 

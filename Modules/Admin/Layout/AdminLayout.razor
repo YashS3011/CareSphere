@@ -4,97 +4,107 @@
 @using CareSphere.Infrastructure
 @using CareSphere.Components
 
-<div class="page">
-    <div class="sidebar">
-        <div class="top-row ps-3 navbar navbar-dark bg-primary text-white">
-            <div class="container-fluid">
-                <a class="navbar-brand fw-bold" href=""><i class="bi bi-heart-pulse-fill me-2"></i>CareSphere</a>
+<div class="layout-container">
+    <!-- Sidebar -->
+    <aside class="sidebar-system offcanvas-md offcanvas-start" id="sidebar" tabindex="-1">
+        <!-- Sidebar Top Header -->
+        <div class="sidebar-header">
+            <div class="module-icon-badge">
+                <i class="bi bi-shield-lock-fill text-white"></i>
             </div>
+            <span class="sidebar-header-text">🏥 Administration</span>
         </div>
 
-        <input type="checkbox" title="Navigation menu" class="navbar-toggler" />
+        <!-- Sidebar Navigation -->
+        <nav class="sidebar-nav">
+            <NavLink class="sidebar-link" href="/admin/users" Match="NavLinkMatch.All" ActiveClass="sidebar-link-active">
+                <i class="bi bi-people"></i>
+                <span class="sidebar-text">Users</span>
+            </NavLink>
+            <NavLink class="sidebar-link" href="/admin/roles" ActiveClass="sidebar-link-active">
+                <i class="bi bi-shield-lock"></i>
+                <span class="sidebar-text">Roles &amp; Perms</span>
+            </NavLink>
+            <NavLink class="sidebar-link" href="/admin/sessions" ActiveClass="sidebar-link-active">
+                <i class="bi bi-person-lines-fill"></i>
+                <span class="sidebar-text">Sessions</span>
+            </NavLink>
+            <NavLink class="sidebar-link" href="/admin/audit-log" ActiveClass="sidebar-link-active">
+                <i class="bi bi-journal-text"></i>
+                <span class="sidebar-text">Audit Logs</span>
+            </NavLink>
+            <NavLink class="sidebar-link" href="/admin/tenant-settings" ActiveClass="sidebar-link-active">
+                <i class="bi bi-gear"></i>
+                <span class="sidebar-text">Tenant Settings</span>
+            </NavLink>
+            <NavLink class="sidebar-link" href="/admin/analytics" ActiveClass="sidebar-link-active">
+                <i class="bi bi-graph-up-arrow"></i>
+                <span class="sidebar-text">Analytics</span>
+            </NavLink>
+        </nav>
 
-        <div class="nav-scrollable" onclick="document.querySelector('.navbar-toggler').click()">
-            <nav class="nav flex-column mt-3">
-                <AuthorizeView>
-                    <Authorized>
-                        <div class="px-3 mb-3 py-2 bg-primary bg-opacity-10 rounded mx-2">
-                            <div class="d-flex align-items-center">
-                                <div class="bg-primary bg-opacity-25 rounded-circle d-flex align-items-center justify-content-center me-2"
-                                     style="width: 36px; height: 36px; flex-shrink: 0;">
-                                    <i class="bi bi-person-fill text-primary"></i>
-                                </div>
-                                <div style="min-width: 0;">
-                                    <div class="fw-semibold small text-truncate text-white">
-                                        @(CurrentUserHelper.GetFullName(context.User) ?? context.User.Identity?.Name ?? "User")
-                                    </div>
-                                    <span class="badge bg-primary" style="font-size: 0.65rem;">
-                                        @(CurrentUserHelper.GetUserRole(context.User) ?? "")
-                                    </span>
-                                </div>
+        <!-- Sidebar User Footer -->
+        <AuthorizeView>
+            <Authorized>
+                <div class="sidebar-footer">
+                    <div class="d-flex align-items-center">
+                        <div class="bg-light bg-opacity-25 rounded-circle d-flex align-items-center justify-content-center me-2 flex-shrink-0"
+                             style="width: 32px; height: 32px;">
+                            <i class="bi bi-person-fill text-white"></i>
+                        </div>
+                        <div style="min-width: 0;" class="user-footer-text text-white">
+                            <div class="fw-semibold small text-truncate">
+                                @(CurrentUserHelper.GetFullName(context.User) ?? context.User.Identity?.Name ?? "User")
+                            </div>
+                            <span class="badge bg-light text-dark fw-bold" style="font-size: 0.65rem;">
+                                @(CurrentUserHelper.GetUserRole(context.User) ?? "")
+                            </span>
+                            <div class="text-white-50 text-truncate" style="font-size: 0.7rem; margin-top: 1px;">
+                                @(context.User.FindFirst("target_hospital_name")?.Value ?? "CareSphere Hospital")
                             </div>
                         </div>
+                    </div>
+                    <!-- Small avatar fallback for tablet mode -->
+                    <div class="sidebar-footer-tablet-avatar" title="@(CurrentUserHelper.GetFullName(context.User) ?? "User")">
+                        @((CurrentUserHelper.GetFullName(context.User) ?? "U").Substring(0, 1).ToUpper())
+                    </div>
+                </div>
+            </Authorized>
+        </AuthorizeView>
+    </aside>
+
+    <!-- Main Content Area -->
+    <div class="flex-grow-1 d-flex flex-column min-width-0">
+        <!-- Top Navbar -->
+        <header class="navbar-top">
+            <div class="d-flex align-items-center">
+                <!-- Hamburger Menu for Mobile -->
+                <button class="btn d-md-none border-0 p-1 me-2 text-dark" type="button" data-bs-toggle="offcanvas" data-bs-target="#sidebar" aria-controls="sidebar">
+                    <i class="bi bi-list fs-3"></i>
+                </button>
+                <h4 class="navbar-top-title">
+                    Administration / Admin Dashboard
+                </h4>
+            </div>
+
+            <div class="d-flex align-items-center gap-3">
+                <AuthorizeView>
+                    <Authorized>
+                        <a href="/" class="btn btn-outline-secondary btn-sm rounded-pill px-3">
+                            <i class="bi bi-house-door-fill me-1"></i> Home
+                        </a>
+                        <a class="btn btn-outline-danger btn-sm rounded-pill px-3" href="/auth/logout">
+                            <i class="bi bi-box-arrow-right me-1"></i> Sign Out
+                        </a>
                     </Authorized>
                 </AuthorizeView>
+            </div>
+        </header>
 
-                <div class="nav-item px-3">
-                    <NavLink class="nav-link" href="/admin/users" Match="NavLinkMatch.All">
-                        <i class="bi bi-people me-3" aria-hidden="true"></i> Users
-                    </NavLink>
-                </div>
-                <div class="nav-item px-3">
-                    <NavLink class="nav-link" href="/admin/roles">
-                        <i class="bi bi-shield-lock me-3" aria-hidden="true"></i> Roles &amp; Permissions
-                    </NavLink>
-                </div>
-                <div class="nav-item px-3">
-                    <NavLink class="nav-link" href="/admin/sessions">
-                        <i class="bi bi-person-lines-fill me-3" aria-hidden="true"></i> Sessions
-                    </NavLink>
-                </div>
-                <div class="nav-item px-3">
-                    <NavLink class="nav-link" href="/admin/audit-log">
-                        <i class="bi bi-journal-text me-3" aria-hidden="true"></i> Audit Logs
-                    </NavLink>
-                </div>
-                <div class="nav-item px-3">
-                    <NavLink class="nav-link" href="/admin/tenant-settings">
-                        <i class="bi bi-gear me-3" aria-hidden="true"></i> Tenant Settings
-                    </NavLink>
-                </div>
-                <div class="nav-item px-3">
-                    <NavLink class="nav-link" href="/admin/analytics">
-                        <i class="bi bi-graph-up-arrow me-3" aria-hidden="true"></i> Analytics Dashboard
-                    </NavLink>
-                </div>
-                <div class="nav-item px-3">
-                    <NavLink class="nav-link" href="/appointments" Match="NavLinkMatch.All">
-                        <i class="bi bi-calendar-check me-3" aria-hidden="true"></i> Appointments
-                    </NavLink>
-                </div>
-
-                <hr class="mx-3 my-2" />
-
-                <div class="nav-item px-3 mb-3">
-                    <a class="nav-link text-danger" href="/auth/logout">
-                        <i class="bi bi-box-arrow-right me-3" aria-hidden="true"></i> Sign Out
-                    </a>
-                </div>
-            </nav>
-        </div>
-    </div>
-
-    <main>
-        <ImpersonationBanner />
-        <div class="top-row px-4 justify-content-between">
-            <span class="navbar-brand fw-semibold text-primary">CareSphere — Administration</span>
-            <a href="/" class="btn btn-outline-secondary btn-sm">
-                <i class="bi bi-house-door-fill"></i> Home
-            </a>
-        </div>
-
-        <article class="content px-4">
+        <!-- Main Body -->
+        <main class="flex-grow-1 p-4 bg-light overflow-auto" style="height: calc(100vh - 64px);">
+            <ImpersonationBanner />
             @Body
-        </article>
-    </main>
+        </main>
+    </div>
 </div>

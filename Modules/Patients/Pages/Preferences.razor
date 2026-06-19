@@ -11,195 +11,217 @@
 
 <PageTitle>Patient Alert Preferences - CareSphere</PageTitle>
 
-<div class="container-fluid py-4">
-    <div class="row justify-content-center">
-        <div class="col-lg-8 col-md-10">
-            @if (patientId == Guid.Empty)
-            {
-                <div class="card shadow-sm border-0 mb-4">
-                    <div class="card-header bg-primary text-white py-3">
-                        <h5 class="m-0 fw-bold">Select Patient for Preferences</h5>
-                    </div>
-                    <div class="card-body p-4">
-                        <div class="input-group mb-4">
-                            <input type="text" class="form-control" placeholder="Search patient by MRN or name..." @bind="SearchTerm" @bind:event="oninput" @onkeyup="HandleSearchKey" />
-                            <button class="btn btn-outline-secondary" type="button" @onclick="SearchPatients">Search</button>
-                        </div>
+@if (patientId == Guid.Empty)
+{
+    <div class="page-header d-flex justify-content-between align-items-center mb-4">
+        <div>
+            <h3 class="mb-1"><i class="bi bi-sliders text-primary"></i> Patient Preferences</h3>
+            <p class="text-muted small mb-0">Select a patient to configure their alert &amp; language preferences</p>
+        </div>
+        <div class="page-actions">
+            <a href="/patients" class="btn btn-outline-secondary">
+                <i class="bi bi-arrow-left me-1"></i> Back to Patients
+            </a>
+        </div>
+    </div>
 
-                        @if (searchResults != null)
-                        {
-                            @if (!searchResults.Any())
-                            {
-                                <div class="alert alert-info">No patients found.</div>
-                            }
-                            else
-                            {
-                                <div class="list-group">
-                                    @foreach (var p in searchResults)
-                                    {
-                                        <button class="list-group-item list-group-item-action d-flex justify-content-between align-items-center" @onclick="() => SelectPatient(p.Id)">
-                                            <div>
-                                                <h6 class="mb-0 fw-bold">@p.FirstName @p.LastName</h6>
-                                                <small class="text-muted">MRN: @p.Mrn</small>
-                                            </div>
-                                            <span class="badge bg-primary rounded-pill">Select</span>
-                                        </button>
-                                    }
-                                </div>
-                            }
-                        }
-                    </div>
-                </div>
-            }
-            else
-            {
-                <div class="d-flex align-items-center mb-4">
-                    <button class="btn btn-outline-secondary btn-sm me-3" @onclick="GoBack">
-                        <i class="bi bi-arrow-left"></i> Back
-                    </button>
-                    <h1 class="h3 text-gray-800 m-0">Notification Preferences</h1>
-                </div>
+    <div class="card shadow-sm border-0">
+        <div class="card-body p-4">
+            <div class="input-group mb-4">
+                <span class="input-group-text bg-light border-end-0"><i class="bi bi-search text-muted"></i></span>
+                <input type="text" class="form-control bg-light border-start-0 ps-0" placeholder="Search patient by MRN or name..." @bind="SearchTerm" @bind:event="oninput" @onkeyup="HandleSearchKey" />
+                <button class="btn btn-primary" type="button" @onclick="SearchPatients">Search</button>
+            </div>
 
-                @if (patient == null || preferences == null)
+            @if (searchResults != null)
+            {
+                @if (!searchResults.Any())
                 {
-                    <div class="text-center py-5">
-                        <div class="spinner-border text-primary" role="status"></div>
+                    <div class="text-center py-5 text-muted bg-light rounded">
+                        <i class="bi bi-inbox display-4 opacity-50 d-block mb-2"></i>
+                        <p class="mb-0">No patients found matching the search criteria.</p>
                     </div>
                 }
                 else
                 {
-                    <div class="card shadow-sm border-0 mb-4">
-                        <div class="card-header bg-white py-3 border-bottom">
-                            <h5 class="m-0 font-weight-bold text-primary">
-                                <i class="bi bi-person-gear me-2"></i> Preferences for @($"{patient.FirstName} {patient.LastName}")
-                            </h5>
-                            <small class="text-muted">MRN: @patient.Mrn | Phone: @patient.Phone</small>
-                        </div>
-                        <div class="card-body p-4">
-                            <EditForm Model="@preferences" OnValidSubmit="HandleValidSubmit" FormName="patientPrefsForm">
-                                <DataAnnotationsValidator />
-                                
-                                <div class="row mb-4">
-                                    <div class="col-md-6 mb-3">
-                                        <label class="form-label font-weight-bold fw-semibold">Preferred Delivery Channel *</label>
-                                        <InputSelect class="form-select" @bind-Value="preferences.PreferredChannel">
-                                            <option value="SMS">SMS Text Messages</option>
-                                            <option value="WhatsApp">WhatsApp Message</option>
-                                            <option value="Voice">Voice Automated Call</option>
-                                            <option value="InApp">In-App Portal Notification</option>
-                                        </InputSelect>
-                                    </div>
-
-                                    <div class="col-md-6 mb-3">
-                                        <label class="form-label font-weight-bold fw-semibold">Preferred Language *</label>
-                                        <InputSelect class="form-select" @bind-Value="preferences.PreferredLanguage">
-                                            <option value="en">English</option>
-                                            <option value="hi">Hindi (हिंदी)</option>
-                                            <option value="ta">Tamil (தமிழ்)</option>
-                                            <option value="te">Telugu (తెలుగు)</option>
-                                            <option value="kn">Kannada (ਕನ್ನಡ)</option>
-                                            <option value="ml">Malayalam (മലയാളം)</option>
-                                            <option value="bn">Bengali (বাংলা)</option>
-                                            <option value="mr">Marathi (മராठी)</option>
-                                            <option value="gu">Gujarati (ગુજરાતી)</option>
-                                            <option value="pa">Punjabi (ਪੰਜਾਬੀ)</option>
-                                        </InputSelect>
-                                    </div>
+                    <div class="list-group">
+                        @foreach (var p in searchResults)
+                        {
+                            <button class="list-group-item list-group-item-action d-flex justify-content-between align-items-center py-3 border-start-0 border-end-0" @onclick="() => SelectPatient(p.Id)">
+                                <div>
+                                    <h6 class="mb-0 fw-bold">@p.FirstName @p.LastName</h6>
+                                    <small class="text-muted">MRN: @p.Mrn</small>
                                 </div>
-
-                                <hr />
-
-                                <!-- Opt-Out Toggles (Channel Level) -->
-                                <h6 class="font-weight-bold text-secondary mb-3"><i class="bi bi-x-circle me-1"></i> Channel Opt-Out (Do Not Send)</h6>
-                                
-                                <div class="row mb-4 ps-2">
-                                    <div class="col-md-4 mb-2">
-                                        <div class="form-check form-switch">
-                                            <InputCheckbox class="form-check-input" @bind-Value="preferences.OptOutSms" id="optOutSms" />
-                                            <label class="form-check-label" for="optOutSms">Block SMS Texts</label>
-                                        </div>
-                                    </div>
-                                    <div class="col-md-4 mb-2">
-                                        <div class="form-check form-switch">
-                                            <InputCheckbox class="form-check-input" @bind-Value="preferences.OptOutWhatsApp" id="optOutWhatsApp" />
-                                            <label class="form-check-label" for="optOutWhatsApp">Block WhatsApp Messages</label>
-                                        </div>
-                                    </div>
-                                    <div class="col-md-4 mb-2">
-                                        <div class="form-check form-switch">
-                                            <InputCheckbox class="form-check-input" @bind-Value="preferences.OptOutVoice" id="optOutVoice" />
-                                            <label class="form-check-label" for="optOutVoice">Block Automated Calls</label>
-                                        </div>
-                                    </div>
-                                </div>
-
-                                <hr />
-
-                                <!-- Module Preferences -->
-                                <h6 class="font-weight-bold text-secondary mb-3"><i class="bi bi-sliders me-1"></i> Subscriptions per Alert Type</h6>
-
-                                <div class="row mb-4 ps-2">
-                                    <div class="col-md-6 mb-3">
-                                        <div class="form-check">
-                                            <InputCheckbox class="form-check-input" @bind-Value="preferences.AllowAppointmentReminders" id="allowAppointments" />
-                                            <label class="form-check-label" for="allowAppointments">
-                                                Allow Appointment Reminders (24h/2h notice)
-                                            </label>
-                                        </div>
-                                    </div>
-                                    <div class="col-md-6 mb-3">
-                                        <div class="form-check">
-                                            <InputCheckbox class="form-check-input" @bind-Value="preferences.AllowFollowUpReminders" id="allowFollowUps" />
-                                            <label class="form-check-label" for="allowFollowUps">
-                                                Allow Doctor Follow-up Reminders
-                                            </label>
-                                        </div>
-                                    </div>
-                                    <div class="col-md-6 mb-3">
-                                        <div class="form-check">
-                                            <InputCheckbox class="form-check-input" @bind-Value="preferences.AllowDischargeNotifications" id="allowDischarges" />
-                                            <label class="form-check-label" for="allowDischarges">
-                                                Allow Admission & Discharge Alerts
-                                            </label>
-                                        </div>
-                                    </div>
-                                    <div class="col-md-6 mb-3">
-                                        <div class="form-check">
-                                            <InputCheckbox class="form-check-input" @bind-Value="preferences.AllowLabNotifications" id="allowLabs" />
-                                            <label class="form-check-label" for="allowLabs">
-                                                Allow Laboratory & Diagnostic Ready Alerts
-                                            </label>
-                                        </div>
-                                    </div>
-                                </div>
-
-                                <div class="d-flex gap-2">
-                                    <button type="submit" class="btn btn-primary" disabled="@isSaving">
-                                        @if (isSaving)
-                                        {
-                                            <span class="spinner-border spinner-border-sm me-1"></span>
-                                        }
-                                        Save Preferences
-                                    </button>
-                                    <button type="button" class="btn btn-secondary" @onclick="GoBack">Cancel</button>
-                                </div>
-
-                                @if (!string.IsNullOrEmpty(successMessage))
-                                {
-                                    <div class="alert alert-success mt-3 mb-0">@successMessage</div>
-                                }
-                                @if (!string.IsNullOrEmpty(errorMessage))
-                                {
-                                    <div class="alert alert-danger mt-3 mb-0">@errorMessage</div>
-                                }
-                            </EditForm>
-                        </div>
+                                <span class="badge bg-primary rounded-pill px-3">Select</span>
+                            </button>
+                        }
                     </div>
                 }
             }
         </div>
     </div>
-</div>
+}
+else
+{
+    <div class="page-header d-flex justify-content-between align-items-center mb-4">
+        <div>
+            <h3 class="mb-1"><i class="bi bi-sliders text-primary"></i> Patient Preferences</h3>
+            <p class="text-muted small mb-0">Configure alert channels and language settings</p>
+        </div>
+        <div class="page-actions">
+            <button class="btn btn-outline-secondary" @onclick="GoBack">
+                <i class="bi bi-arrow-left me-1"></i> Back to List
+            </button>
+        </div>
+    </div>
+
+    @if (patient == null || preferences == null)
+    {
+        <div class="text-center py-5 bg-white rounded shadow-sm">
+            <div class="spinner-border text-primary" role="status"></div>
+            <p class="text-muted mt-2 mb-0">Loading preferences...</p>
+        </div>
+    }
+    else
+    {
+        <div class="card shadow-sm border-0">
+            <div class="card-body p-4">
+                <div class="d-flex justify-content-between align-items-center mb-4 border-bottom pb-3">
+                    <div>
+                        <h5 class="fw-bold mb-0 text-primary">
+                            <i class="bi bi-person-gear me-2"></i> Preferences for @($"{patient.FirstName} {patient.LastName}")
+                        </h5>
+                        <div class="text-muted small mt-1">MRN: @patient.Mrn | Phone: @patient.Phone</div>
+                    </div>
+                </div>
+
+                <EditForm Model="@preferences" OnValidSubmit="HandleValidSubmit" FormName="patientPrefsForm">
+                    <DataAnnotationsValidator />
+                    
+                    <div class="row g-3 mb-4">
+                        <div class="col-md-6">
+                            <label class="form-label fw-semibold">Preferred Delivery Channel <span class="text-danger">*</span></label>
+                            <InputSelect class="form-select" @bind-Value="preferences.PreferredChannel">
+                                <option value="SMS">SMS Text Messages</option>
+                                <option value="WhatsApp">WhatsApp Message</option>
+                                <option value="Voice">Voice Automated Call</option>
+                                <option value="InApp">In-App Portal Notification</option>
+                            </InputSelect>
+                        </div>
+
+                        <div class="col-md-6">
+                            <label class="form-label fw-semibold">Preferred Language <span class="text-danger">*</span></label>
+                            <InputSelect class="form-select" @bind-Value="preferences.PreferredLanguage">
+                                <option value="en">English</option>
+                                <option value="hi">Hindi (हिंदी)</option>
+                                <option value="ta">Tamil (தமிழ்)</option>
+                                <option value="te">Telugu (తెలుగు)</option>
+                                <option value="kn">Kannada (ਕನ್ನಡ)</option>
+                                <option value="ml">Malayalam (മലയാളം)</option>
+                                <option value="bn">Bengali (বাংলা)</option>
+                                <option value="mr">Marathi (मराठी)</option>
+                                <option value="gu">Gujarati (ગુજરાતી)</option>
+                                <option value="pa">Punjabi (ਪੰਜਾਬੀ)</option>
+                            </InputSelect>
+                        </div>
+                    </div>
+
+                    <!-- Opt-Out Toggles (Channel Level) -->
+                    <h5 class="text-uppercase text-muted small fw-bold mb-3 border-bottom pb-2">
+                        <i class="bi bi-x-circle me-1"></i> Channel Opt-Out (Do Not Send)
+                    </h5>
+                    
+                    <div class="row g-3 mb-4">
+                        <div class="col-md-4">
+                            <div class="form-check form-switch p-3 bg-light rounded border">
+                                <InputCheckbox class="form-check-input ms-0 me-2" @bind-Value="preferences.OptOutSms" id="optOutSms" />
+                                <label class="form-check-label fw-semibold text-dark" for="optOutSms">Block SMS Texts</label>
+                            </div>
+                        </div>
+                        <div class="col-md-4">
+                            <div class="form-check form-switch p-3 bg-light rounded border">
+                                <InputCheckbox class="form-check-input ms-0 me-2" @bind-Value="preferences.OptOutWhatsApp" id="optOutWhatsApp" />
+                                <label class="form-check-label fw-semibold text-dark" for="optOutWhatsApp">Block WhatsApp</label>
+                            </div>
+                        </div>
+                        <div class="col-md-4">
+                            <div class="form-check form-switch p-3 bg-light rounded border">
+                                <InputCheckbox class="form-check-input ms-0 me-2" @bind-Value="preferences.OptOutVoice" id="optOutVoice" />
+                                <label class="form-check-label fw-semibold text-dark" for="optOutVoice">Block Voice Calls</label>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Module Preferences -->
+                    <h5 class="text-uppercase text-muted small fw-bold mb-3 border-bottom pb-2">
+                        <i class="bi bi-sliders me-1"></i> Subscriptions per Alert Type
+                    </h5>
+
+                    <div class="row g-3 mb-4">
+                        <div class="col-md-6">
+                            <div class="form-check p-2">
+                                <InputCheckbox class="form-check-input" @bind-Value="preferences.AllowAppointmentReminders" id="allowAppointments" />
+                                <label class="form-check-label" for="allowAppointments">
+                                    Allow Appointment Reminders (24h/2h notice)
+                                </label>
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="form-check p-2">
+                                <InputCheckbox class="form-check-input" @bind-Value="preferences.AllowFollowUpReminders" id="allowFollowUps" />
+                                <label class="form-check-label" for="allowFollowUps">
+                                    Allow Doctor Follow-up Reminders
+                                </label>
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="form-check p-2">
+                                <InputCheckbox class="form-check-input" @bind-Value="preferences.AllowDischargeNotifications" id="allowDischarges" />
+                                <label class="form-check-label" for="allowDischarges">
+                                    Allow Admission &amp; Discharge Alerts
+                                </label>
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="form-check p-2">
+                                <InputCheckbox class="form-check-input" @bind-Value="preferences.AllowLabNotifications" id="allowLabs" />
+                                <label class="form-check-label" for="allowLabs">
+                                    Allow Laboratory &amp; Diagnostic Ready Alerts
+                                </label>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="d-flex gap-2 justify-content-end border-top pt-3">
+                        <button type="button" class="btn btn-outline-secondary" @onclick="GoBack">Cancel</button>
+                        <button type="submit" class="btn btn-primary" disabled="@isSaving">
+                            @if (isSaving)
+                            {
+                                <span class="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true"></span>
+                            }
+                            <i class="bi bi-check-circle me-1"></i> Save Preferences
+                        </button>
+                    </div>
+
+                    @if (!string.IsNullOrEmpty(successMessage))
+                    {
+                        <div class="alert alert-success d-flex align-items-center mt-3 mb-0" role="alert">
+                            <i class="bi bi-check-circle-fill me-2"></i>
+                            <div>@successMessage</div>
+                        </div>
+                    }
+                    @if (!string.IsNullOrEmpty(errorMessage))
+                    {
+                        <div class="alert alert-danger d-flex align-items-center mt-3" role="alert">
+                            <i class="bi bi-exclamation-triangle-fill me-2"></i>
+                            <div>@errorMessage</div>
+                        </div>
+                    }
+                </EditForm>
+            </div>
+        </div>
+    }
+}
 
 @code {
     [Parameter]

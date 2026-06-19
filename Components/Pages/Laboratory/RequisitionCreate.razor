@@ -16,6 +16,8 @@
 @inject ILabCatalogService CatalogService
 @inject ApplicationDbContext DbContext
 @inject NavigationManager NavigationManager
+@inject CareSphere.Authorization.TabIsolatedAuthenticationStateProvider AuthStateProvider
+@inject ITenantContext TenantContext
 @rendermode InteractiveServer
 
 <PageTitle>Create Lab Requisition - CareSphere</PageTitle>
@@ -230,11 +232,13 @@
     {
         try
         {
+            var authState = await AuthStateProvider.GetAuthenticationStateAsync();
+            requisitionModel.TenantId = TenantContext.TenantId;
             patients = await DbContext.Patients.OrderBy(p => p.FirstName).ToListAsync();
             allEncounters = await DbContext.Encounters.OrderByDescending(e => e.AdmissionDate).ToListAsync();
             doctors = await DbContext.Doctors.Where(d => d.IsActive).OrderBy(d => d.FirstName).ToListAsync();
 
-            activeTests = await CatalogService.GetAllTestsAsync(Guid.Empty, null, null, true);
+            activeTests = await CatalogService.GetAllTestsAsync(TenantContext.TenantId, null, null, true);
             groupedActiveTests = activeTests.ToLookup(t => t.Category);
 
             // Pre-select patient/encounter from query parameters if supplied

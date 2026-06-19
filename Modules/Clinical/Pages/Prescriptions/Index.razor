@@ -9,22 +9,25 @@
 
 <PageTitle>Prescriptions - CareSphere</PageTitle>
 
-<div class="d-flex justify-content-between align-items-center mb-4">
-    <div>
-        <h2><i class="bi bi-prescription2 me-2 text-primary"></i>Prescriptions</h2>
-        <p class="text-muted mb-0">View and manage drug prescriptions across encounters</p>
+<div class="page-header">
+    <div class="page-header-content">
+        <div class="page-title-group">
+            <div class="page-icon"><i class="bi bi-prescription2"></i></div>
+            <div>
+                <h1 class="page-title">Prescriptions</h1>
+                <p class="page-subtitle">View and manage drug prescriptions across all encounters</p>
+            </div>
+        </div>
     </div>
 </div>
 
-<div class="card mb-4 border-0 shadow-sm">
-    <div class="card-body">
+<div class="content-card mb-4">
+    <div class="content-card-body">
         <div class="row g-3">
-            <div class="col-md-6">
+            <div class="col-md-7">
                 <div class="input-group">
-                    <span class="input-group-text bg-white border-end-0 text-muted">
-                        <i class="bi bi-search"></i>
-                    </span>
-                    <input type="text" class="form-control border-start-0 ps-0" placeholder="Search by patient name, MRN, or drug name..." @bind="SearchTerm" @bind:event="oninput" @onkeyup="HandleSearch" />
+                    <span class="input-group-text bg-white"><i class="bi bi-search text-muted"></i></span>
+                    <input type="text" class="form-control" placeholder="Search by patient name, MRN, or drug name..." @bind="SearchTerm" @bind:event="oninput" @onkeyup="HandleSearch" />
                     <button class="btn btn-primary" type="button" @onclick="LoadPrescriptions">Search</button>
                 </div>
             </div>
@@ -41,109 +44,93 @@
 
 @if (prescriptions == null)
 {
-    <div class="d-flex justify-content-center my-5">
-        <div class="spinner-border text-primary" role="status">
-            <span class="visually-hidden">Loading prescriptions...</span>
-        </div>
-    </div>
+    <div class="loading-state"><div class="spinner-border text-primary" role="status"></div><p class="mt-3 text-muted">Loading prescriptions...</p></div>
 }
 else if (!prescriptions.Any())
 {
-    <div class="alert alert-info border-0 shadow-sm"><i class="bi bi-info-circle me-2"></i>No prescriptions found.</div>
+    <div class="empty-state-card">
+        <i class="bi bi-prescription2"></i>
+        <h5>No prescriptions found</h5>
+        <p>No prescriptions match your search criteria.</p>
+    </div>
 }
 else
 {
-    <div class="card border-0 shadow-sm">
-        <div class="table-responsive">
-            <table class="table table-hover align-middle mb-0">
-                <thead class="table-light">
-                    <tr>
-                        <th class="ps-4">Issued At</th>
-                        <th>Patient</th>
-                        <th>Doctor</th>
-                        <th>Drug Details</th>
-                        <th>Dosage & Route</th>
-                        <th>Qty</th>
-                        <th>Status</th>
-                        <th class="text-end pe-4">Actions</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    @foreach (var rx in prescriptions)
-                    {
+    <div class="content-card">
+        <div class="content-card-body p-0">
+            <div class="table-responsive">
+                <table class="table table-hover data-table mb-0">
+                    <thead>
                         <tr>
-                            <td class="ps-4">@rx.IssuedAt.ToLocalTime().ToString("g")</td>
-                            <td>
-                                <span class="fw-semibold text-dark">@rx.Patient.FirstName @rx.Patient.LastName</span>
-                                <br /><span class="badge bg-secondary opacity-75" style="font-size: 0.75rem;">@rx.Patient.Mrn</span>
-                            </td>
-                            <td>Dr. @rx.Doctor.FirstName @rx.Doctor.LastName</td>
-                            <td>
-                                <span class="fw-semibold text-primary">@rx.DrugName</span>
-                                @if (!string.IsNullOrEmpty(rx.DrugCode))
-                                {
-                                    <span class="text-muted small"> (@rx.DrugCode)</span>
-                                }
-                            </td>
-                            <td>
-                                <div>@rx.Strength @rx.Form — @rx.Frequency</div>
-                                <div class="text-muted small">Route: @rx.Route | Duration: @rx.Duration</div>
-                            </td>
-                            <td>@rx.Quantity</td>
-                            <td>
-                                @if (rx.Status == "Active")
-                                {
-                                    <span class="badge bg-success">Active</span>
-                                }
-                                else
-                                {
-                                    <span class="badge bg-danger" title="Reason: @rx.CancellationReason">Cancelled</span>
-                                }
-                            </td>
-                            <td class="text-end pe-4">
-                                <div class="d-flex justify-content-end gap-2">
-                                    <a href="/encounter/view/@rx.EncounterId" class="btn btn-sm btn-outline-primary" title="View Encounter Workspace">
-                                        <i class="bi bi-eye"></i> View Workspace
-                                    </a>
-                                    @if (rx.Status == "Active")
-                                    {
-                                        <button class="btn btn-sm btn-outline-danger" @onclick="() => OpenCancelModal(rx)" title="Cancel Prescription">
-                                            <i class="bi bi-x-circle"></i> Cancel
-                                        </button>
-                                    }
-                                </div>
-                            </td>
+                            <th>Issued At</th>
+                            <th>Patient</th>
+                            <th>Doctor</th>
+                            <th>Drug</th>
+                            <th>Dosage &amp; Route</th>
+                            <th>Qty</th>
+                            <th>Status</th>
+                            <th class="text-end">Actions</th>
                         </tr>
-                    }
-                </tbody>
-            </table>
+                    </thead>
+                    <tbody>
+                        @foreach (var rx in prescriptions)
+                        {
+                            <tr>
+                                <td class="text-muted small">@rx.IssuedAt.ToLocalTime().ToString("g")</td>
+                                <td>
+                                    <div class="fw-semibold">@rx.Patient.FirstName @rx.Patient.LastName</div>
+                                    <div><span class="badge bg-secondary-subtle text-secondary">@rx.Patient.Mrn</span></div>
+                                </td>
+                                <td>Dr. @rx.Doctor.FirstName @rx.Doctor.LastName</td>
+                                <td>
+                                    <div class="fw-semibold">@rx.DrugName</div>
+                                    @if (!string.IsNullOrEmpty(rx.DrugCode)) { <div class="text-muted small">@rx.DrugCode</div> }
+                                </td>
+                                <td>
+                                    <div>@rx.Strength @rx.Form — @rx.Frequency</div>
+                                    <div class="text-muted small">Route: @rx.Route | Duration: @rx.Duration</div>
+                                </td>
+                                <td>@rx.Quantity</td>
+                                <td>
+                                    @if (rx.Status == "Active") { <span class="badge bg-success-subtle text-success">Active</span> }
+                                    else { <span class="badge bg-danger-subtle text-danger" title="Reason: @rx.CancellationReason">Cancelled</span> }
+                                </td>
+                                <td class="text-end">
+                                    <div class="btn-group btn-group-sm">
+                                        <a href="/encounter/view/@rx.EncounterId" class="btn btn-outline-primary"><i class="bi bi-eye me-1"></i> Workspace</a>
+                                        @if (rx.Status == "Active")
+                                        {
+                                            <button class="btn btn-outline-danger" @onclick="() => OpenCancelModal(rx)"><i class="bi bi-x-circle me-1"></i> Cancel</button>
+                                        }
+                                    </div>
+                                </td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
         </div>
     </div>
 }
 
 @if (showCancelModal && rxToCancel != null)
 {
-    <div class="modal fade show d-block" tabindex="-1" role="dialog" style="background-color: rgba(0,0,0,0.5);">
+    <div class="modal fade show d-block" tabindex="-1" role="dialog" style="background-color:rgba(0,0,0,0.5);">
         <div class="modal-dialog modal-dialog-centered">
-            <div class="modal-content border-0 shadow">
-                <div class="modal-header bg-danger text-white border-0">
-                    <h5 class="modal-title fw-bold"><i class="bi bi-exclamation-triangle-fill me-2"></i>Cancel Prescription</h5>
-                    <button type="button" class="btn-close btn-close-white" @onclick="CloseCancelModal"></button>
+            <div class="modal-content border-0 shadow-lg">
+                <div class="modal-header border-0 pb-0">
+                    <h5 class="modal-title text-danger"><i class="bi bi-exclamation-triangle me-2"></i>Cancel Prescription</h5>
+                    <button type="button" class="btn-close" @onclick="CloseCancelModal"></button>
                 </div>
-                <div class="modal-body py-4">
-                    <p class="mb-3">Are you sure you want to cancel the prescription for <strong>@rxToCancel.DrugName</strong> prescribed to patient <strong>@rxToCancel.Patient.FirstName @rxToCancel.Patient.LastName</strong>?</p>
-                    <div class="mb-3">
-                        <label class="form-label fw-bold">Reason for Cancellation *</label>
-                        <textarea class="form-control" @bind="cancellationReason" placeholder="Enter cancellation reason..." rows="3"></textarea>
-                    </div>
-                    @if (!string.IsNullOrEmpty(errorMessage))
-                    {
-                        <div class="alert alert-danger mb-0 py-2"><i class="bi bi-exclamation-octagon me-2"></i>@errorMessage</div>
-                    }
+                <div class="modal-body">
+                    <p class="text-muted mb-3">Cancel <strong>@rxToCancel.DrugName</strong> for <strong>@rxToCancel.Patient.FirstName @rxToCancel.Patient.LastName</strong>?</p>
+                    <label class="form-label fw-semibold">Reason for Cancellation <span class="text-danger">*</span></label>
+                    <textarea class="form-control" @bind="cancellationReason" placeholder="Enter cancellation reason..." rows="3"></textarea>
+                    @if (!string.IsNullOrEmpty(errorMessage)) { <div class="alert alert-danger mt-3 mb-0">@errorMessage</div> }
                 </div>
                 <div class="modal-footer border-0">
-                    <button type="button" class="btn btn-light" @onclick="CloseCancelModal">Close</button>
-                    <button type="button" class="btn btn-danger" @onclick="ConfirmCancel">Confirm Cancellation</button>
+                    <button type="button" class="btn btn-outline-secondary" @onclick="CloseCancelModal">Close</button>
+                    <button type="button" class="btn btn-danger" @onclick="ConfirmCancel"><i class="bi bi-x-circle me-1"></i> Confirm Cancel</button>
                 </div>
             </div>
         </div>
@@ -154,109 +141,52 @@ else
     private List<Prescription>? prescriptions;
     private string SearchTerm { get; set; } = string.Empty;
     private string StatusFilter { get; set; } = string.Empty;
-
     private Prescription? rxToCancel;
     private bool showCancelModal = false;
     private string cancellationReason = string.Empty;
     private string errorMessage = string.Empty;
 
-    protected override async Task OnInitializedAsync()
-    {
-        await LoadPrescriptions();
-    }
-
-    private async Task HandleSearch(KeyboardEventArgs e)
-    {
-        if (e.Key == "Enter")
-        {
-            await LoadPrescriptions();
-        }
-    }
+    protected override async Task OnInitializedAsync() { await LoadPrescriptions(); }
+    private async Task HandleSearch(KeyboardEventArgs e) { if (e.Key == "Enter") await LoadPrescriptions(); }
 
     private async Task LoadPrescriptions()
     {
         try
         {
-            using (var scope = ScopeFactory.CreateScope())
+            using var scope = ScopeFactory.CreateScope();
+            var scopedTenant = scope.ServiceProvider.GetRequiredService<ITenantContext>();
+            scopedTenant.SetTenantId(TenantContext.TenantId);
+            var dbContext = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
+            var query = dbContext.Prescriptions.Include(p => p.Patient).Include(p => p.Doctor).AsNoTracking();
+            if (!string.IsNullOrWhiteSpace(SearchTerm))
             {
-                var scopedTenant = scope.ServiceProvider.GetRequiredService<ITenantContext>();
-                scopedTenant.SetTenantId(TenantContext.TenantId);
-
-                var dbContext = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
-                
-                var query = dbContext.Prescriptions
-                    .Include(p => p.Patient)
-                    .Include(p => p.Doctor)
-                    .AsNoTracking();
-
-                if (!string.IsNullOrWhiteSpace(SearchTerm))
-                {
-                    var lower = SearchTerm.ToLower();
-                    query = query.Where(p => p.DrugName.ToLower().Contains(lower) || 
-                                             p.DrugCode.ToLower().Contains(lower) ||
-                                             p.Patient.FirstName.ToLower().Contains(lower) ||
-                                             p.Patient.LastName.ToLower().Contains(lower) ||
-                                             p.Patient.Mrn.ToLower().Contains(lower));
-                }
-
-                if (!string.IsNullOrWhiteSpace(StatusFilter))
-                {
-                    query = query.Where(p => p.Status == StatusFilter);
-                }
-
-                prescriptions = await query
-                    .OrderByDescending(p => p.IssuedAt)
-                    .ToListAsync();
+                var lower = SearchTerm.ToLower();
+                query = query.Where(p => p.DrugName.ToLower().Contains(lower) || p.DrugCode.ToLower().Contains(lower) ||
+                    p.Patient.FirstName.ToLower().Contains(lower) || p.Patient.LastName.ToLower().Contains(lower) || p.Patient.Mrn.ToLower().Contains(lower));
             }
+            if (!string.IsNullOrWhiteSpace(StatusFilter)) query = query.Where(p => p.Status == StatusFilter);
+            prescriptions = await query.OrderByDescending(p => p.IssuedAt).ToListAsync();
         }
-        catch (Exception ex)
-        {
-            Console.WriteLine($"[PrescriptionsIndex] Error loading prescriptions: {ex.Message}");
-            prescriptions = new List<Prescription>();
-        }
+        catch (Exception ex) { Console.WriteLine($"[PrescriptionsIndex] {ex.Message}"); prescriptions = new(); }
     }
 
-    private void OpenCancelModal(Prescription rx)
-    {
-        rxToCancel = rx;
-        cancellationReason = string.Empty;
-        errorMessage = string.Empty;
-        showCancelModal = true;
-    }
-
-    private void CloseCancelModal()
-    {
-        rxToCancel = null;
-        showCancelModal = false;
-    }
+    private void OpenCancelModal(Prescription rx) { rxToCancel = rx; cancellationReason = string.Empty; errorMessage = string.Empty; showCancelModal = true; }
+    private void CloseCancelModal() { rxToCancel = null; showCancelModal = false; }
 
     private async Task ConfirmCancel()
     {
         if (rxToCancel == null) return;
-        if (string.IsNullOrWhiteSpace(cancellationReason))
-        {
-            errorMessage = "Please provide a reason for cancellation.";
-            return;
-        }
-
+        if (string.IsNullOrWhiteSpace(cancellationReason)) { errorMessage = "Please provide a reason for cancellation."; return; }
         try
         {
-            using (var scope = ScopeFactory.CreateScope())
-            {
-                var scopedTenant = scope.ServiceProvider.GetRequiredService<ITenantContext>();
-                scopedTenant.SetTenantId(TenantContext.TenantId);
-
-                var rxService = scope.ServiceProvider.GetRequiredService<IPrescriptionService>();
-                await rxService.CancelPrescriptionAsync(rxToCancel.Id, cancellationReason);
-            }
-
-            showCancelModal = false;
-            rxToCancel = null;
+            using var scope = ScopeFactory.CreateScope();
+            var scopedTenant = scope.ServiceProvider.GetRequiredService<ITenantContext>();
+            scopedTenant.SetTenantId(TenantContext.TenantId);
+            var rxService = scope.ServiceProvider.GetRequiredService<IPrescriptionService>();
+            await rxService.CancelPrescriptionAsync(rxToCancel.Id, cancellationReason);
+            showCancelModal = false; rxToCancel = null;
             await LoadPrescriptions();
         }
-        catch (Exception ex)
-        {
-            errorMessage = ex.Message;
-        }
+        catch (Exception ex) { errorMessage = ex.Message; }
     }
 }

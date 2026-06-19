@@ -5,107 +5,122 @@
 
 <PageTitle>Edit Bed - CareSphere</PageTitle>
 
-<h2>Edit Bed</h2>
-<hr />
+<div class="page-header">
+    <div class="page-header-content">
+        <div class="page-title-group">
+            <div class="page-icon"><i class="bi bi-pencil-square"></i></div>
+            <div>
+                <h1 class="page-title">Edit Bed</h1>
+                <p class="page-subtitle">Update bed configuration and ward assignment</p>
+            </div>
+        </div>
+        <div class="page-actions">
+            <a href="/beds" class="btn btn-outline-secondary"><i class="bi bi-arrow-left me-1"></i> Back to Beds</a>
+        </div>
+    </div>
+</div>
 
 @if (bed == null && !isNotFound)
 {
-    <p><em>Loading...</em></p>
+    <div class="loading-state">
+        <div class="spinner-border text-primary" role="status"><span class="visually-hidden">Loading...</span></div>
+        <p class="mt-3 text-muted">Loading bed details...</p>
+    </div>
 }
 else if (isNotFound)
 {
-    <div class="alert alert-danger">Bed not found.</div>
+    <div class="alert alert-danger"><i class="bi bi-exclamation-triangle me-2"></i>Bed not found.</div>
     <a href="/beds" class="btn btn-primary">Back to List</a>
 }
 else if (bed != null)
 {
-    <div class="row">
-        <div class="col-md-6">
-            <EditForm Model="@bed" FormName="editBed" OnValidSubmit="ProcessValidSubmit">
-                <DataAnnotationsValidator />
-                <ValidationSummary class="alert alert-danger" />
-                
-                <InputText type="hidden" @bind-Value="bed.IdAsString" />
+    <div class="row justify-content-center">
+        <div class="col-lg-7">
+            <div class="content-card">
+                <div class="content-card-header">
+                    <h5 class="content-card-title"><i class="bi bi-info-circle me-2"></i>Bed Details</h5>
+                </div>
+                <div class="content-card-body">
+                    <EditForm Model="@bed" FormName="editBed" OnValidSubmit="ProcessValidSubmit">
+                        <DataAnnotationsValidator />
+                        <ValidationSummary class="alert alert-danger" />
+                        <InputText type="hidden" @bind-Value="bed.IdAsString" />
 
-                <div class="card mb-4">
-                    <div class="card-body">
-                        <div class="mb-3">
-                            <label class="form-label">Bed Number *</label>
-                            <InputText class="form-control" @bind-Value="bed.BedNumber" />
-                            <ValidationMessage For="@(() => bed.BedNumber)" />
-                        </div>
+                        <div class="row g-3">
+                            <div class="col-md-6">
+                                <label class="form-label fw-semibold">Bed Number <span class="text-danger">*</span></label>
+                                <InputText class="form-control" @bind-Value="bed.BedNumber" />
+                                <ValidationMessage For="@(() => bed.BedNumber)" />
+                            </div>
 
-                        <div class="mb-3">
-                            <label class="form-label">Ward *</label>
-                            <InputSelect class="form-select" @bind-Value="bed.WardIdAsString">
-                                <option value="">Select Ward</option>
-                                @if (wards != null)
-                                {
-                                    @foreach (var w in wards)
+                            <div class="col-md-6">
+                                <label class="form-label fw-semibold">Ward <span class="text-danger">*</span></label>
+                                <InputSelect class="form-select" @bind-Value="bed.WardIdAsString">
+                                    <option value="">Select Ward</option>
+                                    @if (wards != null)
                                     {
-                                        <option value="@w.Id.ToString()" selected="@(bed.WardIdAsString == w.Id.ToString())">@w.Name (@w.WardType)</option>
+                                        @foreach (var w in wards)
+                                        {
+                                            <option value="@w.Id.ToString()">@w.Name (@w.WardType)</option>
+                                        }
                                     }
-                                }
-                            </InputSelect>
-                            <ValidationMessage For="@(() => bed.WardIdAsString)" />
-                        </div>
-                        
-                        <div class="mb-3">
-                            <label class="form-label">Bed Type *</label>
-                            <InputSelect class="form-select" @bind-Value="bed.BedType">
-                                <option value="">Select Bed Type</option>
-                                <option value="Standard" selected="@(bed.BedType == "Standard")">Standard</option>
-                                <option value="ICU" selected="@(bed.BedType == "ICU")">ICU</option>
-                                <option value="Isolation" selected="@(bed.BedType == "Isolation")">Isolation</option>
-                                <option value="Pediatric" selected="@(bed.BedType == "Pediatric")">Pediatric</option>
-                                <option value="Maternity" selected="@(bed.BedType == "Maternity")">Maternity</option>
-                            </InputSelect>
-                            <ValidationMessage For="@(() => bed.BedType)" />
+                                </InputSelect>
+                                <ValidationMessage For="@(() => bed.WardIdAsString)" />
+                            </div>
+
+                            <div class="col-md-6">
+                                <label class="form-label fw-semibold">Bed Type <span class="text-danger">*</span></label>
+                                <InputSelect class="form-select" @bind-Value="bed.BedType">
+                                    <option value="">Select Bed Type</option>
+                                    <option value="Standard">Standard</option>
+                                    <option value="ICU">ICU</option>
+                                    <option value="Isolation">Isolation</option>
+                                    <option value="Pediatric">Pediatric</option>
+                                    <option value="Maternity">Maternity</option>
+                                </InputSelect>
+                                <ValidationMessage For="@(() => bed.BedType)" />
+                            </div>
+
+                            <div class="col-md-6">
+                                <label class="form-label fw-semibold">Status</label>
+                                <InputSelect class="form-select" @bind-Value="bed.Status">
+                                    <option value="Available">Available</option>
+                                    <option value="Occupied">Occupied</option>
+                                    <option value="Maintenance">Maintenance</option>
+                                    <option value="Reserved">Reserved</option>
+                                </InputSelect>
+                                <ValidationMessage For="@(() => bed.Status)" />
+                            </div>
+
+                            <div class="col-12">
+                                <div class="form-check form-switch mt-1">
+                                    <InputCheckbox class="form-check-input" @bind-Value="bed.IsActive" id="isActiveCheck" />
+                                    <label class="form-check-label fw-semibold" for="isActiveCheck">Active Bed</label>
+                                </div>
+                            </div>
                         </div>
 
-                        <div class="mb-3">
-                            <label class="form-label">Status</label>
-                            <InputSelect class="form-select" @bind-Value="bed.Status">
-                                <option value="Available" selected="@(bed.Status == "Available")">Available</option>
-                                <option value="Occupied" selected="@(bed.Status == "Occupied")">Occupied</option>
-                                <option value="Maintenance" selected="@(bed.Status == "Maintenance")">Maintenance</option>
-                                <option value="Reserved" selected="@(bed.Status == "Reserved")">Reserved</option>
-                            </InputSelect>
-                            <ValidationMessage For="@(() => bed.Status)" />
-                        </div>
-
-                        <div class="mb-3 form-check">
-                            <InputCheckbox class="form-check-input" @bind-Value="bed.IsActive" id="isActiveCheck" />
-                            <label class="form-check-label" for="isActiveCheck">
-                                Is Active
-                            </label>
-                        </div>
-                    </div>
-                </div>
-
-                <div class="d-flex gap-2">
-                    <button type="submit" class="btn btn-warning" disabled="@isSubmitting">
-                        @if (isSubmitting)
+                        @if (!string.IsNullOrEmpty(errorMessage))
                         {
-                            <span class="spinner-border spinner-border-sm me-1"></span>
+                            <div class="alert alert-danger mt-3"><i class="bi bi-exclamation-triangle me-2"></i>@errorMessage</div>
                         }
-                        Update Bed
-                    </button>
-                    <a href="/beds" class="btn btn-secondary">Cancel</a>
-                </div>
 
-                @if (!string.IsNullOrEmpty(errorMessage))
-                {
-                    <div class="alert alert-danger mt-3">@errorMessage</div>
-                }
-            </EditForm>
+                        <div class="form-actions mt-4">
+                            <button type="submit" class="btn btn-primary" disabled="@isSubmitting">
+                                @if (isSubmitting) { <span class="spinner-border spinner-border-sm me-1"></span> }
+                                <i class="bi bi-check-lg me-1"></i> Update Bed
+                            </button>
+                            <a href="/beds" class="btn btn-outline-secondary">Cancel</a>
+                        </div>
+                    </EditForm>
+                </div>
+            </div>
         </div>
     </div>
 }
 
 @code {
-    [Parameter]
-    public Guid Id { get; set; }
+    [Parameter] public Guid Id { get; set; }
 
     [SupplyParameterFromForm]
     public BedFormModel? bed { get; set; }
@@ -113,19 +128,14 @@ else if (bed != null)
     public class BedFormModel
     {
         public string IdAsString { get; set; } = string.Empty;
-        
         [System.ComponentModel.DataAnnotations.Required]
         public string BedNumber { get; set; } = string.Empty;
-        
         [System.ComponentModel.DataAnnotations.Required]
         public string WardIdAsString { get; set; } = string.Empty;
-        
         [System.ComponentModel.DataAnnotations.Required]
         public string BedType { get; set; } = string.Empty;
-        
         [System.ComponentModel.DataAnnotations.Required]
         public string Status { get; set; } = "Available";
-        
         public bool IsActive { get; set; } = true;
     }
 
@@ -137,14 +147,10 @@ else if (bed != null)
     protected override async Task OnInitializedAsync()
     {
         wards = await BedService.GetAllWardsAsync();
-
-        if (bed == null) // Not a postback
+        if (bed == null)
         {
             var dbBed = await BedService.GetBedByIdAsync(Id);
-            if (dbBed == null)
-            {
-                isNotFound = true;
-            }
+            if (dbBed == null) { isNotFound = true; }
             else
             {
                 bed = new BedFormModel
@@ -163,12 +169,10 @@ else if (bed != null)
     private async Task ProcessValidSubmit()
     {
         if (bed == null) return;
-        
         try
         {
             isSubmitting = true;
             errorMessage = string.Empty;
-
             var dbBed = await BedService.GetBedByIdAsync(Guid.Parse(bed.IdAsString));
             if (dbBed != null)
             {
@@ -177,15 +181,11 @@ else if (bed != null)
                 dbBed.BedType = bed.BedType;
                 dbBed.Status = bed.Status;
                 dbBed.IsActive = bed.IsActive;
-
                 await BedService.UpdateBedAsync(dbBed);
                 NavigationManager.NavigateTo("/beds");
             }
         }
-        catch (Microsoft.AspNetCore.Components.NavigationException)
-        {
-            throw; // Expected redirect
-        }
+        catch (Microsoft.AspNetCore.Components.NavigationException) { throw; }
         catch (Exception ex)
         {
             errorMessage = $"Error updating bed: {ex.Message}";

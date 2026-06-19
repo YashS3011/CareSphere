@@ -14,6 +14,7 @@
 @inject IAppointmentReminderService ReminderService
 @inject NavigationManager NavigationManager
 @inject CareSphere.Data.ApplicationDbContext DbContext
+@inject ITenantContext TenantContext
 
 <PageTitle>Scheduled Reminders - CareSphere</PageTitle>
 
@@ -157,7 +158,7 @@
     private string selectedType = "";
     private string selectedChannel = "";
     private string? alertMessage;
-    private readonly Guid currentTenantId = Guid.Empty;
+    private Guid currentTenantId => TenantContext.TenantId;
 
     protected override async Task OnInitializedAsync()
     {

@@ -15,6 +15,7 @@
 @inject IClaimService ClaimService
 @inject IDocumentService DocumentService
 @inject IJSRuntime JSRuntime
+@inject CareSphere.Authorization.TabIsolatedAuthenticationStateProvider AuthStateProvider
 @rendermode InteractiveServer
 
 <PageTitle>Invoice Details - CareSphere</PageTitle>
@@ -336,6 +337,7 @@
 
     protected override async Task OnInitializedAsync()
     {
+        await AuthStateProvider.GetAuthenticationStateAsync();
         await LoadInvoiceDetails();
     }
 

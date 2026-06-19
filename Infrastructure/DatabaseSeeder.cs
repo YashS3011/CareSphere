@@ -49,9 +49,10 @@ namespace CareSphere.Infrastructure
         {
             var defaultTenantIdStr = _configuration["App:DefaultTenantId"] ?? "00000000-0000-0000-0000-000000000001";
             var defaultTenantId = Guid.Parse(defaultTenantIdStr);
+            var forceReset = string.Equals(_configuration["App:ForceResetDatabase"], "true", StringComparison.OrdinalIgnoreCase);
 
             // Check if already seeded (e.g. if any tenant settings exist)
-            if (await _context.TenantSettings.IgnoreQueryFilters().AnyAsync())
+            if (await _context.TenantSettings.IgnoreQueryFilters().AnyAsync() && !forceReset)
             {
                 _logger.LogInformation("Database is already seeded. Running check-and-repair pass...");
 
@@ -107,7 +108,40 @@ namespace CareSphere.Infrastructure
                             await _userManager.AddToRoleAsync(nurse2User, CareSphereRoles.Nurse);
                     }
 
-                    // Repair 3: Ensure Warfarin 5mg exists in DrugFormulary
+                    // Repair 2.1: Ensure platform admin role and user exist
+                    var platRoleExists = await _roleManager.RoleExistsAsync("platform_super_admin");
+                    if (!platRoleExists)
+                    {
+                        await _roleManager.CreateAsync(new IdentityRole
+                        {
+                            Id = Guid.NewGuid().ToString(),
+                            Name = "platform_super_admin",
+                            NormalizedName = "PLATFORM_SUPER_ADMIN"
+                        });
+                    }
+                    var platAdmin = await _userManager.Users.IgnoreQueryFilters()
+                        .FirstOrDefaultAsync(u => u.NormalizedEmail == "PLATFORMADMIN@CARESPHERE.DEV");
+                    if (platAdmin == null)
+                    {
+                        _logger.LogInformation("Inserting missing platformadmin@caresphere.dev account...");
+                        var platUser = new ApplicationUser
+                        {
+                            UserName = "platformadmin@caresphere.dev",
+                            Email = "platformadmin@caresphere.dev",
+                            FullName = "Platform Administrator",
+                            TenantId = Guid.Empty,
+                            Role = "platform_super_admin",
+                            IsActive = true,
+                            CreatedAt = DateTime.UtcNow,
+                            PreferredLanguage = "en",
+                            EmailConfirmed = true
+                        };
+                        var platRes = await _userManager.CreateAsync(platUser, "PlatformAdmin@123");
+                        if (platRes.Succeeded)
+                            await _userManager.AddToRoleAsync(platUser, "platform_super_admin");
+                    }
+
+                    // Repair 3: Ensure Warfarin, Paracetamol, and Aspirin exist in DrugFormulary
                     var warExists = await _context.DrugFormulary.IgnoreQueryFilters()
                         .AnyAsync(d => d.DrugCode == "WAR-5");
                     if (!warExists)
@@ -129,7 +163,49 @@ namespace CareSphere.Infrastructure
                         await _context.SaveChangesAsync();
                     }
 
-                    // Repair 4: Ensure Warfarin 5mg exists in PharmacyItems & PharmacyBatches
+                    var parExists = await _context.DrugFormulary.IgnoreQueryFilters()
+                        .AnyAsync(d => d.DrugCode == "PAR-500");
+                    if (!parExists)
+                    {
+                        _logger.LogInformation("Inserting missing Paracetamol 500mg drug formulary entry...");
+                        _context.DrugFormulary.Add(new DrugFormulary
+                        {
+                            Id = Guid.NewGuid(),
+                            TenantId = defaultTenantId,
+                            DrugCode = "PAR-500",
+                            GenericName = "Paracetamol",
+                            BrandName = "Crocin",
+                            Form = "Tablet",
+                            Strength = "500mg",
+                            Unit = "Tablet",
+                            IsControlled = false,
+                            IsActive = true
+                        });
+                        await _context.SaveChangesAsync();
+                    }
+
+                    var aspExists = await _context.DrugFormulary.IgnoreQueryFilters()
+                        .AnyAsync(d => d.DrugCode == "ASP-75");
+                    if (!aspExists)
+                    {
+                        _logger.LogInformation("Inserting missing Aspirin 75mg drug formulary entry...");
+                        _context.DrugFormulary.Add(new DrugFormulary
+                        {
+                            Id = Guid.NewGuid(),
+                            TenantId = defaultTenantId,
+                            DrugCode = "ASP-75",
+                            GenericName = "Aspirin",
+                            BrandName = "Ecotrin",
+                            Form = "Tablet",
+                            Strength = "75mg",
+                            Unit = "Tablet",
+                            IsControlled = false,
+                            IsActive = true
+                        });
+                        await _context.SaveChangesAsync();
+                    }
+
+                    // Repair 4: Ensure Warfarin, Paracetamol, and Aspirin exist in PharmacyItems & PharmacyBatches
                     var warItemExists = await _context.PharmacyItems.IgnoreQueryFilters()
                         .AnyAsync(p => p.ItemCode == "WAR-5");
                     if (!warItemExists)
@@ -170,6 +246,100 @@ namespace CareSphere.Infrastructure
                                 PurchasePrice = 25.00m,
                                 SellingPrice = 35.00m,
                                 CurrentStock = 200,
+                                ReservedStock = 0,
+                                IsActive = true
+                            });
+                        }
+                        await _context.SaveChangesAsync();
+                    }
+
+                    var parItemExists = await _context.PharmacyItems.IgnoreQueryFilters()
+                        .AnyAsync(p => p.ItemCode == "PAR-500");
+                    if (!parItemExists)
+                    {
+                        _logger.LogInformation("Inserting missing Paracetamol 500mg pharmacy item...");
+                        var parItemId = Guid.NewGuid();
+                        _context.PharmacyItems.Add(new PharmacyItem
+                        {
+                            Id = parItemId,
+                            TenantId = defaultTenantId,
+                            ItemCode = "PAR-500",
+                            ItemName = "Paracetamol 500mg",
+                            GenericName = "Paracetamol",
+                            Category = "Medicine",
+                            Form = "Tablet",
+                            Strength = "500mg",
+                            Unit = "Strip",
+                            Barcode = "8901234567890",
+                            IsControlled = false,
+                            RequiresPrescription = false,
+                            ReorderLevel = 100,
+                            IsActive = true
+                        });
+
+                        var anySupplierId = await _context.Suppliers.IgnoreQueryFilters()
+                            .Select(s => s.Id).FirstOrDefaultAsync();
+                        if (anySupplierId != Guid.Empty)
+                        {
+                            _context.PharmacyBatches.Add(new PharmacyBatch
+                            {
+                                Id = Guid.NewGuid(),
+                                TenantId = defaultTenantId,
+                                ItemId = parItemId,
+                                BatchNumber = "BAT-PAR-99",
+                                SupplierId = anySupplierId,
+                                ManufactureDate = DateTime.UtcNow.AddMonths(-3),
+                                ExpiryDate = DateTime.UtcNow.AddYears(2),
+                                PurchasePrice = 10.00m,
+                                SellingPrice = 15.00m,
+                                CurrentStock = 500,
+                                ReservedStock = 0,
+                                IsActive = true
+                            });
+                        }
+                        await _context.SaveChangesAsync();
+                    }
+
+                    var aspItemExists = await _context.PharmacyItems.IgnoreQueryFilters()
+                        .AnyAsync(p => p.ItemCode == "ASP-75");
+                    if (!aspItemExists)
+                    {
+                        _logger.LogInformation("Inserting missing Aspirin 75mg pharmacy item...");
+                        var aspItemId = Guid.NewGuid();
+                        _context.PharmacyItems.Add(new PharmacyItem
+                        {
+                            Id = aspItemId,
+                            TenantId = defaultTenantId,
+                            ItemCode = "ASP-75",
+                            ItemName = "Aspirin 75mg",
+                            GenericName = "Aspirin",
+                            Category = "Medicine",
+                            Form = "Tablet",
+                            Strength = "75mg",
+                            Unit = "Strip",
+                            Barcode = "501234567800",
+                            IsControlled = false,
+                            RequiresPrescription = true,
+                            ReorderLevel = 50,
+                            IsActive = true
+                        });
+
+                        var anySupplierId = await _context.Suppliers.IgnoreQueryFilters()
+                            .Select(s => s.Id).FirstOrDefaultAsync();
+                        if (anySupplierId != Guid.Empty)
+                        {
+                            _context.PharmacyBatches.Add(new PharmacyBatch
+                            {
+                                Id = Guid.NewGuid(),
+                                TenantId = defaultTenantId,
+                                ItemId = aspItemId,
+                                BatchNumber = "BAT-ASP-75",
+                                SupplierId = anySupplierId,
+                                ManufactureDate = DateTime.UtcNow.AddMonths(-3),
+                                ExpiryDate = DateTime.UtcNow.AddYears(2),
+                                PurchasePrice = 8.00m,
+                                SellingPrice = 10.00m,
+                                CurrentStock = 300,
                                 ReservedStock = 0,
                                 IsActive = true
                             });
@@ -261,6 +431,10 @@ namespace CareSphere.Infrastructure
             var supplierId = Guid.NewGuid();
             var pharmacyItemId = Guid.NewGuid();
             var batchId = Guid.NewGuid();
+            var aspirinItemId = Guid.NewGuid();
+            var aspirinBatchId = Guid.NewGuid();
+            var warfarinItemId = Guid.NewGuid();
+            var warfarinBatchId = Guid.NewGuid();
             var poId = Guid.NewGuid();
             var grnId = Guid.NewGuid();
             var catalogId = Guid.NewGuid();
@@ -323,7 +497,8 @@ namespace CareSphere.Infrastructure
                     CareSphereRoles.Pharmacist, CareSphereRoles.LabTechnician,
                     CareSphereRoles.FrontDesk, CareSphereRoles.Finance,
                     CareSphereRoles.NabhAuditor, CareSphereRoles.Patient,
-                    CareSphereRoles.Receptionist, CareSphereRoles.BillingStaff
+                    CareSphereRoles.Receptionist, CareSphereRoles.BillingStaff,
+                    "platform_super_admin"
                 };
 
                 var roleIds = new Dictionary<string, string>();
@@ -347,7 +522,7 @@ namespace CareSphere.Infrastructure
                 _logger.LogInformation("Roles created. Seeding user accounts for all roles...");
 
                 // Helper local function to create and link users
-                async Task<string> CreateUserAsync(string email, string fullName, string roleName, string password, Guid? linkedDoctorId = null)
+                async Task<string> CreateUserAsync(string email, string fullName, string roleName, string password, Guid? linkedDoctorId = null, Guid? customTenantId = null)
                 {
                     var userId = Guid.NewGuid().ToString();
                     var user = new ApplicationUser
@@ -356,7 +531,7 @@ namespace CareSphere.Infrastructure
                         UserName = email,
                         Email = email,
                         FullName = fullName,
-                        TenantId = defaultTenantId,
+                        TenantId = customTenantId ?? defaultTenantId,
                         Role = roleName,
                         IsActive = true,
                         CreatedAt = DateTime.UtcNow,
@@ -386,6 +561,7 @@ namespace CareSphere.Infrastructure
                 var pharmacistUserId = await CreateUserAsync("pharmacist@caresphere.dev", "Test Pharmacist", CareSphereRoles.Pharmacist, "Pharmacist@123");
                 var labtechUserId = await CreateUserAsync("labtech@caresphere.dev", "Test Lab Technician", CareSphereRoles.LabTechnician, "LabTech@123");
                 var nurse2UserId = await CreateUserAsync("nurse2@caresphere.dev", "Test Nurse (Nursing Module)", CareSphereRoles.Nurse, "Nurse@123");
+                var platformAdminUserId = await CreateUserAsync("platformadmin@caresphere.dev", "Platform Administrator", "platform_super_admin", "PlatformAdmin@123", customTenantId: Guid.Empty);
 
                 _logger.LogInformation("User accounts seeded. Seeding identity link tables...");
 
@@ -651,6 +827,36 @@ namespace CareSphere.Infrastructure
                 };
                 _context.DrugFormulary.Add(drugFormulary);
 
+                var paracetamolFormulary = new DrugFormulary
+                {
+                    Id = Guid.NewGuid(),
+                    TenantId = defaultTenantId,
+                    DrugCode = "PAR-500",
+                    GenericName = "Paracetamol",
+                    BrandName = "Crocin",
+                    Form = "Tablet",
+                    Strength = "500mg",
+                    Unit = "Tablet",
+                    IsControlled = false,
+                    IsActive = true
+                };
+                _context.DrugFormulary.Add(paracetamolFormulary);
+
+                var warfarinFormulary = new DrugFormulary
+                {
+                    Id = Guid.NewGuid(),
+                    TenantId = defaultTenantId,
+                    DrugCode = "WAR-5",
+                    GenericName = "Warfarin",
+                    BrandName = "Coumadin",
+                    Form = "Tablet",
+                    Strength = "5mg",
+                    Unit = "Tablet",
+                    IsControlled = false,
+                    IsActive = true
+                };
+                _context.DrugFormulary.Add(warfarinFormulary);
+
                 // 23. TeleConsultSession (1 record)
                 var teleConsultSession = new TeleConsultSession
                 {
@@ -833,6 +1039,44 @@ namespace CareSphere.Infrastructure
                 };
                 _context.PharmacyItems.Add(pharmacyItem);
 
+                var aspirinItem = new PharmacyItem
+                {
+                    Id = aspirinItemId,
+                    TenantId = defaultTenantId,
+                    ItemCode = "ASP-75",
+                    ItemName = "Aspirin 75mg",
+                    GenericName = "Aspirin",
+                    Category = "Medicine",
+                    Form = "Tablet",
+                    Strength = "75mg",
+                    Unit = "Strip",
+                    Barcode = "501234567800",
+                    IsControlled = false,
+                    RequiresPrescription = true,
+                    ReorderLevel = 50,
+                    IsActive = true
+                };
+                _context.PharmacyItems.Add(aspirinItem);
+
+                var warfarinItem = new PharmacyItem
+                {
+                    Id = warfarinItemId,
+                    TenantId = defaultTenantId,
+                    ItemCode = "WAR-5",
+                    ItemName = "Warfarin 5mg",
+                    GenericName = "Warfarin",
+                    Category = "Medicine",
+                    Form = "Tablet",
+                    Strength = "5mg",
+                    Unit = "Strip",
+                    Barcode = "501234567801",
+                    IsControlled = false,
+                    RequiresPrescription = true,
+                    ReorderLevel = 50,
+                    IsActive = true
+                };
+                _context.PharmacyItems.Add(warfarinItem);
+
                 // 34. PharmacyBatch (1 record)
                 var pharmacyBatch = new PharmacyBatch
                 {
@@ -850,6 +1094,40 @@ namespace CareSphere.Infrastructure
                     IsActive = true
                 };
                 _context.PharmacyBatches.Add(pharmacyBatch);
+
+                var aspirinBatch = new PharmacyBatch
+                {
+                    Id = aspirinBatchId,
+                    TenantId = defaultTenantId,
+                    ItemId = aspirinItemId,
+                    BatchNumber = "BAT-ASP-75",
+                    SupplierId = supplierId,
+                    ManufactureDate = DateTime.UtcNow.AddMonths(-3),
+                    ExpiryDate = DateTime.UtcNow.AddYears(2),
+                    PurchasePrice = 8.00m,
+                    SellingPrice = 10.00m,
+                    CurrentStock = 300,
+                    ReservedStock = 0,
+                    IsActive = true
+                };
+                _context.PharmacyBatches.Add(aspirinBatch);
+
+                var warfarinBatch = new PharmacyBatch
+                {
+                    Id = warfarinBatchId,
+                    TenantId = defaultTenantId,
+                    ItemId = warfarinItemId,
+                    BatchNumber = "BAT-WAR-01",
+                    SupplierId = supplierId,
+                    ManufactureDate = DateTime.UtcNow.AddMonths(-3),
+                    ExpiryDate = DateTime.UtcNow.AddYears(2),
+                    PurchasePrice = 25.00m,
+                    SellingPrice = 35.00m,
+                    CurrentStock = 200,
+                    ReservedStock = 0,
+                    IsActive = true
+                };
+                _context.PharmacyBatches.Add(warfarinBatch);
 
                 // 35. PurchaseOrder (1 record)
                 var purchaseOrder = new PurchaseOrder

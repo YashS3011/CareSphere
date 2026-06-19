@@ -13,6 +13,7 @@
 @inject IPaymentService PaymentService
 @inject ApplicationDbContext DbContext
 @inject IJSRuntime JSRuntime
+@inject CareSphere.Authorization.TabIsolatedAuthenticationStateProvider AuthStateProvider
 
 <div class="modal fade show" style="display: block; background: rgba(0,0,0,0.5);" tabindex="-1">
     <div class="modal-dialog modal-md">
@@ -181,6 +182,7 @@
 
     protected override async Task OnInitializedAsync()
     {
+        await AuthStateProvider.GetAuthenticationStateAsync();
         paymentAmount = OutstandingBalance;
         objRef = DotNetObjectReference.Create(this);
 

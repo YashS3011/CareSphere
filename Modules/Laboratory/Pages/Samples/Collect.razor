@@ -7,6 +7,8 @@
 @inject ILabRequisitionService RequisitionService
 @inject ILabSampleService SampleService
 @inject NavigationManager NavigationManager
+@inject CareSphere.Authorization.TabIsolatedAuthenticationStateProvider AuthStateProvider
+@inject ITenantContext TenantContext
 @rendermode InteractiveServer
 
 <PageTitle>Record Sample Collection - CareSphere</PageTitle>
@@ -135,6 +137,7 @@
     private LabRequisition? requisition;
     private LabSample sampleModel = new() { TenantId = Guid.Empty, CollectedByUserId = "system" };
     private DateTime collectedAtLocal = DateTime.Now;
+    private string userId = "system";
 
     private bool showScanner = false;
     private bool isSubmitting = false;
@@ -144,6 +147,11 @@
     {
         try
         {
+            var authState = await AuthStateProvider.GetAuthenticationStateAsync();
+            userId = authState.User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value 
+                     ?? authState.User.FindFirst("sub")?.Value 
+                     ?? "system";
+            sampleModel.TenantId = TenantContext.TenantId;
             loading = true;
             requisition = await RequisitionService.GetRequisitionByIdAsync(id);
             if (requisition != null)
@@ -197,10 +205,10 @@
             errorMessage = string.Empty;
 
             await SampleService.RecordSampleCollectionAsync(
-                Guid.Empty,
+                TenantContext.TenantId,
                 id,
                 sampleModel.SampleType,
-                "system",
+                userId,
                 sampleModel.BarcodeLabel,
                 sampleModel.Notes,
                 collectedAtLocal

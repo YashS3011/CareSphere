@@ -13,6 +13,7 @@
 @using Microsoft.JSInterop
 @inject IClaimService ClaimService
 @inject IJSRuntime JSRuntime
+@inject CareSphere.Authorization.TabIsolatedAuthenticationStateProvider AuthStateProvider
 @rendermode InteractiveServer
 
 <PageTitle>Claim Details - CareSphere</PageTitle>
@@ -289,6 +290,7 @@
 
     protected override async Task OnInitializedAsync()
     {
+        await AuthStateProvider.GetAuthenticationStateAsync();
         await LoadClaimDetails();
     }
 

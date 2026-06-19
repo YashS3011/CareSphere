@@ -1,4 +1,4 @@
-@page "/lab/catalog/edit/{id:guid}"
+@page "/laboratory/catalog/edit/{id:guid}"
 @attribute [Microsoft.AspNetCore.Authorization.Authorize(Policy = PolicyNames.Permission_Lab_ViewReports)]
 @using CareSphere.Models
 @using CareSphere.Modules.Clinical.Services
@@ -22,7 +22,7 @@
 <div class="container py-4" style="max-width: 900px;">
     <!-- Back Link -->
     <div class="mb-3">
-        <a href="/lab/catalog" class="btn btn-link p-0 text-decoration-none link-secondary small">
+        <a href="/laboratory/catalog" class="btn btn-link p-0 text-decoration-none link-secondary small">
             <i class="bi bi-arrow-left"></i> Back to Test Catalog
         </a>
     </div>
@@ -221,7 +221,7 @@
                     }
                     Save Catalog
                 </button>
-                <a href="/lab/catalog" class="btn btn-light px-4">Cancel</a>
+                <a href="/laboratory/catalog" class="btn btn-light px-4">Cancel</a>
             </div>
         </EditForm>
     }
@@ -342,7 +342,7 @@
                 }
             }
 
-            NavigationManager.NavigateTo("/lab/catalog");
+            NavigationManager.NavigateTo("/laboratory/catalog");
         }
         catch (Exception ex)
         {

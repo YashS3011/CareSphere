@@ -223,8 +223,6 @@ D:\CareSphere\obj\Debug\net10.0\compressed\kolqglm4pr-{0}-u9q1upor1n-u9q1upor1n.
 D:\CareSphere\obj\Debug\net10.0\compressed\ppb5jq8446-{0}-h1s4sie4z3-h1s4sie4z3.gz
 D:\CareSphere\obj\Debug\net10.0\compressed\lo6oz9e3ub-{0}-4d85u1mtcx-4d85u1mtcx.gz
 D:\CareSphere\obj\Debug\net10.0\compressed\sve89tpc8z-{0}-0j3bgjxly4-0j3bgjxly4.gz
-D:\CareSphere\obj\Debug\net10.0\compressed\mfuuwe67di-{0}-wslu3rzd45-wslu3rzd45.gz
-D:\CareSphere\obj\Debug\net10.0\compressed\ajdfzskxy7-{0}-wslu3rzd45-wslu3rzd45.gz
 D:\CareSphere\obj\Debug\net10.0\staticwebassets.build.json
 D:\CareSphere\obj\Debug\net10.0\staticwebassets.build.json.cache
 D:\CareSphere\obj\Debug\net10.0\staticwebassets.development.json
@@ -239,3 +237,18 @@ D:\CareSphere\obj\Debug\net10.0\ref\CareSphere.dll
 D:\CareSphere\bin\Debug\net10.0\Microsoft.EntityFrameworkCore.InMemory.dll
 D:\CareSphere\obj\Debug\net10.0\compressed\q0vlpy1grk-{0}-ne14ti1q68-ne14ti1q68.gz
 D:\CareSphere\obj\Debug\net10.0\compressed\op49qy57it-{0}-ig5xotzpx5-ig5xotzpx5.gz
+D:\CareSphere\obj\Debug\net10.0\scopedcss\Modules\Clinical\Layout\ClinicalLayout.razor.rz.scp.css
+D:\CareSphere\obj\Debug\net10.0\scopedcss\Modules\Patients\Layout\PatientsLayout.razor.rz.scp.css
+D:\CareSphere\obj\Debug\net10.0\scopedcss\Modules\Ward\Layout\WardLayout.razor.rz.scp.css
+D:\CareSphere\obj\Debug\net10.0\scopedcss\Areas\PlatformAdmin\Layout\PlatformAdminLayout.razor.rz.scp.css
+D:\CareSphere\obj\Debug\net10.0\scopedcss\Modules\Admin\Layout\AdminLayout.razor.rz.scp.css
+D:\CareSphere\obj\Debug\net10.0\scopedcss\Modules\Analytics\Layout\AnalyticsLayout.razor.rz.scp.css
+D:\CareSphere\obj\Debug\net10.0\scopedcss\Modules\Appointments\Layout\AppointmentsLayout.razor.rz.scp.css
+D:\CareSphere\obj\Debug\net10.0\scopedcss\Modules\Billing\Layout\BillingLayout.razor.rz.scp.css
+D:\CareSphere\obj\Debug\net10.0\scopedcss\Modules\Laboratory\Layout\LaboratoryLayout.razor.rz.scp.css
+D:\CareSphere\obj\Debug\net10.0\scopedcss\Modules\Notifications\Layout\NotificationsLayout.razor.rz.scp.css
+D:\CareSphere\obj\Debug\net10.0\scopedcss\Modules\Nursing\Layout\NursingLayout.razor.rz.scp.css
+D:\CareSphere\obj\Debug\net10.0\scopedcss\Modules\Pharmacy\Layout\PharmacyLayout.razor.rz.scp.css
+D:\CareSphere\obj\Debug\net10.0\compressed\mfuuwe67di-{0}-9hjcuhp7f8-9hjcuhp7f8.gz
+D:\CareSphere\obj\Debug\net10.0\compressed\ajdfzskxy7-{0}-9hjcuhp7f8-9hjcuhp7f8.gz
+D:\CareSphere\obj\Debug\net10.0\compressed\yzdcvmnpv3-{0}-nwe7bbhb6e-nwe7bbhb6e.gz

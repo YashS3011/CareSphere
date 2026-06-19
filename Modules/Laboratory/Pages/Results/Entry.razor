@@ -8,6 +8,8 @@
 @inject ILabResultService ResultService
 @inject ApplicationDbContext DbContext
 @inject NavigationManager NavigationManager
+@inject CareSphere.Authorization.TabIsolatedAuthenticationStateProvider AuthStateProvider
+@inject ITenantContext TenantContext
 @rendermode InteractiveServer
 
 <PageTitle>Enter Lab Results - CareSphere</PageTitle>
@@ -95,11 +97,11 @@
                                     @if (param.DataType == "Numeric")
                                     {
                                         <input type="number" step="0.01" class="form-control form-control-sm" placeholder="Numeric value" 
-                                               @bind="resultRow.ResultNumericStr" @bind:after="() => OnNumericValueInput(pId)" />
+                                               @bind="resultRow.ResultNumericStr" @bind:after="() => OnNumericValueInput(pId)" disabled="@(requisitionItem.Status == "Completed")" />
                                     }
                                     else if (param.DataType == "Boolean")
                                     {
-                                        <select class="form-select form-select-sm" @bind="resultRow.ResultValue">
+                                        <select class="form-select form-select-sm" @bind="resultRow.ResultValue" disabled="@(requisitionItem.Status == "Completed")">
                                             <option value="">Select Option</option>
                                             <option value="Positive">Positive</option>
                                             <option value="Negative">Negative</option>
@@ -108,7 +110,7 @@
                                     else
                                     {
                                         <input type="text" class="form-control form-control-sm" placeholder="Text value" 
-                                               @bind="resultRow.ResultValue" />
+                                               @bind="resultRow.ResultValue" disabled="@(requisitionItem.Status == "Completed")" />
                                     }
                                 </td>
                                 <td class="text-center">
@@ -135,32 +137,43 @@
         <div class="card border-0 shadow-sm rounded-4 mb-4">
             <div class="card-body p-4">
                 <label class="form-label fw-semibold text-muted small">Notes / Observations</label>
-                <textarea class="form-control" rows="3" placeholder="Enter notes or laboratory observations..." @bind="generalNotes"></textarea>
+                <textarea class="form-control" rows="3" placeholder="Enter notes or laboratory observations..." @bind="generalNotes" disabled="@(requisitionItem.Status == "Completed")"></textarea>
             </div>
         </div>
 
         <!-- Actions -->
-        <div class="d-flex gap-2">
-            <button type="button" class="btn btn-primary px-4 shadow-sm" @onclick="SaveResults" disabled="@isSaving">
-                @if (isSaving)
-                {
-                    <span class="spinner-border spinner-border-sm me-1"></span>
-                }
-                Save Results
-            </button>
-
-            @if (allSaved)
+        <div class="d-flex gap-2 align-items-center">
+            @if (requisitionItem.Status != "Completed")
             {
-                <button type="button" class="btn btn-success px-4 shadow-sm" @onclick="VerifyResults" disabled="@isVerifying">
-                    @if (isVerifying)
+                <button type="button" class="btn btn-primary px-4 shadow-sm" @onclick="SaveResults" disabled="@isSaving">
+                    @if (isSaving)
                     {
                         <span class="spinner-border spinner-border-sm me-1"></span>
                     }
-                    Verify Results
+                    Save Results
                 </button>
+
+                @if (allSaved)
+                {
+                    <button type="button" class="btn btn-success px-4 shadow-sm" @onclick="VerifyResults" disabled="@isVerifying">
+                        @if (isVerifying)
+                        {
+                            <span class="spinner-border spinner-border-sm me-1"></span>
+                        }
+                        Verify Results
+                    </button>
+                }
+            }
+            else
+            {
+                <span class="badge bg-success-subtle text-success fs-7 px-3 py-2 d-flex align-items-center">
+                    <i class="bi bi-check-circle-fill me-1"></i> Results Completed & Verified
+                </span>
             }
 
-            <a href="/laboratory/requisitions/@requisitionItem.RequisitionId" class="btn btn-light px-4">Cancel</a>
+            <a href="/laboratory/requisitions/@requisitionItem.RequisitionId" class="btn btn-light px-4">
+                @(requisitionItem.Status == "Completed" ? "Back" : "Cancel")
+            </a>
         </div>
     }
 </div>
@@ -182,6 +195,7 @@
     private bool isVerifying = false;
     private string successMessage = string.Empty;
     private string errorMessage = string.Empty;
+    private string userId = "system";
 
     public class ResultInputModel
     {
@@ -196,6 +210,10 @@
     {
         try
         {
+            var authState = await AuthStateProvider.GetAuthenticationStateAsync();
+            userId = authState.User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value 
+                     ?? authState.User.FindFirst("sub")?.Value 
+                     ?? "system";
             loading = true;
 
             requisitionItem = await DbContext.LabRequisitionItems
@@ -359,7 +377,7 @@
                     row.ResultValue,
                     row.ResultNumeric,
                     generalNotes,
-                    "system" // TODO: replace with logged in user
+                    userId
                 );
 
                 row.ResultId = created.Id;
@@ -393,7 +411,7 @@
                 var row = parameterResults[param.Id];
                 if (row.ResultId != Guid.Empty)
                 {
-                    await ResultService.VerifyResultAsync(row.ResultId, "system"); // TODO: replace with logged in user
+                    await ResultService.VerifyResultAsync(row.ResultId, userId);
                 }
             }
 

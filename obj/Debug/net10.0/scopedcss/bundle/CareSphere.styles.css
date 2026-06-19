@@ -1,3 +1,7 @@
+/* /Areas/PlatformAdmin/Layout/PlatformAdminLayout.razor.rz.scp.css */
+.layout-container[b-xgk6r7lapq] {
+    --module-accent: #ffc107; /* PlatformAdmin: amber */
+}
 /* /Components/Layout/MainLayout.razor.rz.scp.css */
 .page[b-mw4qjunh9v] {
     position: relative;
@@ -151,4 +155,48 @@ main[b-mw4qjunh9v] {
         height: calc(100vh - 3.5rem);
         overflow-y: auto;
     }
+}
+/* /Modules/Admin/Layout/AdminLayout.razor.rz.scp.css */
+.layout-container[b-o0kcoqn7xm] {
+    --module-accent: #495057; /* Admin: slate/dark */
+}
+/* /Modules/Analytics/Layout/AnalyticsLayout.razor.rz.scp.css */
+.layout-container[b-cyrads4700] {
+    --module-accent: #0a58ca; /* Analytics: deep blue */
+}
+/* /Modules/Appointments/Layout/AppointmentsLayout.razor.rz.scp.css */
+.layout-container[b-s6gszbiy6u] {
+    --module-accent: #d63384; /* Appointments: pink */
+}
+/* /Modules/Billing/Layout/BillingLayout.razor.rz.scp.css */
+.layout-container[b-hcbkjqzl2a] {
+    --module-accent: #198754; /* Billing: green */
+}
+/* /Modules/Clinical/Layout/ClinicalLayout.razor.rz.scp.css */
+.layout-container[b-ropmwovzn5] {
+    --module-accent: #6610f2; /* Clinical: indigo */
+}
+/* /Modules/Laboratory/Layout/LaboratoryLayout.razor.rz.scp.css */
+.layout-container[b-g84tcyaxli] {
+    --module-accent: #6f42c1; /* Laboratory: purple */
+}
+/* /Modules/Notifications/Layout/NotificationsLayout.razor.rz.scp.css */
+.layout-container[b-ubjudfwxh1] {
+    --module-accent: #fd7e14; /* Notifications: orange */
+}
+/* /Modules/Nursing/Layout/NursingLayout.razor.rz.scp.css */
+.layout-container[b-hk6p8ygoqa] {
+    --module-accent: #dc3545; /* Nursing: red/rose */
+}
+/* /Modules/Patients/Layout/PatientsLayout.razor.rz.scp.css */
+.layout-container[b-69s2oj5m2h] {
+    --module-accent: #0d6efd; /* Patients: blue */
+}
+/* /Modules/Pharmacy/Layout/PharmacyLayout.razor.rz.scp.css */
+.layout-container[b-wlrqk9dclp] {
+    --module-accent: #0dcaf0; /* Pharmacy: cyan */
+}
+/* /Modules/Ward/Layout/WardLayout.razor.rz.scp.css */
+.layout-container[b-rkrbfjjd5k] {
+    --module-accent: #20c997; /* Ward: teal */
 }

@@ -45,6 +45,29 @@ namespace CareSphere.Modules.Pharmacy.Services
             item.IsActive = true;
 
             _context.PharmacyItems.Add(item);
+
+            if (item.Category == "Medicine")
+            {
+                var formularyExists = await _context.DrugFormulary.AnyAsync(f => f.TenantId == item.TenantId && f.DrugCode.ToLower() == item.ItemCode.ToLower());
+                if (!formularyExists)
+                {
+                    var formulary = new DrugFormulary
+                    {
+                        Id = Guid.NewGuid(),
+                        TenantId = item.TenantId,
+                        DrugCode = item.ItemCode,
+                        GenericName = item.GenericName ?? item.ItemName,
+                        BrandName = item.ItemName,
+                        Form = item.Form ?? "Tablet",
+                        Strength = item.Strength ?? "N/A",
+                        Unit = item.Unit ?? "Tablet",
+                        IsControlled = item.IsControlled,
+                        IsActive = item.IsActive
+                    };
+                    _context.DrugFormulary.Add(formulary);
+                }
+            }
+
             await _context.SaveChangesAsync();
 
             await _auditService.LogAsync(new AuditEvent
@@ -150,6 +173,8 @@ namespace CareSphere.Modules.Pharmacy.Services
                     throw new InvalidOperationException($"Pharmacy Item with barcode '{item.Barcode}' already exists.");
             }
 
+            var oldItemCode = existing.ItemCode;
+
             existing.ItemCode = item.ItemCode;
             existing.ItemName = item.ItemName;
             existing.GenericName = item.GenericName;
@@ -164,6 +189,46 @@ namespace CareSphere.Modules.Pharmacy.Services
             existing.IsActive = item.IsActive;
 
             _context.PharmacyItems.Update(existing);
+
+            if (item.Category == "Medicine")
+            {
+                var formulary = await _context.DrugFormulary.FirstOrDefaultAsync(f => f.TenantId == item.TenantId && f.DrugCode.ToLower() == oldItemCode.ToLower());
+                if (formulary == null)
+                {
+                    formulary = await _context.DrugFormulary.FirstOrDefaultAsync(f => f.TenantId == item.TenantId && f.DrugCode.ToLower() == item.ItemCode.ToLower());
+                }
+
+                if (formulary == null)
+                {
+                    formulary = new DrugFormulary
+                    {
+                        Id = Guid.NewGuid(),
+                        TenantId = item.TenantId,
+                        DrugCode = item.ItemCode,
+                        GenericName = item.GenericName ?? item.ItemName,
+                        BrandName = item.ItemName,
+                        Form = item.Form ?? "Tablet",
+                        Strength = item.Strength ?? "N/A",
+                        Unit = item.Unit ?? "Tablet",
+                        IsControlled = item.IsControlled,
+                        IsActive = item.IsActive
+                    };
+                    _context.DrugFormulary.Add(formulary);
+                }
+                else
+                {
+                    formulary.DrugCode = item.ItemCode;
+                    formulary.GenericName = item.GenericName ?? item.ItemName;
+                    formulary.BrandName = item.ItemName;
+                    formulary.Form = item.Form ?? "Tablet";
+                    formulary.Strength = item.Strength ?? "N/A";
+                    formulary.Unit = item.Unit ?? "Tablet";
+                    formulary.IsControlled = item.IsControlled;
+                    formulary.IsActive = item.IsActive;
+                    _context.DrugFormulary.Update(formulary);
+                }
+            }
+
             await _context.SaveChangesAsync();
 
             await _auditService.LogAsync(new AuditEvent

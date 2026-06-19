@@ -6,53 +6,52 @@
 @inject IPatientReadModel PatientReadModel
 @inject TabIsolatedAuthenticationStateProvider AuthStateProvider
 @inject NavigationManager NavigationManager
+@using Microsoft.EntityFrameworkCore
 
 <PageTitle>Medication Administration Record (MAR) - CareSphere</PageTitle>
 
-<div class="container py-4 animate-fade-in">
-    <!-- Header -->
-    <div class="row mb-4">
-        <div class="col-12">
-            <div class="card bg-dark text-white border-0 shadow">
-                <div class="card-body p-4 d-flex justify-content-between align-items-center">
-                    <div>
-                        <h1 class="h3 mb-1 fw-bold"><i class="bi bi-capsule me-2 text-info"></i>Medication Administration (MAR)</h1>
-                        <p class="text-light opacity-75 mb-0">Record and track patient medication doses, skipped administrations, or refusals</p>
-                    </div>
-                    <div>
-                        <a href="/nursing" class="btn btn-outline-light">
-                            <i class="bi bi-arrow-left me-2"></i>Dashboard
-                        </a>
-                    </div>
-                </div>
+<div class="page-header">
+    <div class="page-header-content">
+        <div class="page-title-group">
+            <div class="page-icon"><i class="bi bi-capsule"></i></div>
+            <div>
+                <h1 class="page-title">Medication Administration (MAR)</h1>
+                <p class="page-subtitle">Record and track patient medication doses, skipped administrations, or refusals</p>
             </div>
         </div>
+        <div class="page-actions">
+            <a href="/nursing" class="btn btn-outline-secondary">
+                <i class="bi bi-arrow-left me-1"></i> Dashboard
+            </a>
+        </div>
     </div>
+</div>
 
-    @if (!string.IsNullOrEmpty(successMessage))
-    {
-        <div class="alert alert-success alert-dismissible fade show border-0 shadow-sm mb-4" role="alert">
-            <i class="bi bi-check-circle-fill me-2"></i>@successMessage
-            <button type="button" class="btn-close" @onclick="() => successMessage = null"></button>
-        </div>
-    }
+@if (!string.IsNullOrEmpty(successMessage))
+{
+    <div class="alert alert-success alert-dismissible fade show border-0 shadow-sm mb-4" role="alert">
+        <i class="bi bi-check-circle-fill me-2"></i>@successMessage
+        <button type="button" class="btn-close" @onclick="() => successMessage = null"></button>
+    </div>
+}
 
-    @if (!string.IsNullOrEmpty(errorMessage))
-    {
-        <div class="alert alert-danger alert-dismissible fade show border-0 shadow-sm mb-4" role="alert">
-            <i class="bi bi-x-circle-fill me-2"></i>@errorMessage
-            <button type="button" class="btn-close" @onclick="() => errorMessage = null"></button>
-        </div>
-    }
+@if (!string.IsNullOrEmpty(errorMessage))
+{
+    <div class="alert alert-danger alert-dismissible fade show border-0 shadow-sm mb-4" role="alert">
+        <i class="bi bi-x-circle-fill me-2"></i>@errorMessage
+        <button type="button" class="btn-close" @onclick="() => errorMessage = null"></button>
+    </div>
+}
 
-    <div class="row g-4">
-        <!-- Patient Selector and Active Prescriptions -->
-        <div class="col-lg-7">
-            <!-- Patient Selector -->
-            <div class="card border-0 shadow-sm p-4 bg-white mb-4">
+<div class="row g-4">
+    <!-- Patient Selector and Active Prescriptions -->
+    <div class="col-lg-7">
+        <!-- Patient Selector -->
+        <div class="content-card mb-4">
+            <div class="content-card-body p-4">
                 <h5 class="fw-bold mb-3 text-dark"><i class="bi bi-person-fill text-primary me-2"></i>Select Patient</h5>
                 <div class="mb-3">
-                    <select class="form-select form-select-lg" @onchange="OnPatientChanged" value="@selectedPatientIdString">
+                    <select class="form-select form-select-lg text-dark" @onchange="OnPatientChanged" value="@selectedPatientIdString">
                         <option value="">-- Choose Admitted Patient --</option>
                         @foreach (var adm in activeAdmissions)
                         {
@@ -65,38 +64,41 @@
 
                 @if (selectedPatient != null)
                 {
-                    <div class="bg-light p-3 rounded-3 mt-2">
+                    <div class="bg-light p-3 rounded-3 mt-2 border border-light-subtle">
                         <div class="row">
                             <div class="col-6">
-                                <small class="text-secondary d-block">Patient Name</small>
+                                <small class="text-muted d-block small">Patient Name</small>
                                 <strong class="text-dark">@selectedPatient.FullName</strong>
                             </div>
                             <div class="col-6">
-                                <small class="text-secondary d-block">MRN</small>
-                                <strong class="text-dark">@selectedPatient.MRN</strong>
+                                <small class="text-muted d-block small">MRN</small>
+                                <strong class="text-dark font-monospace">@selectedPatient.MRN</strong>
                             </div>
                         </div>
                     </div>
                 }
             </div>
+        </div>
 
-            <!-- Active Prescriptions -->
-            @if (selectedPatient != null)
-            {
-                <div class="card border-0 shadow-sm p-4 bg-white mb-4">
-                    <h5 class="fw-bold mb-4 text-dark"><i class="bi bi-prescription text-primary me-2"></i>Active Prescriptions</h5>
-                    
+        <!-- Active Prescriptions -->
+        @if (selectedPatient != null)
+        {
+            <div class="content-card mb-4">
+                <div class="content-card-header">
+                    <h5 class="content-card-title"><i class="bi bi-prescription text-primary me-2"></i>Active Prescriptions</h5>
+                </div>
+                <div class="content-card-body p-4">
                     @if (rxLoading)
                     {
-                        <div class="d-flex align-items-center py-4">
-                            <div class="spinner-border text-primary me-3" role="status"></div>
-                            <span class="text-secondary">Loading patient prescriptions...</span>
+                        <div class="loading-state py-4">
+                            <div class="spinner-border text-primary" role="status"></div>
+                            <p class="mt-3 text-muted">Loading patient prescriptions...</p>
                         </div>
                     }
                     else if (activePrescriptions.Count == 0)
                     {
-                        <div class="alert alert-info border-0 mb-0">
-                            <i class="bi bi-info-circle me-2"></i>No active prescriptions found for this patient.
+                        <div class="loading-state py-4">
+                            <p class="text-muted mb-0">No active prescriptions found for this patient.</p>
                         </div>
                     }
                     else
@@ -104,7 +106,7 @@
                         <div class="d-flex flex-column gap-3">
                             @foreach (var rx in activePrescriptions)
                             {
-                                <div class="card border shadow-sm p-3">
+                                <div class="card border border-light-subtle shadow-sm p-3 rounded-3">
                                     <div class="d-flex justify-content-between align-items-start">
                                         <div>
                                             <h6 class="fw-bold text-dark mb-1"><i class="bi bi-droplet-half text-info me-1"></i>@rx.DrugName</h6>
@@ -122,7 +124,7 @@
                                             }
                                             else
                                             {
-                                                <button class="btn btn-sm btn-primary" @onclick="() => StartAdminister(rx)">
+                                                <button class="btn btn-sm btn-primary shadow-sm" @onclick="() => StartAdminister(rx)">
                                                     <i class="bi bi-plus-lg"></i> Administer
                                                 </button>
                                             }
@@ -132,37 +134,37 @@
                                     <!-- Administration Inline Form -->
                                     @if (activeRxIdToAdminister == rx.Id)
                                     {
-                                        <div class="mt-3 p-3 bg-light rounded border border-info animate-fade-in">
+                                        <div class="mt-3 p-3 bg-light rounded-3 border border-info-subtle animate-fade-in">
                                             <h6 class="fw-bold text-info mb-3"><i class="bi bi-pencil-square me-1"></i>Record Administration Details</h6>
                                             
                                             <form @onsubmit="SaveAdministration">
                                                 <div class="row g-3 mb-3">
                                                     <div class="col-md-4">
-                                                        <label class="form-label small fw-bold">Status</label>
-                                                        <select class="form-select form-select-sm" @bind="newMAR.Status" @bind:after="OnStatusChanged" required>
+                                                        <label class="form-label small fw-bold text-dark">Status</label>
+                                                        <select class="form-select form-select-sm text-dark" @bind="newMAR.Status" @bind:after="OnStatusChanged" required>
                                                             <option value="Administered">Administered</option>
                                                             <option value="Skipped">Skipped</option>
                                                             <option value="Refused">Refused</option>
                                                         </select>
                                                     </div>
                                                     <div class="col-md-4">
-                                                        <label class="form-label small fw-bold">Dose Given</label>
-                                                        <input type="number" step="0.01" class="form-control form-control-sm" @bind="newMAR.DoseGiven" required disabled="@(newMAR.Status != "Administered")" />
+                                                        <label class="form-label small fw-bold text-dark">Dose Given</label>
+                                                        <input type="number" step="0.01" class="form-control form-control-sm text-dark" @bind="newMAR.DoseGiven" required disabled="@(newMAR.Status != "Administered")" />
                                                     </div>
                                                     <div class="col-md-4">
-                                                        <label class="form-label small fw-bold">Dose Unit</label>
-                                                        <input type="text" class="form-control form-control-sm" @bind="newMAR.DoseUnit" placeholder="e.g. mg, ml, tablet" required disabled="@(newMAR.Status != "Administered")" />
+                                                        <label class="form-label small fw-bold text-dark">Dose Unit</label>
+                                                        <input type="text" class="form-control form-control-sm text-dark" @bind="newMAR.DoseUnit" placeholder="e.g. mg, ml, tablet" required disabled="@(newMAR.Status != "Administered")" />
                                                     </div>
                                                 </div>
 
                                                 <div class="row g-3 mb-3">
                                                     <div class="col-md-6">
-                                                        <label class="form-label small fw-bold">Route</label>
-                                                        <input type="text" class="form-control form-control-sm" @bind="newMAR.Route" placeholder="e.g. Oral, IV" required />
+                                                        <label class="form-label small fw-bold text-dark">Route</label>
+                                                        <input type="text" class="form-control form-control-sm text-dark" @bind="newMAR.Route" placeholder="e.g. Oral, IV" required />
                                                     </div>
                                                     <div class="col-md-6">
-                                                        <label class="form-label small fw-bold">Administered At</label>
-                                                        <input type="datetime-local" class="form-control form-control-sm" value="@administeredAtString" @onchange="OnAdministeredAtChanged" required />
+                                                        <label class="form-label small fw-bold text-dark">Administered At</label>
+                                                        <input type="datetime-local" class="form-control form-control-sm text-dark" value="@administeredAtString" @onchange="OnAdministeredAtChanged" required />
                                                     </div>
                                                 </div>
 
@@ -170,13 +172,13 @@
                                                 {
                                                     <div class="mb-3">
                                                         <label class="form-label small fw-bold text-danger">Reason for Skip/Refusal</label>
-                                                        <input type="text" class="form-control form-control-sm border-danger" @bind="newMAR.SkipReason" placeholder="Enter clinical reason..." required />
+                                                        <input type="text" class="form-control form-control-sm text-dark border-danger" @bind="newMAR.SkipReason" placeholder="Enter clinical reason..." required />
                                                     </div>
                                                 }
 
                                                 <div class="mb-3">
-                                                    <label class="form-label small fw-bold">Notes (Optional)</label>
-                                                    <textarea class="form-control form-control-sm" rows="2" @bind="newMAR.Notes" placeholder="Additional observations..."></textarea>
+                                                    <label class="form-label small fw-bold text-dark">Notes (Optional)</label>
+                                                    <textarea class="form-control form-control-sm text-dark" rows="2" @bind="newMAR.Notes" placeholder="Additional observations..."></textarea>
                                                 </div>
 
                                                 <div class="d-flex justify-content-end gap-2">
@@ -191,38 +193,44 @@
                         </div>
                     }
                 </div>
-            }
-            else
-            {
-                <div class="alert alert-warning border-0">
-                    <i class="bi bi-info-circle-fill me-2"></i>Please select a patient to load active prescriptions.
-                </div>
-            }
-        </div>
+            </div>
+        }
+        else
+        {
+            <div class="alert alert-warning border-0 shadow-sm mb-4">
+                <i class="bi bi-info-circle-fill me-2 text-warning"></i> Please select a patient to load active prescriptions.
+            </div>
+        }
+    </div>
 
-        <!-- MAR History Logs -->
-        <div class="col-lg-5">
-            <div class="card border-0 shadow-sm p-4 bg-white h-100">
-                <h5 class="fw-bold mb-4 text-dark"><i class="bi bi-clock-history text-primary me-2"></i>Medication Log History</h5>
-
+    <!-- MAR History Logs -->
+    <div class="col-lg-5">
+        <div class="content-card mb-4 h-100">
+            <div class="content-card-header">
+                <h5 class="content-card-title"><i class="bi bi-clock-history text-primary me-2"></i>Medication Log History</h5>
+            </div>
+            <div class="content-card-body p-4">
                 @if (selectedPatient == null)
                 {
-                    <div class="text-center py-5 text-muted">
-                        <i class="bi bi-capsule fs-1 d-block mb-3 opacity-25"></i>
-                        Select a patient to load administration logs
+                    <div class="loading-state py-5">
+                        <i class="bi bi-capsule text-muted display-4 mb-3 d-block"></i>
+                        <h5 class="fw-bold">No Patient Selected</h5>
+                        <p class="text-muted small">Select a patient to load administration logs.</p>
                     </div>
                 }
                 else if (historyLoading)
                 {
-                    <div class="d-flex align-items-center py-4">
-                        <div class="spinner-border text-primary me-3" role="status"></div>
-                        <span class="text-secondary">Loading history logs...</span>
+                    <div class="loading-state py-5">
+                        <div class="spinner-border text-primary" role="status"></div>
+                        <p class="mt-3 text-muted">Loading history logs...</p>
                     </div>
                 }
                 else if (marHistory.Count == 0)
                 {
-                    <div class="alert alert-light border text-center py-4 mb-0">
-                        <i class="bi bi-info-circle-fill me-2 text-muted"></i>No medication records logged yet for @selectedPatient.FullName.
+                    <div class="loading-state py-5">
+                        <i class="bi bi-capsule text-muted display-4 mb-3 d-block"></i>
+                        <h5 class="fw-bold">No Records Found</h5>
+                        <p class="text-muted small">No medication records logged yet for @selectedPatient.FullName.</p>
                     </div>
                 }
                 else
@@ -231,7 +239,7 @@
                         @foreach (var log in marHistory)
                         {
                             var rxDrug = activePrescriptions.FirstOrDefault(r => r.Id == log.PrescriptionId)?.DrugName ?? "Prescription Med";
-                            <div class="card border shadow-sm p-3">
+                            <div class="card border border-light-subtle shadow-sm p-3 bg-light-subtle rounded-3">
                                 <div class="d-flex justify-content-between align-items-center mb-2">
                                     <h6 class="fw-bold text-dark mb-0">@rxDrug</h6>
                                     <span class="@GetStatusClass(log.Status)">@log.Status</span>
@@ -243,16 +251,16 @@
                                     }
                                     else
                                     {
-                                        <span class="text-danger"><strong>Reason:</strong> @log.SkipReason</span>
+                                        <span class="text-danger fw-semibold"><strong>Reason:</strong> @log.SkipReason</span>
                                     }
                                 </div>
                                 <div class="d-flex justify-content-between align-items-center mt-2 pt-2 border-top">
-                                    <small class="text-muted"><i class="bi bi-person text-muted"></i> Nurse ID: @log.NurseUserId</small>
-                                    <small class="text-secondary"><i class="bi bi-clock"></i> @log.AdministeredAt.ToLocalTime().ToString("dd MMM, hh:mm tt")</small>
+                                    <small class="text-muted"><i class="bi bi-person text-muted me-1"></i>Nurse: @log.NurseUserId</small>
+                                    <small class="text-secondary"><i class="bi bi-clock me-1"></i>@log.AdministeredAt.ToLocalTime().ToString("dd MMM, hh:mm tt")</small>
                                 </div>
                                 @if (!string.IsNullOrEmpty(log.Notes))
                                 {
-                                    <div class="small text-muted bg-light p-2 rounded mt-2">
+                                    <div class="small text-muted bg-light p-2 rounded-3 mt-2 border">
                                         <strong>Notes:</strong> @log.Notes
                                     </div>
                                 }
@@ -505,9 +513,9 @@
 
     private string GetStatusClass(string status) => status switch
     {
-        "Administered" => "badge bg-success text-white",
-        "Skipped" => "badge bg-warning text-dark",
-        "Refused" => "badge bg-danger text-white",
-        _ => "badge bg-secondary text-white"
+        "Administered" => "badge bg-success-subtle text-success border border-success-subtle",
+        "Skipped" => "badge bg-warning-subtle text-warning border border-warning-subtle",
+        "Refused" => "badge bg-danger-subtle text-danger border border-danger-subtle",
+        _ => "badge bg-secondary-subtle text-secondary border border-secondary-subtle"
     };
 }

@@ -8,38 +8,48 @@
 
 <PageTitle>Role Permissions — CareSphere</PageTitle>
 
-<h2 class="mb-4"><i class="bi bi-shield-lock me-2 text-primary"></i>Role Permissions</h2>
+<div class="page-header">
+    <div class="page-header-content">
+        <div class="page-title-group">
+            <div class="page-icon"><i class="bi bi-shield-lock-fill"></i></div>
+            <div>
+                <h1 class="page-title">Role Permissions</h1>
+                <p class="page-subtitle">Configure system security roles, permission levels, and module authorization settings</p>
+            </div>
+        </div>
+    </div>
+</div>
 
-<div class="row g-3 mb-4">
+<div class="row g-4 mb-4">
     @foreach (var role in AdminHelpers.GetAllRoles())
     {
         var roleName = role;
-        <div class="col-md-4 col-lg-3">
-            <div class="card border-0 shadow-sm h-100 position-relative">
-                <div class="card-body text-center">
-                    <div class="position-absolute top-0 end-0 m-2">
+        <div class="col-md-6 col-lg-3">
+            <div class="card border-0 shadow-sm h-100 position-relative overflow-hidden" style="transition: all 0.2s ease-in-out;">
+                <div class="card-body text-center p-4">
+                    <div class="position-absolute top-0 end-0 m-3">
                         @if (tenantStats != null && tenantStats.UserCountsByRole.TryGetValue(roleName, out var count))
                         {
-                            <span class="badge bg-light text-dark shadow-sm border" title="Users with this role">
+                            <span class="badge bg-light text-dark shadow-sm border px-2 py-1" title="Users with this role">
                                 <i class="bi bi-people-fill me-1 text-primary"></i>@count
                             </span>
                         }
                         else
                         {
-                            <span class="badge bg-light text-dark shadow-sm border" title="Users with this role">
+                            <span class="badge bg-light text-dark shadow-sm border px-2 py-1" title="Users with this role">
                                 <i class="bi bi-people-fill me-1 text-muted"></i>0
                             </span>
                         }
                     </div>
-                    <div class="rounded-circle d-inline-flex align-items-center justify-content-center mb-2 @AdminHelpers.GetRoleBgClass(roleName)"
-                         style="width: 48px; height: 48px;">
-                        <i class="bi @AdminHelpers.GetRoleIcon(roleName) text-white"></i>
+                    <div class="rounded-circle d-inline-flex align-items-center justify-content-center mb-3 @AdminHelpers.GetRoleBgClass(roleName)"
+                         style="width: 56px; height: 56px; box-shadow: 0 4px 10px rgba(0,0,0,0.05);">
+                        <i class="bi @AdminHelpers.GetRoleIcon(roleName) text-white fs-4"></i>
                     </div>
-                    <h6 class="fw-bold mb-1">@roleName</h6>
-                    <small class="text-muted">@AdminHelpers.GetRoleDescription(roleName)</small>
-                    <div class="mt-3">
-                        <button class="btn btn-sm btn-outline-primary w-100" @onclick="() => OpenRoleEditor(roleName)">
-                            <i class="bi bi-pencil-square me-1"></i>Manage
+                    <h5 class="fw-bold mb-1 text-dark">@roleName</h5>
+                    <p class="text-muted small mb-3 text-center" style="min-height: 40px; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden;">@AdminHelpers.GetRoleDescription(roleName)</p>
+                    <div class="mt-3 pt-2 border-top">
+                        <button class="btn btn-sm btn-outline-primary w-100 py-1.5" @onclick="() => OpenRoleEditor(roleName)">
+                            <i class="bi bi-gear-fill me-1"></i> Manage Permissions
                         </button>
                     </div>
                 </div>
@@ -50,43 +60,58 @@
 
 @if (!string.IsNullOrEmpty(selectedRole))
 {
-    <div class="card border-0 shadow">
-        <div class="card-header bg-white d-flex justify-content-between align-items-center">
-            <h5 class="mb-0"><i class="bi bi-shield-check me-2 text-primary"></i>Permissions: @selectedRole</h5>
+    <div class="content-card mb-4 shadow">
+        <div class="content-card-header d-flex justify-content-between align-items-center">
+            <h5 class="content-card-title"><i class="bi bi-shield-check me-2 text-primary"></i>Permissions: @selectedRole</h5>
             <button class="btn btn-sm btn-outline-secondary" @onclick='() => selectedRole = ""'>
                 <i class="bi bi-x-lg"></i>
             </button>
         </div>
-        <div class="card-body">
+        <div class="content-card-body p-4">
             @if (!string.IsNullOrEmpty(saveMessage))
             {
-                <div class="alert alert-@(saveSuccess ? "success" : "danger") d-flex align-items-center">
+                <div class="alert alert-@(saveSuccess ? "success" : "danger") d-flex align-items-center border-0 shadow-sm mb-4">
                     <i class="bi @(saveSuccess ? "bi-check-circle-fill" : "bi-exclamation-triangle-fill") me-2"></i>
-                    @saveMessage
+                    <div>@saveMessage</div>
                 </div>
             }
+            
             @foreach (var module in permissionModules)
             {
-                <h6 class="fw-bold text-secondary border-bottom pb-1 mt-3">@module.Key</h6>
-                <div class="row g-2 mb-2">
-                    @foreach (var perm in module.Value)
-                    {
-                        var p = perm;
-                        <div class="col-md-4">
-                            <div class="form-check">
-                                <input class="form-check-input" type="checkbox" id="role_perm_@perm.Replace('.','_')"
-                                       checked="@rolePermissionStates.GetValueOrDefault(perm, false)"
-                                       @onchange="e => rolePermissionStates[p] = (bool)e.Value!" />
-                                <label class="form-check-label small" for="role_perm_@perm.Replace('.','_')">@perm</label>
+                <div class="mb-4">
+                    <h6 class="fw-bold text-dark border-bottom pb-2 mb-3" style="font-size: 0.95rem;">
+                        <i class="bi bi-folder-fill text-muted me-2"></i>@module.Key
+                    </h6>
+                    <div class="row g-3">
+                        @foreach (var perm in module.Value)
+                        {
+                            var p = perm;
+                            <div class="col-md-6 col-lg-4">
+                                <div class="form-check p-3 rounded border bg-light-subtle h-100 d-flex align-items-center">
+                                    <input class="form-check-input ms-0 me-3" type="checkbox" id="role_perm_@perm.Replace('.','_')"
+                                           checked="@rolePermissionStates.GetValueOrDefault(perm, false)"
+                                           @onchange="e => rolePermissionStates[p] = (bool)e.Value!" style="width: 1.15em; height: 1.15em;" />
+                                    <label class="form-check-label small text-dark fw-semibold" for="role_perm_@perm.Replace('.','_')" style="cursor: pointer;">
+                                        @perm
+                                    </label>
+                                </div>
                             </div>
-                        </div>
-                    }
+                        }
+                    </div>
                 </div>
             }
-            <div class="mt-4 d-flex gap-2">
+            
+            <div class="mt-4 pt-3 border-top d-flex gap-2">
                 <button class="btn btn-primary" @onclick="SaveRolePermissions" disabled="@isSaving">
-                    @if (isSaving) { <span class="spinner-border spinner-border-sm me-2"></span> }
-                    <i class="bi bi-floppy me-2"></i>Save Permissions
+                    @if (isSaving)
+                    {
+                        <span class="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true"></span>
+                    }
+                    else
+                    {
+                        <i class="bi bi-floppy-fill me-2"></i>
+                    }
+                    Save Permissions
                 </button>
                 <button class="btn btn-outline-secondary" @onclick='() => selectedRole = ""'>Cancel</button>
             </div>

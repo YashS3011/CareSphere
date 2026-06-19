@@ -1,0 +1,374 @@
+@page "/billing/payments"
+@attribute [Microsoft.AspNetCore.Authorization.Authorize(Policy = PolicyNames.Permission_Billing_ViewInvoices)]
+@using Microsoft.EntityFrameworkCore
+@inject CareSphere.Data.ApplicationDbContext DbContext
+@inject CareSphere.Authorization.TabIsolatedAuthenticationStateProvider AuthStateProvider
+@inject NavigationManager NavigationManager
+@inject IJSRuntime JSRuntime
+@rendermode InteractiveServer
+
+<PageTitle>Payments - CareSphere</PageTitle>
+
+<div class="container-fluid py-4">
+    <!-- Header -->
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <div>
+            <h2 class="fw-bold text-primary mb-1">
+                <i class="bi bi-credit-card-fill me-2"></i>Payments Ledger
+            </h2>
+            <p class="text-muted mb-0">Monitor, filter, and track all incoming patient and insurance payments.</p>
+        </div>
+    </div>
+
+    <!-- Summary KPI Cards -->
+    <div class="row g-3 mb-4">
+        <div class="col-md-3">
+            <div class="card shadow-sm border-0 border-start border-success border-4 h-100">
+                <div class="card-body py-3">
+                    <div class="d-flex align-items-center">
+                        <div class="flex-shrink-0 bg-success-subtle text-success rounded-circle p-3 me-3" style="width: 50px; height: 50px; display: flex; align-items: center; justify-content: center;">
+                            <i class="bi bi-cash-coin fs-4"></i>
+                        </div>
+                        <div>
+                            <h6 class="text-uppercase text-muted fw-bold mb-1" style="font-size: 0.8rem;">Total Collections</h6>
+                            <h3 class="mb-0 fw-bold text-success">INR @totalCollected.ToString("N2")</h3>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card shadow-sm border-0 border-start border-primary border-4 h-100">
+                <div class="card-body py-3">
+                    <div class="d-flex align-items-center">
+                        <div class="flex-shrink-0 bg-primary-subtle text-primary rounded-circle p-3 me-3" style="width: 50px; height: 50px; display: flex; align-items: center; justify-content: center;">
+                            <i class="bi bi-receipt fs-4"></i>
+                        </div>
+                        <div>
+                            <h6 class="text-uppercase text-muted fw-bold mb-1" style="font-size: 0.8rem;">Total Payments</h6>
+                            <h3 class="mb-0 fw-bold">@totalCount</h3>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card shadow-sm border-0 border-start border-warning border-4 h-100">
+                <div class="card-body py-3">
+                    <div class="d-flex align-items-center">
+                        <div class="flex-shrink-0 bg-warning-subtle text-warning rounded-circle p-3 me-3" style="width: 50px; height: 50px; display: flex; align-items: center; justify-content: center;">
+                            <i class="bi bi-hourglass-split fs-4"></i>
+                        </div>
+                        <div>
+                            <h6 class="text-uppercase text-muted fw-bold mb-1" style="font-size: 0.8rem;">Pending Transactions</h6>
+                            <h3 class="mb-0 fw-bold text-warning">@pendingCount</h3>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card shadow-sm border-0 border-start border-danger border-4 h-100">
+                <div class="card-body py-3">
+                    <div class="d-flex align-items-center">
+                        <div class="flex-shrink-0 bg-danger-subtle text-danger rounded-circle p-3 me-3" style="width: 50px; height: 50px; display: flex; align-items: center; justify-content: center;">
+                            <i class="bi bi-exclamation-circle fs-4"></i>
+                        </div>
+                        <div>
+                            <h6 class="text-uppercase text-muted fw-bold mb-1" style="font-size: 0.8rem;">Pending Amount</h6>
+                            <h3 class="mb-0 fw-bold text-danger">INR @pendingAmount.ToString("N2")</h3>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Filters Section -->
+    <div class="card shadow-sm border-0 mb-4">
+        <div class="card-body">
+            <div class="row g-3">
+                <div class="col-md-5">
+                    <label class="form-label fw-semibold" style="font-size: 0.85rem;">Search</label>
+                    <div class="input-group">
+                        <span class="input-group-text bg-white border-end-0"><i class="bi bi-search text-muted"></i></span>
+                        <input type="text" class="form-control border-start-0 ps-0" placeholder="Search by Patient name, MRN, Invoice #, or Ref..."
+                               @bind="SearchTerm" @bind:event="oninput" @onkeyup="HandleSearchKeyup" />
+                    </div>
+                </div>
+                <div class="col-md-3">
+                    <label class="form-label fw-semibold" style="font-size: 0.85rem;">Payment Method</label>
+                    <select class="form-select" @bind="MethodFilter" @bind:after="LoadPayments">
+                        <option value="">All Methods</option>
+                        <option value="Cash">Cash</option>
+                        <option value="UPI">UPI</option>
+                        <option value="Card">Card</option>
+                        <option value="Insurance">Insurance</option>
+                    </select>
+                </div>
+                <div class="col-md-2">
+                    <label class="form-label fw-semibold" style="font-size: 0.85rem;">Status</label>
+                    <select class="form-select" @bind="StatusFilter" @bind:after="LoadPayments">
+                        <option value="">All Statuses</option>
+                        <option value="Success">Success</option>
+                        <option value="Pending">Pending</option>
+                        <option value="Failed">Failed</option>
+                        <option value="Refunded">Refunded</option>
+                    </select>
+                </div>
+                <div class="col-md-2 d-flex align-items-end">
+                    <button class="btn btn-outline-secondary w-100" @onclick="ResetFilters">
+                        <i class="bi bi-arrow-counterclockwise me-1"></i>Reset
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Payments List Table -->
+    <div class="card shadow-sm border-0">
+        <div class="card-body p-0">
+            @if (payments == null)
+            {
+                <div class="text-center py-5">
+                    <div class="spinner-border text-primary" role="status">
+                        <span class="visually-hidden">Loading...</span>
+                    </div>
+                    <p class="text-muted mt-2 mb-0">Retrieving payments ledger...</p>
+                </div>
+            }
+            else if (!payments.Any())
+            {
+                <div class="alert alert-info m-3 mb-3 d-flex align-items-center" role="alert">
+                    <i class="bi bi-info-circle-fill fs-4 me-2"></i>
+                    <div>No payments matching the filter options were found.</div>
+                </div>
+            }
+            else
+            {
+                <div class="table-responsive">
+                    <table class="table table-hover table-striped align-middle mb-0">
+                        <thead class="table-light text-uppercase fs-7">
+                            <tr>
+                                <th class="ps-4">Date &amp; Time</th>
+                                <th>Invoice #</th>
+                                <th>Patient Name</th>
+                                <th>Method</th>
+                                <th>Reference / Details</th>
+                                <th>Amount</th>
+                                <th>Status</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @foreach (var payment in payments)
+                            {
+                                <tr>
+                                    <td class="ps-4">
+                                        <div class="fw-semibold">@payment.PaymentDate.ToLocalTime().ToString("dd MMM yyyy")</div>
+                                        <div class="text-muted fs-7">@payment.PaymentDate.ToLocalTime().ToString("hh:mm tt")</div>
+                                    </td>
+                                    <td>
+                                        <a href="/billing/invoices/@payment.InvoiceId" class="fw-bold text-decoration-none">
+                                            @payment.BillingInvoice?.InvoiceNumber
+                                        </a>
+                                    </td>
+                                    <td>
+                                        @if (payment.Patient != null)
+                                        {
+                                            <div class="fw-semibold">@payment.Patient.FirstName @payment.Patient.LastName</div>
+                                            <div class="text-muted fs-7">MRN: @payment.Patient.Mrn</div>
+                                        }
+                                        else
+                                        {
+                                            <span class="text-muted">N/A</span>
+                                        }
+                                    </td>
+                                    <td>
+                                        @switch (payment.PaymentMethod)
+                                        {
+                                            case "Cash":
+                                                <span class="badge bg-secondary-subtle text-secondary border border-secondary-subtle">
+                                                    <i class="bi bi-cash me-1"></i>Cash
+                                                </span>
+                                                break;
+                                            case "UPI":
+                                                <span class="badge bg-primary-subtle text-primary border border-primary-subtle">
+                                                    <i class="bi bi-phone-fill me-1"></i>UPI
+                                                </span>
+                                                break;
+                                            case "Card":
+                                                <span class="badge bg-info-subtle text-info border border-info-subtle">
+                                                    <i class="bi bi-credit-card me-1"></i>Card
+                                                </span>
+                                                break;
+                                            case "Insurance":
+                                                <span class="badge bg-success-subtle text-success border border-success-subtle">
+                                                    <i class="bi bi-shield-check me-1"></i>Insurance
+                                                </span>
+                                                break;
+                                            default:
+                                                <span class="badge bg-light text-dark">@payment.PaymentMethod</span>
+                                                break;
+                                        }
+                                    </td>
+                                    <td>
+                                        @if (!string.IsNullOrEmpty(payment.TransactionReference))
+                                        {
+                                            <span class="font-monospace text-muted fs-7">@payment.TransactionReference</span>
+                                        }
+                                        else if (!string.IsNullOrEmpty(payment.RazorpayPaymentId))
+                                        {
+                                            <span class="font-monospace text-muted fs-7">RP: @payment.RazorpayPaymentId</span>
+                                        }
+                                        else
+                                        {
+                                            <span class="text-muted fs-7">—</span>
+                                        }
+                                        @if (!string.IsNullOrEmpty(payment.Notes))
+                                        {
+                                            <div class="text-muted small mt-1">@payment.Notes</div>
+                                        }
+                                    </td>
+                                    <td class="fw-bold">
+                                        INR @payment.Amount.ToString("N2")
+                                    </td>
+                                    <td>
+                                        <span class="badge @GetStatusBadgeClass(payment.Status)">@payment.Status</span>
+                                    </td>
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+                </div>
+
+                @if (totalPages > 1)
+                {
+                    <nav class="d-flex justify-content-center mt-3 mb-3">
+                        <ul class="pagination pagination-sm mb-0">
+                            <li class="page-item @(currentPage == 1 ? "disabled" : "")">
+                                <button class="page-item page-link" @onclick="() => GoToPage(currentPage - 1)">Previous</button>
+                            </li>
+                            @for (int i = 1; i <= totalPages; i++)
+                            {
+                                int pageNum = i;
+                                <li class="page-item @(currentPage == pageNum ? "active" : "")">
+                                    <button class="page-item page-link" @onclick="() => GoToPage(pageNum)">@pageNum</button>
+                                </li>
+                            }
+                            <li class="page-item @(currentPage == totalPages ? "disabled" : "")">
+                                <button class="page-item page-link" @onclick="() => GoToPage(currentPage + 1)">Next</button>
+                            </li>
+                        </ul>
+                    </nav>
+                }
+            }
+        </div>
+    </div>
+</div>
+
+@code {
+    private List<Payment>? payments;
+    private string SearchTerm { get; set; } = string.Empty;
+    private string MethodFilter { get; set; } = string.Empty;
+    private string StatusFilter { get; set; } = string.Empty;
+
+    private decimal totalCollected;
+    private int totalCount;
+    private int pendingCount;
+    private decimal pendingAmount;
+
+    private int currentPage = 1;
+    private int pageSize = 10;
+    private int totalFilteredCount = 0;
+    private int totalPages => (int)Math.Ceiling((double)totalFilteredCount / pageSize);
+
+    protected override async Task OnInitializedAsync()
+    {
+        await AuthStateProvider.GetAuthenticationStateAsync();
+        await LoadKPIs();
+        await LoadPayments();
+    }
+
+    private async Task LoadKPIs()
+    {
+        var allPayments = await DbContext.Payments.ToListAsync();
+        totalCollected = allPayments.Where(p => p.Status == "Success").Sum(p => p.Amount);
+        totalCount = allPayments.Count;
+        pendingCount = allPayments.Count(p => p.Status == "Pending");
+        pendingAmount = allPayments.Where(p => p.Status == "Pending").Sum(p => p.Amount);
+    }
+
+    private async Task LoadPayments()
+    {
+        payments = null;
+        
+        var query = DbContext.Payments
+            .Include(p => p.Patient)
+            .Include(p => p.BillingInvoice)
+            .AsQueryable();
+
+        if (!string.IsNullOrWhiteSpace(SearchTerm))
+        {
+            var term = SearchTerm.Trim().ToLower();
+            query = query.Where(p => 
+                (p.Patient.FirstName != null && p.Patient.FirstName.ToLower().Contains(term)) ||
+                (p.Patient.LastName != null && p.Patient.LastName.ToLower().Contains(term)) ||
+                (p.Patient.Mrn != null && p.Patient.Mrn.ToLower().Contains(term)) ||
+                (p.BillingInvoice.InvoiceNumber != null && p.BillingInvoice.InvoiceNumber.ToLower().Contains(term)) ||
+                (p.TransactionReference != null && p.TransactionReference.ToLower().Contains(term)) ||
+                (p.Notes != null && p.Notes.ToLower().Contains(term))
+            );
+        }
+
+        if (!string.IsNullOrWhiteSpace(MethodFilter))
+        {
+            query = query.Where(p => p.PaymentMethod == MethodFilter);
+        }
+
+        if (!string.IsNullOrWhiteSpace(StatusFilter))
+        {
+            query = query.Where(p => p.Status == StatusFilter);
+        }
+
+        totalFilteredCount = await query.CountAsync();
+
+        payments = await query
+            .OrderByDescending(p => p.PaymentDate)
+            .Skip((currentPage - 1) * pageSize)
+            .Take(pageSize)
+            .ToListAsync();
+    }
+
+    private async Task HandleSearchKeyup(KeyboardEventArgs e)
+    {
+        if (e.Key == "Enter")
+        {
+            currentPage = 1;
+            await LoadPayments();
+        }
+    }
+
+    private async Task GoToPage(int page)
+    {
+        currentPage = page;
+        await LoadPayments();
+    }
+
+    private async Task ResetFilters()
+    {
+        SearchTerm = string.Empty;
+        MethodFilter = string.Empty;
+        StatusFilter = string.Empty;
+        currentPage = 1;
+        await LoadPayments();
+    }
+
+    private string GetStatusBadgeClass(string status) => status switch
+    {
+        "Success" => "bg-success text-white",
+        "Pending" => "bg-warning text-dark",
+        "Failed" => "bg-danger text-white",
+        "Refunded" => "bg-info text-dark",
+        _ => "bg-light text-dark"
+    };
+}

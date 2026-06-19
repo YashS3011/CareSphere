@@ -3,288 +3,292 @@
 @inject IAnalyticsService AnalyticsService
 @inject TabIsolatedAuthenticationStateProvider AuthStateProvider
 
-<div class="container-fluid py-4 animate-fade-in">
-    <!-- Page Header -->
-    <div class="row mb-4">
-        <div class="col-12">
-            <div class="card bg-dark text-white border-0 shadow">
-                <div class="card-body p-4">
-                    <h1 class="h3 mb-1 fw-bold"><i class="bi bi-graph-up-arrow me-2 text-primary"></i>Analytics Dashboard</h1>
-                    <p class="text-light opacity-75 mb-0">Cross-module administrative KPIs and performance metrics</p>
-                </div>
+<PageTitle>Analytics Dashboard — CareSphere</PageTitle>
+
+<div class="page-header">
+    <div class="page-header-content">
+        <div class="page-title-group">
+            <div class="page-icon"><i class="bi bi-graph-up-arrow"></i></div>
+            <div>
+                <h1 class="page-title">Analytics Dashboard</h1>
+                <p class="page-subtitle">Cross-module administrative KPIs, revenue flows, and hospital performance metrics</p>
             </div>
         </div>
     </div>
+</div>
 
-    <!-- Section 1: Bed Occupancy -->
-    <div class="card border-0 shadow-sm mb-4">
-        <div class="card-header bg-white py-3 border-0">
-            <h5 class="fw-bold text-dark mb-0"><i class="bi bi-hospital me-2 text-primary"></i>Bed Occupancy Metrics</h5>
-        </div>
-        <div class="card-body">
-            @if (loadingBed)
-            {
-                <div class="d-flex justify-content-center py-4">
-                    <div class="spinner-border text-primary" role="status">
-                        <span class="visually-hidden">Loading...</span>
-                    </div>
-                </div>
-            }
-            else if (!string.IsNullOrEmpty(errorBed))
-            {
-                <div class="alert alert-danger border-0"><i class="bi bi-x-circle-fill me-2"></i>@errorBed</div>
-            }
-            else if (bedMetrics != null)
-            {
-                <div class="row g-3">
-                    <div class="col-6 col-md-3">
-                        <div class="border rounded p-3 bg-light text-center h-100">
-                            <small class="text-secondary d-block mb-1">Total Beds</small>
-                            <span class="h3 fw-bold text-dark">@bedMetrics.TotalBeds</span>
-                        </div>
-                    </div>
-                    <div class="col-6 col-md-3">
-                        <div class="border rounded p-3 bg-light text-center h-100">
-                            <small class="text-secondary d-block mb-1">Occupied Beds</small>
-                            <span class="h3 fw-bold text-danger">@bedMetrics.OccupiedBeds</span>
-                        </div>
-                    </div>
-                    <div class="col-6 col-md-3">
-                        <div class="border rounded p-3 bg-light text-center h-100">
-                            <small class="text-secondary d-block mb-1">Available Beds</small>
-                            <span class="h3 fw-bold text-success">@bedMetrics.AvailableBeds</span>
-                        </div>
-                    </div>
-                    <div class="col-6 col-md-3">
-                        <div class="border rounded p-3 bg-light text-center h-100">
-                            <small class="text-secondary d-block mb-1">Occupancy Rate</small>
-                            <span class="h3 fw-bold text-primary">@bedMetrics.OccupancyRatePercent.ToString("F1")%</span>
-                        </div>
-                    </div>
-                    <div class="col-12 mt-3">
-                        <div class="p-3 bg-primary bg-opacity-10 rounded text-primary border border-primary border-opacity-25 text-center">
-                            <i class="bi bi-hourglass-split me-2"></i>Average Length of Stay: <strong>@bedMetrics.AverageLengthOfStayDays.ToString("F1") Days</strong> (Discharged patients)
-                        </div>
-                    </div>
-                </div>
-            }
-        </div>
+<!-- Section 1: Bed Occupancy -->
+<div class="content-card mb-4">
+    <div class="content-card-header">
+        <h5 class="content-card-title"><i class="bi bi-hospital me-2 text-primary"></i>Bed Occupancy Metrics</h5>
     </div>
-
-    <!-- Section 2: Revenue -->
-    <div class="card border-0 shadow-sm mb-4">
-        <div class="card-header bg-white py-3 border-0 d-flex justify-content-between align-items-center flex-wrap gap-2">
-            <h5 class="fw-bold text-dark mb-0"><i class="bi bi-cash-coin me-2 text-primary"></i>Revenue & Billing Metrics</h5>
-            <div class="d-flex align-items-center gap-2 flex-wrap">
-                <input type="date" class="form-control form-control-sm" @bind="fromDate" style="width: 140px;" />
-                <span class="text-muted">to</span>
-                <input type="date" class="form-control form-control-sm" @bind="toDate" style="width: 140px;" />
-                <button class="btn btn-primary btn-sm" @onclick="LoadRevenueMetricsAsync"><i class="bi bi-arrow-clockwise"></i> Refresh</button>
+    <div class="content-card-body">
+        @if (loadingBed)
+        {
+            <div class="loading-state py-4">
+                <div class="spinner-border text-primary" role="status"></div>
+                <p class="mt-3 text-muted">Loading bed metrics...</p>
             </div>
-        </div>
-        <div class="card-body">
-            @if (loadingRevenue)
-            {
-                <div class="d-flex justify-content-center py-4">
-                    <div class="spinner-border text-primary" role="status">
-                        <span class="visually-hidden">Loading...</span>
+        }
+        else if (!string.IsNullOrEmpty(errorBed))
+        {
+            <div class="alert alert-danger border-0 shadow-sm mb-0"><i class="bi bi-x-circle-fill me-2"></i>@errorBed</div>
+        }
+        else if (bedMetrics != null)
+        {
+            <div class="row g-4">
+                <div class="col-sm-6 col-xl-3">
+                    <div class="stat-card stat-card-primary">
+                        <div class="stat-icon"><i class="bi bi-hospital"></i></div>
+                        <div class="stat-value">@bedMetrics.TotalBeds</div>
+                        <div class="stat-label">Total Beds</div>
                     </div>
                 </div>
-            }
-            else if (!string.IsNullOrEmpty(errorRevenue))
-            {
-                <div class="alert alert-danger border-0"><i class="bi bi-x-circle-fill me-2"></i>@errorRevenue</div>
-            }
-            else if (revenueMetrics != null)
-            {
-                <div class="row g-3">
-                    <div class="col-6 col-md-3">
-                        <div class="border rounded p-3 bg-light text-center h-100">
-                            <small class="text-secondary d-block mb-1">Total Invoiced</small>
-                            <span class="h3 fw-bold text-dark">₹@revenueMetrics.TotalInvoiced.ToString("N2")</span>
-                        </div>
-                    </div>
-                    <div class="col-6 col-md-3">
-                        <div class="border rounded p-3 bg-light text-center h-100">
-                            <small class="text-secondary d-block mb-1">Total Collected</small>
-                            <span class="h3 fw-bold text-success">₹@revenueMetrics.TotalCollected.ToString("N2")</span>
-                        </div>
-                    </div>
-                    <div class="col-6 col-md-3">
-                        <div class="border rounded p-3 bg-light text-center h-100">
-                            <small class="text-secondary d-block mb-1">Outstanding</small>
-                            <span class="h3 fw-bold text-danger">₹@revenueMetrics.TotalOutstanding.ToString("N2")</span>
-                        </div>
-                    </div>
-                    <div class="col-6 col-md-3">
-                        <div class="border rounded p-3 bg-light text-center h-100">
-                            <small class="text-secondary d-block mb-1">Invoices Count</small>
-                            <span class="h3 fw-bold text-primary">@revenueMetrics.InvoiceCount</span>
-                        </div>
+                <div class="col-sm-6 col-xl-3">
+                    <div class="stat-card stat-card-danger">
+                        <div class="stat-icon"><i class="bi bi-person-fill-dash"></i></div>
+                        <div class="stat-value">@bedMetrics.OccupiedBeds</div>
+                        <div class="stat-label">Occupied Beds</div>
                     </div>
                 </div>
-            }
+                <div class="col-sm-6 col-xl-3">
+                    <div class="stat-card stat-card-success">
+                        <div class="stat-icon"><i class="bi bi-person-fill-check"></i></div>
+                        <div class="stat-value">@bedMetrics.AvailableBeds</div>
+                        <div class="stat-label">Available Beds</div>
+                    </div>
+                </div>
+                <div class="col-sm-6 col-xl-3">
+                    <div class="stat-card stat-card-info">
+                        <div class="stat-icon"><i class="bi bi-pie-chart"></i></div>
+                        <div class="stat-value">@bedMetrics.OccupancyRatePercent.ToString("F1")%</div>
+                        <div class="stat-label">Occupancy Rate</div>
+                    </div>
+                </div>
+                <div class="col-12 mt-4">
+                    <div class="p-3 bg-primary-subtle text-primary border border-primary-subtle rounded-3 text-center">
+                        <i class="bi bi-hourglass-split me-2"></i>Average Length of Stay: <strong>@bedMetrics.AverageLengthOfStayDays.ToString("F1") Days</strong> (Discharged patients)
+                    </div>
+                </div>
+            </div>
+        }
+    </div>
+</div>
+
+<!-- Section 2: Revenue -->
+<div class="content-card mb-4">
+    <div class="content-card-header d-flex justify-content-between align-items-center flex-wrap gap-2">
+        <h5 class="content-card-title"><i class="bi bi-cash-coin me-2 text-primary"></i>Revenue & Billing Metrics</h5>
+        <div class="d-flex align-items-center gap-2 flex-wrap">
+            <input type="date" class="form-control form-control-sm text-dark" @bind="fromDate" style="width: 140px;" />
+            <span class="text-muted small">to</span>
+            <input type="date" class="form-control form-control-sm text-dark" @bind="toDate" style="width: 140px;" />
+            <button class="btn btn-primary btn-sm px-3" @onclick="LoadRevenueMetricsAsync"><i class="bi bi-arrow-clockwise me-1"></i> Refresh</button>
         </div>
     </div>
-
-    <!-- Group Row for Doctors & Labs -->
-    <div class="row g-4 mb-4">
-        <!-- Section 3: Top 5 Doctors -->
-        <div class="col-lg-6">
-            <div class="card border-0 shadow-sm h-100">
-                <div class="card-header bg-white py-3 border-0">
-                    <h5 class="fw-bold text-dark mb-0"><i class="bi bi-people me-2 text-primary"></i>Top 5 Doctors by Encounters</h5>
+    <div class="content-card-body">
+        @if (loadingRevenue)
+        {
+            <div class="loading-state py-4">
+                <div class="spinner-border text-primary" role="status"></div>
+                <p class="mt-3 text-muted">Loading revenue metrics...</p>
+            </div>
+        }
+        else if (!string.IsNullOrEmpty(errorRevenue))
+        {
+            <div class="alert alert-danger border-0 shadow-sm mb-0"><i class="bi bi-x-circle-fill me-2"></i>@errorRevenue</div>
+        }
+        else if (revenueMetrics != null)
+        {
+            <div class="row g-4">
+                <div class="col-sm-6 col-xl-3">
+                    <div class="stat-card stat-card-primary">
+                        <div class="stat-icon"><i class="bi bi-receipt"></i></div>
+                        <div class="stat-value">₹@revenueMetrics.TotalInvoiced.ToString("N0")</div>
+                        <div class="stat-label">Total Invoiced</div>
+                    </div>
                 </div>
-                <div class="card-body p-0">
-                    @if (loadingDoctor)
+                <div class="col-sm-6 col-xl-3">
+                    <div class="stat-card stat-card-success">
+                        <div class="stat-icon"><i class="bi bi-cash-coin"></i></div>
+                        <div class="stat-value">₹@revenueMetrics.TotalCollected.ToString("N0")</div>
+                        <div class="stat-label">Total Collected</div>
+                    </div>
+                </div>
+                <div class="col-sm-6 col-xl-3">
+                    <div class="stat-card stat-card-danger">
+                        <div class="stat-icon"><i class="bi bi-exclamation-circle"></i></div>
+                        <div class="stat-value">₹@revenueMetrics.TotalOutstanding.ToString("N0")</div>
+                        <div class="stat-label">Outstanding</div>
+                    </div>
+                </div>
+                <div class="col-sm-6 col-xl-3">
+                    <div class="stat-card stat-card-info">
+                        <div class="stat-icon"><i class="bi bi-journal-text"></i></div>
+                        <div class="stat-value">@revenueMetrics.InvoiceCount</div>
+                        <div class="stat-label">Invoices Count</div>
+                    </div>
+                </div>
+            </div>
+        }
+    </div>
+</div>
+
+<!-- Group Row for Doctors & Labs -->
+<div class="row g-4 mb-4">
+    <!-- Section 3: Top 5 Doctors -->
+    <div class="col-lg-6">
+        <div class="content-card h-100">
+            <div class="content-card-header">
+                <h5 class="content-card-title"><i class="bi bi-people-fill me-2 text-primary"></i>Top 5 Doctors by Encounters</h5>
+            </div>
+            <div class="content-card-body p-0">
+                @if (loadingDoctor)
+                {
+                    <div class="loading-state py-5">
+                        <div class="spinner-border text-primary" role="status"></div>
+                    </div>
+                }
+                else if (!string.IsNullOrEmpty(errorDoctor))
+                {
+                    <div class="alert alert-danger border-0 m-3"><i class="bi bi-x-circle-fill me-2"></i>@errorDoctor</div>
+                }
+                else if (doctorMetrics != null)
+                {
+                    @if (doctorMetrics.TopDoctors.Count == 0)
                     {
-                        <div class="d-flex justify-content-center py-5">
-                            <div class="spinner-border text-primary" role="status">
-                                <span class="visually-hidden">Loading...</span>
-                            </div>
-                        </div>
+                        <div class="text-center py-5 text-muted small">No encounter records found.</div>
                     }
-                    else if (!string.IsNullOrEmpty(errorDoctor))
+                    else
                     {
-                        <div class="alert alert-danger border-0 m-3"><i class="bi bi-x-circle-fill me-2"></i>@errorDoctor</div>
-                    }
-                    else if (doctorMetrics != null)
-                    {
-                        @if (doctorMetrics.TopDoctors.Count == 0)
-                        {
-                            <div class="text-center py-5 text-muted">No encounter records found.</div>
-                        }
-                        else
-                        {
-                            <div class="table-responsive">
-                                <table class="table table-hover align-middle mb-0">
-                                    <thead class="table-light">
+                        <div class="table-responsive">
+                            <table class="table table-hover data-table mb-0 small">
+                                <thead>
+                                    <tr>
+                                        <th class="ps-3" style="width: 15%">Rank</th>
+                                        <th>Doctor Name</th>
+                                        <th>Specialty</th>
+                                        <th class="text-end pe-3">Encounters</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    @{ int rank = 1; }
+                                    @foreach (var doc in doctorMetrics.TopDoctors)
+                                    {
                                         <tr>
-                                            <th class="ps-3" style="width: 15%">Rank</th>
-                                            <th>Doctor Name</th>
-                                            <th>Specialty</th>
-                                            <th class="text-end pe-3">Encounters</th>
+                                            <td class="ps-3 fw-bold text-dark">#@rank</td>
+                                            <td class="fw-semibold text-dark">@doc.DoctorName</td>
+                                            <td><span class="badge bg-light text-primary border border-light-subtle">@doc.Specialty</span></td>
+                                            <td class="text-end pe-3 fw-bold text-primary">@doc.EncounterCount</td>
                                         </tr>
-                                    </thead>
-                                    <tbody>
-                                        @{ int rank = 1; }
-                                        @foreach (var doc in doctorMetrics.TopDoctors)
-                                        {
-                                            <tr>
-                                                <td class="ps-3 fw-bold">#@rank</td>
-                                                <td>@doc.DoctorName</td>
-                                                <td><span class="badge bg-light text-primary">@doc.Specialty</span></td>
-                                                <td class="text-end pe-3 fw-semibold text-primary">@doc.EncounterCount</td>
-                                            </tr>
-                                            rank++;
-                                        }
-                                    </tbody>
-                                </table>
-                            </div>
-                        }
-                    }
-                </div>
-            </div>
-        </div>
-
-        <!-- Section 4: Lab Metrics -->
-        <div class="col-lg-6">
-            <div class="card border-0 shadow-sm h-100">
-                <div class="card-header bg-white py-3 border-0">
-                    <h5 class="fw-bold text-dark mb-0"><i class="bi bi-activity me-2 text-primary"></i>Laboratory Metrics (This Month)</h5>
-                </div>
-                <div class="card-body">
-                    @if (loadingLab)
-                    {
-                        <div class="d-flex justify-content-center py-5">
-                            <div class="spinner-border text-primary" role="status">
-                                <span class="visually-hidden">Loading...</span>
-                            </div>
+                                        rank++;
+                                    }
+                                </tbody>
+                            </table>
                         </div>
                     }
-                    else if (!string.IsNullOrEmpty(errorLab))
-                    {
-                        <div class="alert alert-danger border-0"><i class="bi bi-x-circle-fill me-2"></i>@errorLab</div>
-                    }
-                    else if (labMetrics != null)
-                    {
-                        <div class="row g-3 h-100 align-content-start">
-                            <div class="col-12">
-                                <div class="border rounded p-3 bg-light d-flex justify-content-between align-items-center">
-                                    <div>
-                                        <small class="text-secondary d-block">Requisitions Ordered</small>
-                                        <span class="h4 fw-bold text-dark mb-0">@labMetrics.TotalRequisitionsThisMonth</span>
-                                    </div>
-                                    <div class="fs-2 text-primary opacity-50"><i class="bi bi-file-earmark-medical"></i></div>
-                                </div>
-                            </div>
-                            <div class="col-12">
-                                <div class="border rounded p-3 bg-light d-flex justify-content-between align-items-center">
-                                    <div>
-                                        <small class="text-secondary d-block">Abnormal Results Flagged</small>
-                                        <span class="h4 fw-bold text-danger mb-0">@labMetrics.AbnormalResultsThisMonth</span>
-                                    </div>
-                                    <div class="fs-2 text-danger opacity-50"><i class="bi bi-exclamation-octagon"></i></div>
-                                </div>
-                            </div>
-                            <div class="col-12">
-                                <div class="border rounded p-3 bg-primary bg-opacity-10 text-primary border border-primary border-opacity-25 d-flex justify-content-between align-items-center">
-                                    <div>
-                                        <small class="d-block opacity-75">Avg Turnaround Time</small>
-                                        <span class="h4 fw-bold mb-0">@labMetrics.AverageTurnaroundHours.ToString("F1") hrs</span>
-                                    </div>
-                                    <div class="fs-2 opacity-50"><i class="bi bi-stopwatch"></i></div>
-                                </div>
-                            </div>
-                        </div>
-                    }
-                </div>
+                }
             </div>
         </div>
     </div>
 
-    <!-- Section 5: Pharmacy Stock -->
-    <div class="card border-0 shadow-sm">
-        <div class="card-header bg-white py-3 border-0">
-            <h5 class="fw-bold text-dark mb-0"><i class="bi bi-capsule me-2 text-primary"></i>Pharmacy & Stock Metrics</h5>
+    <!-- Section 4: Lab Metrics -->
+    <div class="col-lg-6">
+        <div class="content-card h-100">
+            <div class="content-card-header">
+                <h5 class="content-card-title"><i class="bi bi-activity me-2 text-primary"></i>Laboratory Metrics (This Month)</h5>
+            </div>
+            <div class="content-card-body p-4">
+                @if (loadingLab)
+                {
+                    <div class="loading-state py-5">
+                        <div class="spinner-border text-primary" role="status"></div>
+                    </div>
+                }
+                else if (!string.IsNullOrEmpty(errorLab))
+                {
+                    <div class="alert alert-danger border-0 mb-0"><i class="bi bi-x-circle-fill me-2"></i>@errorLab</div>
+                }
+                else if (labMetrics != null)
+                {
+                    <div class="row g-3">
+                        <div class="col-12">
+                            <div class="border border-light-subtle rounded-3 p-3 bg-light-subtle d-flex justify-content-between align-items-center">
+                                <div>
+                                    <small class="text-muted d-block small text-uppercase fw-bold">Requisitions Ordered</small>
+                                    <span class="h4 fw-bold text-dark mb-0">@labMetrics.TotalRequisitionsThisMonth</span>
+                                </div>
+                                <div class="fs-2 text-primary opacity-50"><i class="bi bi-file-earmark-medical"></i></div>
+                            </div>
+                        </div>
+                        <div class="col-12">
+                            <div class="border border-light-subtle rounded-3 p-3 bg-light-subtle d-flex justify-content-between align-items-center">
+                                <div>
+                                    <small class="text-muted d-block small text-uppercase fw-bold">Abnormal Results Flagged</small>
+                                    <span class="h4 fw-bold text-danger mb-0">@labMetrics.AbnormalResultsThisMonth</span>
+                                </div>
+                                <div class="fs-2 text-danger opacity-50"><i class="bi bi-exclamation-octagon"></i></div>
+                            </div>
+                        </div>
+                        <div class="col-12">
+                            <div class="border border-primary-subtle rounded-3 p-3 bg-primary-subtle text-primary d-flex justify-content-between align-items-center">
+                                <div>
+                                    <small class="d-block small text-uppercase fw-bold opacity-75">Avg Turnaround Time</small>
+                                    <span class="h4 fw-bold mb-0">@labMetrics.AverageTurnaroundHours.ToString("F1") hrs</span>
+                                </div>
+                                <div class="fs-2 opacity-50"><i class="bi bi-stopwatch"></i></div>
+                            </div>
+                        </div>
+                    </div>
+                }
+            </div>
         </div>
-        <div class="card-body">
-            @if (loadingPharmacy)
-            {
-                <div class="d-flex justify-content-center py-4">
-                    <div class="spinner-border text-primary" role="status">
-                        <span class="visually-hidden">Loading...</span>
+    </div>
+</div>
+
+<!-- Section 5: Pharmacy Stock -->
+<div class="content-card mb-4">
+    <div class="content-card-header">
+        <h5 class="content-card-title"><i class="bi bi-capsule me-2 text-primary"></i>Pharmacy &amp; Stock Metrics</h5>
+    </div>
+    <div class="content-card-body">
+        @if (loadingPharmacy)
+        {
+            <div class="loading-state py-4">
+                <div class="spinner-border text-primary" role="status"></div>
+                <p class="mt-3 text-muted">Loading pharmacy metrics...</p>
+            </div>
+        }
+        else if (!string.IsNullOrEmpty(errorPharmacy))
+        {
+            <div class="alert alert-danger border-0 shadow-sm mb-0"><i class="bi bi-x-circle-fill me-2"></i>@errorPharmacy</div>
+        }
+        else if (pharmacyMetrics != null)
+        {
+            <div class="row g-4">
+                <div class="col-md-4">
+                    <div class="stat-card stat-card-primary">
+                        <div class="stat-icon"><i class="bi bi-currency-rupee"></i></div>
+                        <div class="stat-value">₹@pharmacyMetrics.TotalStockValue.ToString("N0")</div>
+                        <div class="stat-label">Total Stock Value</div>
                     </div>
                 </div>
-            }
-            else if (!string.IsNullOrEmpty(errorPharmacy))
-            {
-                <div class="alert alert-danger border-0"><i class="bi bi-x-circle-fill me-2"></i>@errorPharmacy</div>
-            }
-            else if (pharmacyMetrics != null)
-            {
-                <div class="row g-3">
-                    <div class="col-md-4">
-                        <div class="border rounded p-3 bg-light text-center h-100">
-                            <small class="text-secondary d-block mb-1">Total Stock Value</small>
-                            <span class="h3 fw-bold text-dark">₹@pharmacyMetrics.TotalStockValue.ToString("N2")</span>
-                        </div>
-                    </div>
-                    <div class="col-md-4">
-                        <div class="border rounded p-3 bg-light text-center h-100">
-                            <small class="text-secondary d-block mb-1">Low Stock Items</small>
-                            <span class="h3 fw-bold text-danger">@pharmacyMetrics.LowStockItemsCount</span>
-                        </div>
-                    </div>
-                    <div class="col-md-4">
-                        <div class="border rounded p-3 bg-light text-center h-100">
-                            <small class="text-secondary d-block mb-1">Near-Expiry Batches (90 Days)</small>
-                            <span class="h3 fw-bold text-warning">@pharmacyMetrics.NearExpiryBatchesCount</span>
-                        </div>
+                <div class="col-md-4">
+                    <div class="stat-card stat-card-danger">
+                        <div class="stat-icon"><i class="bi bi-exclamation-triangle"></i></div>
+                        <div class="stat-value">@pharmacyMetrics.LowStockItemsCount</div>
+                        <div class="stat-label">Low Stock Items</div>
                     </div>
                 </div>
-            }
-        </div>
+                <div class="col-md-4">
+                    <div class="stat-card stat-card-warning">
+                        <div class="stat-icon"><i class="bi bi-hourglass-split"></i></div>
+                        <div class="stat-value">@pharmacyMetrics.NearExpiryBatchesCount</div>
+                        <div class="stat-label">Near-Expiry Batches (90 Days)</div>
+                    </div>
+                </div>
+            </div>
+        }
     </div>
 </div>
 

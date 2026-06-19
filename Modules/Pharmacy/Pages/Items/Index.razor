@@ -7,75 +7,81 @@
 
 <PageTitle>Pharmacy Items - CareSphere</PageTitle>
 
-<div class="container-fluid py-4">
-    <div class="d-flex justify-content-between align-items-center mb-4">
-        <div>
-            <h1 class="h3 mb-1 text-dark fw-bold"><i class="bi bi-box-seam me-2 text-primary"></i>Pharmacy Items</h1>
-            <p class="text-muted mb-0">Manage items catalog, reorder levels, and barcodes</p>
+<div class="page-header">
+    <div class="page-header-content">
+        <div class="page-title-group">
+            <div class="page-icon"><i class="bi bi-box-seam"></i></div>
+            <div>
+                <h1 class="page-title">Pharmacy Items</h1>
+                <p class="page-subtitle">Manage items catalog, reorder levels, and barcodes</p>
+            </div>
         </div>
-        <a href="/pharmacy/items/create" class="btn btn-primary d-flex align-items-center gap-2 px-4 shadow-sm">
-            <i class="bi bi-plus-circle"></i> Add New Item
-        </a>
+        <div class="page-actions">
+            <a href="/pharmacy/items/create" class="btn btn-primary">
+                <i class="bi bi-plus-lg me-1"></i> Add New Item
+            </a>
+        </div>
     </div>
+</div>
 
-    <div class="card border-0 shadow-sm mb-4">
-        <div class="card-body p-3">
-            <div class="row g-3">
-                <div class="col-md-4">
-                    <label class="form-label text-muted small fw-semibold">Search</label>
-                    <div class="input-group">
-                        <span class="input-group-text bg-white border-end-0"><i class="bi bi-search text-muted"></i></span>
-                        <input type="text" class="form-control border-start-0 ps-0" placeholder="Search by name, code, generic..." @bind="SearchQuery" @bind:event="oninput" @onkeyup="HandleSearch" />
-                    </div>
+<div class="content-card mb-4">
+    <div class="content-card-body">
+        <div class="row g-3">
+            <div class="col-md-4">
+                <label class="form-label text-muted small fw-semibold">Search</label>
+                <div class="input-group">
+                    <span class="input-group-text bg-white border-end-0"><i class="bi bi-search text-muted"></i></span>
+                    <input type="text" class="form-control border-start-0 ps-0" placeholder="Search by name, code, generic..." @bind="SearchQuery" @bind:event="oninput" @onkeyup="HandleSearch" />
                 </div>
-                <div class="col-md-3">
-                    <label class="form-label text-muted small fw-semibold">Category</label>
-                    <select class="form-select" @bind="SelectedCategory" @bind:after="FilterChanged">
-                        <option value="">All Categories</option>
-                        <option value="Medicine">Medicine</option>
-                        <option value="Surgical">Surgical</option>
-                        <option value="Consumable">Consumable</option>
-                        <option value="Equipment">Equipment</option>
-                        <option value="Other">Other</option>
-                    </select>
-                </div>
-                <div class="col-md-3">
-                    <label class="form-label text-muted small fw-semibold">Prescription Rule</label>
-                    <select class="form-select" @bind="SelectedRequiresPrescription" @bind:after="FilterChanged">
-                        <option value="">All Items</option>
-                        <option value="true">Requires Prescription</option>
-                        <option value="false">OTC (No Rx Needed)</option>
-                    </select>
-                </div>
-                <div class="col-md-2 d-flex align-items-end">
-                    <button class="btn btn-light w-100" @onclick="ClearFilters">Clear Filters</button>
-                </div>
+            </div>
+            <div class="col-md-3">
+                <label class="form-label text-muted small fw-semibold">Category</label>
+                <select class="form-select" @bind="SelectedCategory" @bind:after="FilterChanged">
+                    <option value="">All Categories</option>
+                    <option value="Medicine">Medicine</option>
+                    <option value="Surgical">Surgical</option>
+                    <option value="Consumable">Consumable</option>
+                    <option value="Equipment">Equipment</option>
+                    <option value="Other">Other</option>
+                </select>
+            </div>
+            <div class="col-md-3">
+                <label class="form-label text-muted small fw-semibold">Prescription Rule</label>
+                <select class="form-select" @bind="SelectedRequiresPrescription" @bind:after="FilterChanged">
+                    <option value="">All Items</option>
+                    <option value="true">Requires Prescription</option>
+                    <option value="false">OTC (No Rx Needed)</option>
+                </select>
+            </div>
+            <div class="col-md-2 d-flex align-items-end">
+                <button class="btn btn-light w-100" @onclick="ClearFilters">Clear Filters</button>
             </div>
         </div>
     </div>
+</div>
 
-    @if (items == null)
-    {
-        <div class="d-flex justify-content-center my-5">
-            <div class="spinner-border text-primary" role="status">
-                <span class="visually-hidden">Loading...</span>
-            </div>
-        </div>
-    }
-    else if (!items.Any())
-    {
-        <div class="text-center py-5 bg-white rounded-4 shadow-sm">
-            <i class="bi bi-box text-muted display-1 mb-3"></i>
-            <h4 class="fw-bold">No Pharmacy Items Found</h4>
-            <p class="text-muted">Try modifying your filters or add a new item to the catalog.</p>
-        </div>
-    }
-    else
-    {
-        <div class="card border-0 shadow-sm rounded-4 overflow-hidden mb-4">
+@if (items == null)
+{
+    <div class="loading-state py-5">
+        <div class="spinner-border text-primary" role="status"></div>
+        <p class="mt-3 text-muted">Loading items...</p>
+    </div>
+}
+else if (!items.Any())
+{
+    <div class="loading-state py-5">
+        <i class="bi bi-box text-muted display-4 mb-3 d-block"></i>
+        <h5 class="fw-bold">No Pharmacy Items Found</h5>
+        <p class="text-muted small">Try modifying your filters or add a new item to the catalog.</p>
+    </div>
+}
+else
+{
+    <div class="content-card mb-4">
+        <div class="content-card-body p-0">
             <div class="table-responsive">
-                <table class="table table-hover align-middle mb-0">
-                    <thead class="table-light text-uppercase fs-7 fw-semibold text-muted">
+                <table class="table table-hover data-table mb-0 small">
+                    <thead>
                         <tr>
                             <th class="px-4 py-3">Code / Barcode</th>
                             <th class="py-3">Item Details</th>
@@ -86,7 +92,7 @@
                             <th class="px-4 py-3 text-end">Actions</th>
                         </tr>
                     </thead>
-                    <tbody class="border-top-0">
+                    <tbody>
                         @foreach (var item in items)
                         {
                             <tr>
@@ -105,7 +111,7 @@
                                     }
                                 </td>
                                 <td class="py-3">
-                                    <span class="badge rounded-pill bg-light text-dark border px-2 py-1">@item.Category</span>
+                                    <span class="badge bg-light text-dark border px-2 py-1">@item.Category</span>
                                 </td>
                                 <td class="py-3">
                                     <div>@item.Unit</div>
@@ -146,33 +152,33 @@
                     </tbody>
                 </table>
             </div>
-        </div>
-
-        @if (totalPages > 1)
-        {
-            <div class="d-flex justify-content-between align-items-center mt-3">
-                <span class="small text-muted">Showing page @currentPage of @totalPages</span>
-                <nav aria-label="Page navigation">
-                    <ul class="pagination pagination-sm mb-0">
-                        <li class="page-item @(currentPage == 1 ? "disabled" : "")">
-                            <button class="page-item page-link" @onclick="() => NavigateToPage(currentPage - 1)">Previous</button>
-                        </li>
-                        @for (int i = 1; i <= totalPages; i++)
-                        {
-                            var pageNumber = i;
-                            <li class="page-item @(currentPage == pageNumber ? "active" : "")">
-                                <button class="page-link" @onclick="() => NavigateToPage(pageNumber)">@pageNumber</button>
+            
+            @if (totalPages > 1)
+            {
+                <div class="d-flex justify-content-between align-items-center p-3 border-top">
+                    <span class="small text-muted">Showing page @currentPage of @totalPages</span>
+                    <nav aria-label="Page navigation">
+                        <ul class="pagination pagination-sm mb-0">
+                            <li class="page-item @(currentPage == 1 ? "disabled" : "")">
+                                <button class="page-link" @onclick="() => NavigateToPage(currentPage - 1)">Previous</button>
                             </li>
-                        }
-                        <li class="page-item @(currentPage == totalPages ? "disabled" : "")">
-                            <button class="page-item page-link" @onclick="() => NavigateToPage(currentPage + 1)">Next</button>
-                        </li>
-                    </ul>
-                </nav>
-            </div>
-        }
-    }
-</div>
+                            @for (int i = 1; i <= totalPages; i++)
+                            {
+                                var pageNumber = i;
+                                <li class="page-item @(currentPage == pageNumber ? "active" : "")">
+                                    <button class="page-link" @onclick="() => NavigateToPage(pageNumber)">@pageNumber</button>
+                                </li>
+                            }
+                            <li class="page-item @(currentPage == totalPages ? "disabled" : "")">
+                                <button class="page-link" @onclick="() => NavigateToPage(currentPage + 1)">Next</button>
+                            </li>
+                        </ul>
+                    </nav>
+                </div>
+            }
+        </div>
+    </div>
+}
 
 @code {
     private List<PharmacyItem>? items;
