@@ -113,12 +113,40 @@ namespace CareSphere.Modules.Laboratory.Services
                 TenantId = tenantId
             });
 
+            // G11.4: Fire LabRequisitionCreated outbox event → billing auto-adds lab test line items
+            var labCreatedEvt = new LabRequisitionCreated
+            {
+                TenantId = tenantId,
+                PatientId = patientId,
+                EncounterId = encounterId,
+                RequisitionId = requisition.Id,
+                RequisitionNumber = requisitionNumber,
+                Tests = tests.Select(t => new LabTestLineItem
+                {
+                    TestId = t.Id,
+                    TestCode = t.TestCode,
+                    TestName = t.TestName,
+                    Fee = t.Price
+                }).ToList()
+            };
+            _context.ServiceBusOutboxes.Add(new ServiceBusOutbox
+            {
+                Id = Guid.NewGuid(),
+                TenantId = tenantId,
+                MessageType = "LabRequisitionCreated",
+                Payload = System.Text.Json.JsonSerializer.Serialize(labCreatedEvt),
+                Status = "Pending",
+                CreatedAt = DateTime.UtcNow
+            });
+            await _context.SaveChangesAsync();
+
             return requisition;
+
         }
 
         public async Task<LabRequisition?> GetRequisitionByIdAsync(Guid id)
         {
-            return await _context.LabRequisitions
+            return await _context.LabRequisitions.AsNoTracking()
                 .Include(r => r.Patient)
                 .Include(r => r.OrderedByDoctor)
                 .Include(r => r.Encounter)
@@ -133,7 +161,7 @@ namespace CareSphere.Modules.Laboratory.Services
 
         public async Task<List<LabRequisition>> GetRequisitionsByPatientAsync(Guid tenantId, Guid patientId)
         {
-            return await _context.LabRequisitions
+            return await _context.LabRequisitions.AsNoTracking()
                 .Include(r => r.OrderedByDoctor)
                 .Include(r => r.Items)
                     .ThenInclude(i => i.Test)
@@ -144,7 +172,7 @@ namespace CareSphere.Modules.Laboratory.Services
 
         public async Task<List<LabRequisition>> GetRequisitionsByEncounterAsync(Guid tenantId, Guid encounterId)
         {
-            return await _context.LabRequisitions
+            return await _context.LabRequisitions.AsNoTracking()
                 .Include(r => r.OrderedByDoctor)
                 .Include(r => r.Items)
                     .ThenInclude(i => i.Test)
@@ -155,7 +183,7 @@ namespace CareSphere.Modules.Laboratory.Services
 
         public async Task<List<LabRequisition>> GetPendingRequisitionsAsync(Guid tenantId)
         {
-            return await _context.LabRequisitions
+            return await _context.LabRequisitions.AsNoTracking()
                 .Include(r => r.Patient)
                 .Include(r => r.OrderedByDoctor)
                 .Include(r => r.Items)

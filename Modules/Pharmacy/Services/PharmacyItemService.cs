@@ -84,20 +84,20 @@ namespace CareSphere.Modules.Pharmacy.Services
 
         public async Task<PharmacyItem?> GetItemByIdAsync(Guid id)
         {
-            return await _context.PharmacyItems.FindAsync(id);
+            return await _context.PharmacyItems.AsNoTracking().FirstOrDefaultAsync(p => p.Id == id);
         }
 
         public async Task<PharmacyItem?> GetItemByBarcodeAsync(Guid tenantId, string barcode)
         {
             if (string.IsNullOrWhiteSpace(barcode)) return null;
 
-            return await _context.PharmacyItems
+            return await _context.PharmacyItems.AsNoTracking()
                 .FirstOrDefaultAsync(i => i.TenantId == tenantId && i.Barcode == barcode && i.IsActive);
         }
 
         public async Task<List<PharmacyItem>> SearchItemsAsync(Guid tenantId, string? query, string? category, bool? requiresPrescription, int page = 1, int pageSize = 10)
         {
-            var dbQuery = _context.PharmacyItems.Where(i => i.TenantId == tenantId);
+            var dbQuery = _context.PharmacyItems.AsNoTracking().Where(i => i.TenantId == tenantId);
 
             if (!string.IsNullOrWhiteSpace(query))
             {
@@ -127,7 +127,7 @@ namespace CareSphere.Modules.Pharmacy.Services
 
         public async Task<int> GetItemsCountAsync(Guid tenantId, string? query, string? category, bool? requiresPrescription)
         {
-            var dbQuery = _context.PharmacyItems.Where(i => i.TenantId == tenantId);
+            var dbQuery = _context.PharmacyItems.AsNoTracking().Where(i => i.TenantId == tenantId);
 
             if (!string.IsNullOrWhiteSpace(query))
             {
@@ -245,7 +245,7 @@ namespace CareSphere.Modules.Pharmacy.Services
 
         public async Task<List<PharmacyItemStockDto>> GetLowStockItemsAsync(Guid tenantId)
         {
-            var items = await _context.PharmacyItems
+            var items = await _context.PharmacyItems.AsNoTracking()
                 .Where(i => i.TenantId == tenantId && i.IsActive)
                 .ToListAsync();
 
@@ -272,7 +272,7 @@ namespace CareSphere.Modules.Pharmacy.Services
 
         public async Task<List<PharmacyItem>> GetActiveItemsAsync(Guid tenantId)
         {
-            return await _context.PharmacyItems
+            return await _context.PharmacyItems.AsNoTracking()
                 .Where(i => i.TenantId == tenantId && i.IsActive)
                 .OrderBy(i => i.ItemName)
                 .ToListAsync();

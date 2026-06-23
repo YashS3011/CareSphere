@@ -34,6 +34,22 @@
 }
 else
 {
+    @if (!string.IsNullOrEmpty(successMessage))
+    {
+        <div class="alert alert-success alert-dismissible fade show border-0 shadow-sm mb-4" role="alert">
+            <i class="bi bi-check-circle-fill me-2"></i>@successMessage
+            <button type="button" class="btn-close" @onclick="() => successMessage = null"></button>
+        </div>
+    }
+
+    @if (!string.IsNullOrEmpty(errorMessage))
+    {
+        <div class="alert alert-danger alert-dismissible fade show border-0 shadow-sm mb-4" role="alert">
+            <i class="bi bi-exclamation-triangle-fill me-2"></i>@errorMessage
+            <button type="button" class="btn-close" @onclick="() => errorMessage = null"></button>
+        </div>
+    }
+
     <!-- Metrics Row -->
     <div class="row g-4 mb-4">
         <div class="col-md-4">
@@ -119,6 +135,9 @@ else
                                             case "Confirmed":
                                                 <span class="badge bg-success-subtle text-success border border-success-subtle">Confirmed</span>
                                                 break;
+                                            case "Arrived":
+                                                <span class="badge bg-info-subtle text-info border border-info-subtle">Arrived</span>
+                                                break;
                                             case "Completed":
                                                 <span class="badge bg-primary-subtle text-primary border border-primary-subtle">Completed</span>
                                                 break;
@@ -131,16 +150,20 @@ else
                                         }
                                     </td>
                                     <td class="pe-4 text-end">
-                                        @if (appt.Status == "Scheduled" || appt.Status == "Confirmed")
-                                        {
-                                            <button class="btn btn-xs btn-outline-danger" @onclick="() => PromptCancel(appt)">
-                                                <i class="bi bi-x-circle me-1"></i> Cancel
-                                            </button>
-                                        }
-                                        else
-                                        {
-                                            <span class="text-muted small">—</span>
-                                        }
+                                        <div class="d-inline-flex gap-1">
+                                            <a class="btn btn-xs btn-outline-primary" href="/appointments/@appt.Id">
+                                                <i class="bi bi-eye me-1"></i> View
+                                            </a>
+                                            @if (appt.Status == "Scheduled" || appt.Status == "Confirmed")
+                                            {
+                                                <button class="btn btn-xs btn-success text-white" @onclick="() => CheckIn(appt)">
+                                                    <i class="bi bi-check-circle me-1"></i> Check In
+                                                </button>
+                                                <button class="btn btn-xs btn-outline-danger" @onclick="() => PromptCancel(appt)">
+                                                    <i class="bi bi-x-circle me-1"></i> Cancel
+                                                </button>
+                                            }
+                                        </div>
                                     </td>
                                 </tr>
                             }
@@ -187,6 +210,9 @@ else
 
     private Appointment? appointmentToCancel;
     private bool showConfirmModal = false;
+
+    private string? successMessage;
+    private string? errorMessage;
 
     protected override async Task OnInitializedAsync()
     {
@@ -260,6 +286,22 @@ else
     private string GetDoctorName(Guid doctorId)
     {
         return doctorNames.TryGetValue(doctorId, out var name) ? name : "Loading...";
+    }
+
+    private async Task CheckIn(Appointment appt)
+    {
+        successMessage = null;
+        errorMessage = null;
+        try
+        {
+            await AppointmentService.MarkArrivedAsync(appt.Id, currentTenantId);
+            successMessage = $"Patient {GetPatientName(appt.PatientId)} checked in successfully.";
+            await LoadDataAsync();
+        }
+        catch (Exception ex)
+        {
+            errorMessage = $"Failed to check in patient: {ex.Message}";
+        }
     }
 
     private void PromptCancel(Appointment appt)

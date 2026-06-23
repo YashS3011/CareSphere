@@ -104,7 +104,7 @@ namespace CareSphere.Modules.Admin.Services
             var effectivePerms = new HashSet<string>(rolePerms);
 
             // Apply explicit grants and revocations
-            var userPerms = await _context.UserPermissions
+            var userPerms = await _context.UserPermissions.AsNoTracking()
                 .Where(up => up.TenantId == tenantId && up.UserId == userId)
                 .ToListAsync();
 
@@ -185,7 +185,7 @@ namespace CareSphere.Modules.Admin.Services
         public async Task<List<string>> GetRolePermissionsAsync(Guid tenantId, string roleName)
         {
             // Load tenant-specific overrides from DB
-            var dbPerms = await _context.RolePermissions
+            var dbPerms = await _context.RolePermissions.AsNoTracking()
                 .Where(rp => rp.TenantId == tenantId && rp.RoleName == roleName)
                 .Select(rp => rp.Permission)
                 .ToListAsync();

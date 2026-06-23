@@ -27,7 +27,7 @@ namespace CareSphere.Modules.Analytics.Services
                 .AsNoTracking()
                 .CountAsync(a => a.TenantId == tenantId && a.Status == "Active");
 
-            var dischargedAllotments = await _dbContext.BedAllotments
+            var dischargedAllotments = await _dbContext.BedAllotments.AsNoTracking()
                 .AsNoTracking()
                 .Where(a => a.TenantId == tenantId && a.Status == "Discharged" && a.DischargeDate != null)
                 .Select(a => new { a.AdmissionDate, a.DischargeDate })
@@ -71,7 +71,7 @@ namespace CareSphere.Modules.Analytics.Services
             var fromUtc = NormalizeToUtc(from, false);
             var toUtc = NormalizeToUtc(to, true);
 
-            var invoices = await _dbContext.BillingInvoices
+            var invoices = await _dbContext.BillingInvoices.AsNoTracking()
                 .AsNoTracking()
                 .Where(i => i.TenantId == tenantId && i.CreatedAt >= fromUtc && i.CreatedAt <= toUtc)
                 .ToListAsync();
@@ -98,7 +98,7 @@ namespace CareSphere.Modules.Analytics.Services
                 .AsNoTracking()
                 .CountAsync(r => r.TenantId == tenantId && r.IsAbnormal && r.EnteredAt >= firstDayOfMonth);
 
-            var completedRequisitions = await _dbContext.LabRequisitions
+            var completedRequisitions = await _dbContext.LabRequisitions.AsNoTracking()
                 .AsNoTracking()
                 .Where(r => r.TenantId == tenantId && r.Status == "Completed" && r.OrderedAt >= firstDayOfMonth)
                 .Include(r => r.Items)
@@ -131,7 +131,7 @@ namespace CareSphere.Modules.Analytics.Services
 
         public async Task<TopDoctorsMetrics> GetTopDoctorsByEncountersAsync(Guid tenantId, int topN = 5)
         {
-            var doctorCounts = await _dbContext.Encounters
+            var doctorCounts = await _dbContext.Encounters.AsNoTracking()
                 .AsNoTracking()
                 .Where(e => e.TenantId == tenantId)
                 .GroupBy(e => e.DoctorId)
@@ -142,7 +142,7 @@ namespace CareSphere.Modules.Analytics.Services
 
             var doctorIds = doctorCounts.Select(x => x.DoctorId).ToList();
 
-            var doctors = await _dbContext.Doctors
+            var doctors = await _dbContext.Doctors.AsNoTracking()
                 .AsNoTracking()
                 .Where(d => doctorIds.Contains(d.Id))
                 .ToDictionaryAsync(d => d.Id);
@@ -164,7 +164,7 @@ namespace CareSphere.Modules.Analytics.Services
 
         public async Task<PharmacyMetrics> GetPharmacyMetricsAsync(Guid tenantId)
         {
-            var batches = await _dbContext.PharmacyBatches
+            var batches = await _dbContext.PharmacyBatches.AsNoTracking()
                 .AsNoTracking()
                 .Where(b => b.TenantId == tenantId && b.IsActive)
                 .ToListAsync();
@@ -172,7 +172,7 @@ namespace CareSphere.Modules.Analytics.Services
             var stockValue = batches.Sum(b => b.CurrentStock * b.PurchasePrice);
             var nearExpiryCount = batches.Count(b => b.ExpiryDate <= DateTime.UtcNow.AddDays(90));
 
-            var items = await _dbContext.PharmacyItems
+            var items = await _dbContext.PharmacyItems.AsNoTracking()
                 .AsNoTracking()
                 .Where(i => i.TenantId == tenantId && i.IsActive)
                 .ToListAsync();

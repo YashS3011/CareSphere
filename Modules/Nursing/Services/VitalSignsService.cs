@@ -13,11 +13,13 @@ namespace CareSphere.Modules.Nursing.Services
     {
         private readonly ApplicationDbContext _dbContext;
         private readonly IPatientReadModel _patientReadModel;
+        private readonly IVitalThresholdService _thresholdService;
 
-        public VitalSignsService(ApplicationDbContext dbContext, IPatientReadModel patientReadModel)
+        public VitalSignsService(ApplicationDbContext dbContext, IPatientReadModel patientReadModel, IVitalThresholdService thresholdService)
         {
             _dbContext = dbContext;
             _patientReadModel = patientReadModel;
+            _thresholdService = thresholdService;
         }
 
         public async Task<VitalSigns> RecordAsync(VitalSigns vitals, Guid tenantId)
@@ -36,15 +38,7 @@ namespace CareSphere.Modules.Nursing.Services
                 _dbContext.VitalSigns.Add(vitals);
 
                 // Check critical alert thresholds
-                var breaches = new List<string>();
-                if (vitals.SpO2.HasValue && vitals.SpO2.Value < 92)
-                    breaches.Add($"SpO2 ({vitals.SpO2.Value}%)");
-                if (vitals.HeartRate.HasValue && (vitals.HeartRate.Value > 130 || vitals.HeartRate.Value < 40))
-                    breaches.Add($"Heart Rate ({vitals.HeartRate.Value} bpm)");
-                if (vitals.BloodPressureSystolic.HasValue && (vitals.BloodPressureSystolic.Value > 180 || vitals.BloodPressureSystolic.Value < 80))
-                    breaches.Add($"Systolic BP ({vitals.BloodPressureSystolic.Value} mmHg)");
-                if (vitals.Temperature.HasValue && (vitals.Temperature.Value > 39.5m || vitals.Temperature.Value < 35.0m))
-                    breaches.Add($"Temperature ({vitals.Temperature.Value}°C)");
+                var breaches = _thresholdService.CheckThresholds(vitals);
 
                 if (breaches.Any())
                 {
@@ -113,7 +107,7 @@ namespace CareSphere.Modules.Nursing.Services
 
         public async Task<List<VitalSigns>> GetHistoryAsync(Guid patientId, Guid tenantId, int lastN = 10)
         {
-            return await _dbContext.VitalSigns
+            return await _dbContext.VitalSigns.AsNoTracking()
                 .Where(v => v.PatientId == patientId && v.TenantId == tenantId)
                 .OrderByDescending(v => v.RecordedAt)
                 .Take(lastN)
@@ -122,7 +116,7 @@ namespace CareSphere.Modules.Nursing.Services
 
         public async Task<VitalSigns?> GetLatestAsync(Guid patientId, Guid tenantId)
         {
-            return await _dbContext.VitalSigns
+            return await _dbContext.VitalSigns.AsNoTracking()
                 .Where(v => v.PatientId == patientId && v.TenantId == tenantId)
                 .OrderByDescending(v => v.RecordedAt)
                 .FirstOrDefaultAsync();

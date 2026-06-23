@@ -48,12 +48,12 @@ namespace CareSphere.Modules.Pharmacy.Services
 
         public async Task<Supplier?> GetSupplierByIdAsync(Guid id)
         {
-            return await _context.Suppliers.FindAsync(id);
+            return await _context.Suppliers.AsNoTracking().FirstOrDefaultAsync(s => s.Id == id);
         }
 
         public async Task<List<Supplier>> GetSuppliersAsync(Guid tenantId, string? searchTerm = null)
         {
-            var query = _context.Suppliers.Where(s => s.TenantId == tenantId);
+            var query = _context.Suppliers.AsNoTracking().Where(s => s.TenantId == tenantId);
 
             if (!string.IsNullOrWhiteSpace(searchTerm))
             {

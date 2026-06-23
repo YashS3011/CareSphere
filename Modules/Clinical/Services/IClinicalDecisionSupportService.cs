@@ -20,6 +20,7 @@ namespace CareSphere.Modules.Clinical.Services
     public interface IClinicalDecisionSupportService
     {
         Task<List<DrugInteractionAlert>> CheckDrugInteractionsAsync(List<string> existingDrugCodes, string newDrugCode);
+        Task<List<AllergyAlert>> CheckAllergiesAsync(Guid patientId, string drugCode);
     }
 
     public class DrugInteractionAlert
@@ -27,5 +28,11 @@ namespace CareSphere.Modules.Clinical.Services
         public string Severity { get; set; } = string.Empty; // Advisory | Warning | Contraindicated
         public string AlertMessage { get; set; } = string.Empty;
         public string InteractingDrug { get; set; } = string.Empty;
+    }
+
+    public class AllergyAlert
+    {
+        public string Allergen { get; set; } = string.Empty;
+        public string AlertMessage { get; set; } = string.Empty;
     }
 }

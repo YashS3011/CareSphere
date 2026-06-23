@@ -25,7 +25,7 @@ namespace CareSphere.Modules.Pharmacy.Services
 
         public async Task<List<StockLedgerEntry>> GetLedgerByItemAsync(Guid itemId, int page = 1, int pageSize = 20)
         {
-            return await _context.StockLedgerEntries
+            return await _context.StockLedgerEntries.AsNoTracking()
                 .Include(l => l.Batch)
                 .Where(l => l.ItemId == itemId)
                 .OrderByDescending(l => l.TransactionDate)
@@ -43,7 +43,7 @@ namespace CareSphere.Modules.Pharmacy.Services
 
         public async Task<List<StockLedgerEntry>> GetLedgerByBatchAsync(Guid batchId)
         {
-            return await _context.StockLedgerEntries
+            return await _context.StockLedgerEntries.AsNoTracking()
                 .Where(l => l.BatchId == batchId)
                 .OrderByDescending(l => l.TransactionDate)
                 .ToListAsync();
@@ -51,7 +51,7 @@ namespace CareSphere.Modules.Pharmacy.Services
 
         public async Task<List<StockSummaryDto>> GetStockSummaryAsync(Guid tenantId, string? searchTerm = null)
         {
-            var query = _context.PharmacyItems.Where(i => i.TenantId == tenantId && i.IsActive);
+            var query = _context.PharmacyItems.AsNoTracking().Where(i => i.TenantId == tenantId && i.IsActive);
 
             if (!string.IsNullOrWhiteSpace(searchTerm))
             {
@@ -68,9 +68,9 @@ namespace CareSphere.Modules.Pharmacy.Services
                 ItemName = i.ItemName,
                 Category = i.Category,
                 Unit = i.Unit,
-                TotalCurrentStock = _context.PharmacyBatches.Where(b => b.ItemId == i.Id && b.IsActive).Sum(b => b.CurrentStock),
-                TotalAvailableStock = _context.PharmacyBatches.Where(b => b.ItemId == i.Id && b.IsActive).Sum(b => b.AvailableStock),
-                BatchCount = _context.PharmacyBatches.Count(b => b.ItemId == i.Id && b.IsActive)
+                TotalCurrentStock = _context.PharmacyBatches.AsNoTracking().Where(b => b.ItemId == i.Id && b.IsActive).Sum(b => b.CurrentStock),
+                TotalAvailableStock = _context.PharmacyBatches.AsNoTracking().Where(b => b.ItemId == i.Id && b.IsActive).Sum(b => b.AvailableStock),
+                BatchCount = _context.PharmacyBatches.AsNoTracking().Count(b => b.ItemId == i.Id && b.IsActive)
             })
             .OrderBy(s => s.ItemName)
             .ToListAsync();

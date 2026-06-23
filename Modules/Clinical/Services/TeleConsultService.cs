@@ -81,7 +81,7 @@ namespace CareSphere.Modules.Clinical.Services
 
         public async Task<List<TeleConsultSession>> GetSessionsByEncounterAsync(Guid encounterId)
         {
-            return await _context.TeleConsultSessions
+            return await _context.TeleConsultSessions.AsNoTracking()
                 .Include(s => s.Doctor)
                 .Include(s => s.Patient)
                 .Where(s => s.EncounterId == encounterId)

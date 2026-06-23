@@ -5,7 +5,10 @@
 @inject IPatientReadModel PatientReadModel
 @inject CareSphere.Data.ApplicationDbContext DbContext
 @inject NavigationManager NavigationManager
+@inject AuthenticationStateProvider AuthStateProvider
 @using Microsoft.EntityFrameworkCore
+@using CareSphere.Infrastructure
+@using CareSphere
 
 <PageTitle>Allotment History - CareSphere</PageTitle>
 
@@ -113,10 +116,19 @@ else
                 </div>
                 <div class="modal-body">
                     <p class="text-muted mb-3">Are you sure you want to discharge this patient from the current bed?</p>
-                    <div class="mb-0">
+                    <div class="mb-3">
                         <label class="form-label fw-semibold">Discharge Notes</label>
                         <textarea class="form-control" @bind="dischargeNotes" rows="3" placeholder="Optional notes about the discharge..."></textarea>
                     </div>
+                    @if (isUserAdmin)
+                    {
+                        <div class="form-check mb-3">
+                            <input class="form-check-input" type="checkbox" id="forceDischargeCheck" @bind="forceDischarge" />
+                            <label class="form-check-label text-danger fw-bold" for="forceDischargeCheck">
+                                Force Discharge (Admin Override)
+                            </label>
+                        </div>
+                    }
                     @if (dischargeError != null) { <div class="alert alert-danger mt-3">@dischargeError</div> }
                 </div>
                 <div class="modal-footer border-0">
@@ -137,6 +149,8 @@ else
     private Guid allotmentIdToDischarge = Guid.Empty;
     private string? dischargeNotes;
     private string? dischargeError;
+    private bool isUserAdmin = false;
+    private bool forceDischarge = false;
 
     protected override async Task OnInitializedAsync() { await LoadAllotments(); }
 
@@ -154,14 +168,27 @@ else
         }
     }
 
-    private void ConfirmDischarge(Guid id) { allotmentIdToDischarge = id; showDischargeConfirm = true; dischargeError = null; dischargeNotes = ""; }
+    private async Task ConfirmDischarge(Guid id)
+    {
+        allotmentIdToDischarge = id;
+        showDischargeConfirm = true;
+        dischargeError = null;
+        dischargeNotes = "";
+        forceDischarge = false;
+
+        var authState = await AuthStateProvider.GetAuthenticationStateAsync();
+        var user = authState.User;
+        var role = CurrentUserHelper.GetUserRole(user);
+        isUserAdmin = role == CareSphereRoles.HospitalAdmin || role == CareSphereRoles.SuperAdmin;
+    }
+
     private void CancelDischarge() { showDischargeConfirm = false; allotmentIdToDischarge = Guid.Empty; dischargeError = null; }
 
     private async Task ProcessDischarge(Guid id, string notes)
     {
         try
         {
-            await BedService.DischargePatientAsync(id, notes, DateTime.UtcNow);
+            await BedService.DischargePatientAsync(id, notes, DateTime.UtcNow, forceDischarge);
             await LoadAllotments();
             showDischargeConfirm = false;
             dischargeNotes = null;

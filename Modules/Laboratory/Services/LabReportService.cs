@@ -132,7 +132,7 @@ namespace CareSphere.Modules.Laboratory.Services
 
         public async Task<List<LabReport>> GetReportsByRequisitionAsync(Guid requisitionId)
         {
-            return await _context.LabReports
+            return await _context.LabReports.AsNoTracking()
                 .Where(r => r.RequisitionId == requisitionId)
                 .OrderByDescending(r => r.GeneratedAt)
                 .ToListAsync();

@@ -16,6 +16,8 @@ using Microsoft.EntityFrameworkCore;
 using CareSphere.Data;
 using CareSphere.Models;
 using CareSphere.Modules.Shared.Events;
+using CareSphere.Infrastructure;
+using Microsoft.AspNetCore.Http;
 
 namespace CareSphere.Modules.Billing.Services
 {
@@ -23,12 +25,25 @@ namespace CareSphere.Modules.Billing.Services
     {
         private readonly ApplicationDbContext _context;
         private readonly IAuditService _auditService;
+        private readonly IHttpContextAccessor _http;
 
-        public InvoiceService(ApplicationDbContext context, IAuditService auditService)
+        private const decimal DefaultConsultationFee = 500.00m;
+        private const string ConsultationItemType = "Consultation";
+        private const string ConsultationItemCode = "OPD-CONS";
+        private const string PharmacyItemType = "Pharmacy";
+        private const string InvoiceStatusDraft = "Draft";
+
+        public InvoiceService(ApplicationDbContext context, IAuditService auditService, IHttpContextAccessor http)
         {
             _context = context;
             _auditService = auditService;
+            _http = http;
         }
+
+        private string CurrentUserId =>
+            _http.HttpContext?.User
+                .FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value
+            ?? "system";
 
         public async Task<BillingInvoice> CreateInvoiceAsync(Guid tenantId, Guid patientId, Guid? encounterId, List<BillingLineItem> lineItems)
         {
@@ -112,7 +127,7 @@ namespace CareSphere.Modules.Billing.Services
             await _auditService.LogAsync(new AuditEvent
             {
                 TenantId = tenantId,
-                UserId = "system",
+                UserId = CurrentUserId,
                 Action = "INVOICE_CREATED",
                 ResourceType = "BillingInvoice",
                 ResourceId = invoice.Id.ToString()
@@ -153,7 +168,7 @@ namespace CareSphere.Modules.Billing.Services
             await _auditService.LogAsync(new AuditEvent
             {
                 TenantId = invoice.TenantId,
-                UserId = "system",
+                UserId = CurrentUserId,
                 Action = "INVOICE_LINE_ADDED",
                 ResourceType = "BillingInvoice",
                 ResourceId = invoiceId.ToString()
@@ -185,7 +200,7 @@ namespace CareSphere.Modules.Billing.Services
                 await _auditService.LogAsync(new AuditEvent
                 {
                     TenantId = invoice.TenantId,
-                    UserId = "system",
+                    UserId = CurrentUserId,
                     Action = "INVOICE_LINE_REMOVED",
                     ResourceType = "BillingInvoice",
                     ResourceId = invoiceId.ToString()
@@ -201,6 +216,8 @@ namespace CareSphere.Modules.Billing.Services
             if (invoice == null)
                 throw new KeyNotFoundException("Invoice not found.");
 
+            await _context.Entry(invoice).ReloadAsync();
+
             if (invoice.Status != "Draft")
                 throw new InvalidOperationException("Only draft invoices can be finalized.");
 
@@ -214,7 +231,7 @@ namespace CareSphere.Modules.Billing.Services
             await _auditService.LogAsync(new AuditEvent
             {
                 TenantId = invoice.TenantId,
-                UserId = "system",
+                UserId = CurrentUserId,
                 Action = "INVOICE_FINALIZED",
                 ResourceType = "BillingInvoice",
                 ResourceId = invoice.Id.ToString()
@@ -225,7 +242,7 @@ namespace CareSphere.Modules.Billing.Services
 
         public async Task<BillingInvoice?> GetInvoiceByIdAsync(Guid invoiceId)
         {
-            return await _context.BillingInvoices
+            return await _context.BillingInvoices.AsNoTracking()
                 .Include(i => i.Patient)
                 .Include(i => i.Encounter)
                 .Include(i => i.BillingLineItems)
@@ -235,7 +252,7 @@ namespace CareSphere.Modules.Billing.Services
 
         public async Task<List<BillingInvoice>> GetInvoicesByPatientAsync(Guid patientId)
         {
-            return await _context.BillingInvoices
+            return await _context.BillingInvoices.AsNoTracking()
                 .Include(i => i.Patient)
                 .Where(i => i.PatientId == patientId)
                 .OrderByDescending(i => i.InvoiceDate)
@@ -244,7 +261,7 @@ namespace CareSphere.Modules.Billing.Services
 
         public async Task<(List<BillingInvoice> Invoices, int TotalCount)> GetInvoicesByStatusAsync(string? status, int page, int pageSize, string searchTerm = "")
         {
-            var query = _context.BillingInvoices
+            var query = _context.BillingInvoices.AsNoTracking()
                 .Include(i => i.Patient)
                 .AsQueryable();
 
@@ -297,7 +314,7 @@ namespace CareSphere.Modules.Billing.Services
             await _auditService.LogAsync(new AuditEvent
             {
                 TenantId = invoice.TenantId,
-                UserId = "system",
+                UserId = CurrentUserId,
                 Action = "INVOICE_CANCELLED",
                 ResourceType = "BillingInvoice",
                 ResourceId = invoice.Id.ToString()
@@ -357,16 +374,264 @@ namespace CareSphere.Modules.Billing.Services
             await _context.SaveChangesAsync();
         }
 
-        public Task CreateDraftFromEncounterAsync(EncounterCompleted evt)
+        public async Task CreateDraftFromEncounterAsync(EncounterCompleted evt)
         {
-            // TODO: Implement draft invoice generation from completed encounter
-            return Task.CompletedTask;
+            var originalBypassId = TenantContext.BypassTenantId;
+            TenantContext.BypassTenantId = evt.TenantId;
+            try
+            {
+                var existingInvoice = await _context.BillingInvoices
+                    .FirstOrDefaultAsync(i => i.TenantId == evt.TenantId && i.EncounterId == evt.EncounterId && i.Status == InvoiceStatusDraft);
+
+                if (existingInvoice != null)
+                {
+                    return;
+                }
+
+                var encounter = await _context.Encounters
+                    .Include(e => e.Doctor)
+                    .FirstOrDefaultAsync(e => e.TenantId == evt.TenantId && e.Id == evt.EncounterId);
+
+                if (encounter == null)
+                {
+                    throw new KeyNotFoundException($"Encounter with ID {evt.EncounterId} was not found.");
+                }
+
+                var itemDescription = encounter.Doctor != null
+                    ? $"{encounter.Doctor.Specialization} Fee (Dr. {encounter.Doctor.FirstName} {encounter.Doctor.LastName})"
+                    : "OPD Consultation Fee";
+
+                var lineItem = new BillingLineItem
+                {
+                    TenantId = evt.TenantId,
+                    ItemType = ConsultationItemType,
+                    ItemCode = ConsultationItemCode,
+                    ItemDescription = itemDescription,
+                    Quantity = 1m,
+                    UnitPrice = DefaultConsultationFee,
+                    LineTotal = DefaultConsultationFee
+                };
+
+                await CreateInvoiceAsync(evt.TenantId, evt.PatientId, evt.EncounterId, new List<BillingLineItem> { lineItem });
+            }
+            finally
+            {
+                TenantContext.BypassTenantId = originalBypassId;
+            }
         }
 
-        public Task AddDispenseLineItemAsync(DispenseCompleted evt)
+        public async Task AddDispenseLineItemAsync(DispenseCompleted evt)
         {
-            // TODO: Implement billing line item addition from completed pharmacy dispense
-            return Task.CompletedTask;
+            var originalBypassId = TenantContext.BypassTenantId;
+            TenantContext.BypassTenantId = evt.TenantId;
+            try
+            {
+                var dispense = await _context.DispenseRecords
+                    .Include(d => d.Item)
+                    .Include(d => d.Batch)
+                    .FirstOrDefaultAsync(d => d.TenantId == evt.TenantId && d.Id == evt.DispenseId);
+
+                if (dispense == null)
+                {
+                    throw new KeyNotFoundException($"DispenseRecord with ID {evt.DispenseId} was not found.");
+                }
+
+                var prescription = await _context.Prescriptions
+                    .FirstOrDefaultAsync(p => p.TenantId == evt.TenantId && p.Id == evt.PrescriptionId);
+
+                if (prescription == null || prescription.EncounterId == Guid.Empty)
+                {
+                    return;
+                }
+
+                var invoice = await _context.BillingInvoices
+                    .Include(i => i.BillingLineItems)
+                    .FirstOrDefaultAsync(i => i.TenantId == evt.TenantId && i.PatientId == evt.PatientId && i.EncounterId == prescription.EncounterId && i.Status == InvoiceStatusDraft);
+
+                if (invoice == null)
+                {
+                    invoice = await CreateInvoiceAsync(evt.TenantId, evt.PatientId, prescription.EncounterId, new List<BillingLineItem>());
+                }
+
+                decimal unitPrice = dispense.Batch?.SellingPrice ?? 0m;
+                if (dispense.Batch == null || dispense.Batch.SellingPrice == 0m)
+                {
+                    Console.WriteLine($"[Warning] Missing selling price or batch for dispense record {dispense.Id}. Defaulting unit price to 0.");
+                }
+
+                var itemDescription = dispense.Item != null && dispense.Batch != null
+                    ? $"{dispense.Item.ItemName} (Batch: {dispense.Batch.BatchNumber})"
+                    : (dispense.Item != null ? dispense.Item.ItemName : "Unknown Medication");
+
+                var lineItem = new BillingLineItem
+                {
+                    Id = Guid.NewGuid(),
+                    TenantId = evt.TenantId,
+                    InvoiceId = invoice.Id,
+                    ItemType = PharmacyItemType,
+                    ItemDescription = itemDescription,
+                    ItemCode = dispense.Item?.ItemCode,
+                    Quantity = dispense.DispensedQuantity,
+                    UnitPrice = unitPrice,
+                    DiscountPercent = 0m,
+                    TaxPercent = 0m,
+                    LineTotal = dispense.DispensedQuantity * unitPrice
+                };
+
+                _context.BillingLineItems.Add(lineItem);
+                await _context.SaveChangesAsync();
+
+                await UpdateInvoiceTotalsAsync(invoice.Id);
+            }
+            finally
+            {
+                TenantContext.BypassTenantId = originalBypassId;
+            }
+        }
+        public async Task AddLabRequisitionLineItemsAsync(LabRequisitionCreated evt)
+        {
+            var originalBypassId = TenantContext.BypassTenantId;
+            TenantContext.BypassTenantId = evt.TenantId;
+            try
+            {
+                if (evt.Tests == null || !evt.Tests.Any())
+                    return;
+
+                // Find the draft invoice for this encounter (or patient if no encounter)
+                BillingInvoice? invoice = null;
+                if (evt.EncounterId.HasValue)
+                {
+                    invoice = await _context.BillingInvoices
+                        .Include(i => i.BillingLineItems)
+                        .FirstOrDefaultAsync(i => i.TenantId == evt.TenantId
+                                               && i.EncounterId == evt.EncounterId
+                                               && i.Status == InvoiceStatusDraft);
+                }
+
+                if (invoice == null)
+                {
+                    // Create a new draft invoice for these lab charges
+                    var lineItems = evt.Tests
+                        .Where(t => t.Fee > 0)
+                        .Select(t => new BillingLineItem
+                        {
+                            TenantId = evt.TenantId,
+                            ItemType = "Laboratory",
+                            ItemCode = t.TestCode,
+                            ItemDescription = $"Lab Test: {t.TestName} (Req: {evt.RequisitionNumber})",
+                            Quantity = 1m,
+                            UnitPrice = t.Fee,
+                            DiscountPercent = 0m,
+                            TaxPercent = 0m,
+                            LineTotal = t.Fee
+                        }).ToList();
+
+                    if (lineItems.Any())
+                        await CreateInvoiceAsync(evt.TenantId, evt.PatientId, evt.EncounterId, lineItems);
+
+                    return;
+                }
+
+                // Add line items to existing draft invoice
+                foreach (var test in evt.Tests.Where(t => t.Fee > 0))
+                {
+                    var lineItem = new BillingLineItem
+                    {
+                        Id = Guid.NewGuid(),
+                        TenantId = evt.TenantId,
+                        InvoiceId = invoice.Id,
+                        ItemType = "Laboratory",
+                        ItemCode = test.TestCode,
+                        ItemDescription = $"Lab Test: {test.TestName} (Req: {evt.RequisitionNumber})",
+                        Quantity = 1m,
+                        UnitPrice = test.Fee,
+                        DiscountPercent = 0m,
+                        TaxPercent = 0m,
+                        LineTotal = test.Fee
+                    };
+                    _context.BillingLineItems.Add(lineItem);
+                }
+
+                await _context.SaveChangesAsync();
+                await UpdateInvoiceTotalsAsync(invoice.Id);
+            }
+            finally
+            {
+                TenantContext.BypassTenantId = originalBypassId;
+            }
+        }
+
+        public async Task AddDailyBedChargeAsync(Guid tenantId, Guid patientId, Guid? encounterId, decimal chargeAmount, string bedNumber)
+        {
+            var originalBypassId = TenantContext.BypassTenantId;
+            TenantContext.BypassTenantId = tenantId;
+            try
+            {
+                if (chargeAmount <= 0)
+                    return;
+
+                BillingInvoice? invoice = null;
+                if (encounterId.HasValue)
+                {
+                    invoice = await _context.BillingInvoices
+                        .Include(i => i.BillingLineItems)
+                        .FirstOrDefaultAsync(i => i.TenantId == tenantId
+                                               && i.EncounterId == encounterId.Value
+                                               && i.Status == InvoiceStatusDraft);
+                }
+
+                if (invoice == null)
+                {
+                    invoice = await _context.BillingInvoices
+                        .Include(i => i.BillingLineItems)
+                        .FirstOrDefaultAsync(i => i.TenantId == tenantId
+                                               && i.PatientId == patientId
+                                               && i.Status == InvoiceStatusDraft);
+                }
+
+                if (invoice == null)
+                {
+                    var lineItem = new BillingLineItem
+                    {
+                        TenantId = tenantId,
+                        ItemType = "BedCharge",
+                        ItemCode = "BED-" + bedNumber,
+                        ItemDescription = $"Daily Bed Charge: Bed {bedNumber}",
+                        Quantity = 1m,
+                        UnitPrice = chargeAmount,
+                        DiscountPercent = 0m,
+                        TaxPercent = 0m,
+                        LineTotal = chargeAmount
+                    };
+
+                    await CreateInvoiceAsync(tenantId, patientId, encounterId, new List<BillingLineItem> { lineItem });
+                }
+                else
+                {
+                    var lineItem = new BillingLineItem
+                    {
+                        Id = Guid.NewGuid(),
+                        TenantId = tenantId,
+                        InvoiceId = invoice.Id,
+                        ItemType = "BedCharge",
+                        ItemCode = "BED-" + bedNumber,
+                        ItemDescription = $"Daily Bed Charge: Bed {bedNumber}",
+                        Quantity = 1m,
+                        UnitPrice = chargeAmount,
+                        DiscountPercent = 0m,
+                        TaxPercent = 0m,
+                        LineTotal = chargeAmount
+                    };
+
+                    _context.BillingLineItems.Add(lineItem);
+                    await _context.SaveChangesAsync();
+                    await UpdateInvoiceTotalsAsync(invoice.Id);
+                }
+            }
+            finally
+            {
+                TenantContext.BypassTenantId = originalBypassId;
+            }
         }
     }
 }

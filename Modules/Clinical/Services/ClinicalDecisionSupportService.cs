@@ -64,5 +64,43 @@ namespace CareSphere.Modules.Clinical.Services
 
             return alerts;
         }
+
+        public async Task<List<AllergyAlert>> CheckAllergiesAsync(Guid patientId, string drugCode)
+        {
+            var alerts = new List<AllergyAlert>();
+            if (string.IsNullOrWhiteSpace(drugCode))
+                return alerts;
+
+            var patient = await _context.Patients.FindAsync(patientId);
+            if (patient == null || string.IsNullOrWhiteSpace(patient.KnownAllergies))
+                return alerts;
+
+            var drug = await _context.DrugFormulary.FirstOrDefaultAsync(d => d.DrugCode == drugCode);
+            if (drug == null)
+                return alerts;
+
+            var allergies = patient.KnownAllergies
+                .Split(',', StringSplitOptions.RemoveEmptyEntries)
+                .Select(a => a.Trim().ToLower())
+                .ToList();
+
+            var genericNameLower = drug.GenericName.ToLower();
+            var brandNameLower = (drug.BrandName ?? "").ToLower();
+            var drugCodeLower = drug.DrugCode.ToLower();
+
+            foreach (var allergy in allergies)
+            {
+                if (genericNameLower.Contains(allergy) || brandNameLower.Contains(allergy) || drugCodeLower.Contains(allergy))
+                {
+                    alerts.Add(new AllergyAlert
+                    {
+                        Allergen = allergy,
+                        AlertMessage = $"Patient has a documented allergy to '{allergy}'. The prescribed drug contains '{drug.GenericName}'."
+                    });
+                }
+            }
+
+            return alerts;
+        }
     }
 }

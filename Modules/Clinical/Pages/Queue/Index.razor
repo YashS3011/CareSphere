@@ -100,12 +100,13 @@ else
         <div class="content-card">
             <div class="content-card-body p-0">
                 <div class="table-responsive">
-                    <table class="table table-hover data-table mb-0">
+                    <table class="table table-hover align-middle data-table mb-0">
                         <thead>
                             <tr>
                                 <th style="width:50px">#</th>
                                 <th>Patient</th>
                                 <th>MRN</th>
+                                <th>Triage</th>
                                 <th>Status</th>
                                 <th>Checked In</th>
                                 <th>Est. Wait</th>
@@ -119,6 +120,15 @@ else
                                     <td><span class="queue-position">@entry.QueuePosition</span></td>
                                     <td><span class="fw-semibold">@entry.Patient.FirstName @entry.Patient.LastName</span></td>
                                     <td><span class="badge bg-secondary-subtle text-secondary">@entry.Patient.Mrn</span></td>
+                                    <td>
+                                        @switch (entry.TriagePriority)
+                                        {
+                                            case "Emergency": <span class="badge bg-danger"><i class="bi bi-exclamation-triangle me-1"></i>Emergency</span> break;
+                                            case "Urgent": <span class="badge bg-warning text-dark">Urgent</span> break;
+                                            case "Routine": <span class="badge bg-info text-dark">Routine</span> break;
+                                            default: <span class="badge bg-secondary">@entry.TriagePriority</span> break;
+                                        }
+                                    </td>
                                     <td>
                                         @switch (entry.Status)
                                         {
@@ -179,6 +189,14 @@ else
                             }
                         </select>
                     </div>
+                    <div class="mb-3">
+                        <label class="form-label fw-semibold">Triage Priority <span class="text-danger">*</span></label>
+                        <select class="form-select" @bind="selectedTriagePriority">
+                            <option value="Routine">Routine</option>
+                            <option value="Urgent">Urgent</option>
+                            <option value="Emergency">Emergency</option>
+                        </select>
+                    </div>
                     <div class="mb-0">
                         <label class="form-label fw-semibold">Notes <span class="text-muted small">(optional)</span></label>
                         <textarea class="form-control" @bind="queueNotes" rows="2" placeholder="Brief reason for visit..."></textarea>
@@ -205,6 +223,7 @@ else
     private bool _isDisposed = false;
     private bool showAddForm = false;
     private string selectedPatientId = string.Empty;
+    private string selectedTriagePriority = "Routine";
     private string queueNotes = string.Empty;
     private string addError = string.Empty;
     private string statusMessage = string.Empty;
@@ -250,7 +269,7 @@ else
     private async Task ShowAddToQueue()
     {
         patients = await PatientReadModel.SearchAsync("", TenantContext.TenantId);
-        selectedPatientId = string.Empty; queueNotes = string.Empty; addError = string.Empty;
+        selectedPatientId = string.Empty; selectedTriagePriority = "Routine"; queueNotes = string.Empty; addError = string.Empty;
         showAddForm = true;
     }
 
@@ -259,7 +278,7 @@ else
         try
         {
             if (string.IsNullOrEmpty(selectedPatientId)) { addError = "Please select a patient."; return; }
-            var entry = new DoctorQueueEntry { DoctorId = DoctorId, PatientId = Guid.Parse(selectedPatientId), Notes = string.IsNullOrWhiteSpace(queueNotes) ? null : queueNotes, TenantId = doctor?.TenantId ?? Guid.Empty };
+            var entry = new DoctorQueueEntry { DoctorId = DoctorId, PatientId = Guid.Parse(selectedPatientId), TriagePriority = selectedTriagePriority, Notes = string.IsNullOrWhiteSpace(queueNotes) ? null : queueNotes, TenantId = doctor?.TenantId ?? Guid.Empty };
             using var scope = ScopeFactory.CreateScope();
             var scopedTenant = scope.ServiceProvider.GetRequiredService<ITenantContext>();
             scopedTenant.SetTenantId(TenantContext.TenantId);

@@ -55,6 +55,9 @@ namespace CareSphere.Models
         [Column("reorder_level")]
         public int ReorderLevel { get; set; } = 0;
 
+        [Column("last_reorder_alert_sent_at")]
+        public DateTime? LastReorderAlertSentAt { get; set; }
+
         [Column("is_active")]
         public bool IsActive { get; set; } = true;
     }

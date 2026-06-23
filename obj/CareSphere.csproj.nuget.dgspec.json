@@ -53,6 +53,10 @@
               "target": "Package",
               "version": "[7.20.1, )"
             },
+            "Blazor-ApexCharts": {
+              "target": "Package",
+              "version": "[6.1.0, )"
+            },
             "Microsoft.AspNetCore.App.Internal.Assets": {
               "suppressParent": "All",
               "target": "Package",

@@ -41,7 +41,7 @@ namespace CareSphere.Modules.Notifications.Services
 
         public async Task<NotificationTemplate?> GetTemplateAsync(Guid tenantId, string notificationType, string channel, string language)
         {
-            var template = await _context.NotificationTemplates
+            var template = await _context.NotificationTemplates.AsNoTracking()
                 .FirstOrDefaultAsync(t => t.TenantId == tenantId && 
                                           t.NotificationType == notificationType && 
                                           t.Channel == channel && 
@@ -55,7 +55,7 @@ namespace CareSphere.Modules.Notifications.Services
 
             if (language != "en")
             {
-                return await _context.NotificationTemplates
+                return await _context.NotificationTemplates.AsNoTracking()
                     .FirstOrDefaultAsync(t => t.TenantId == tenantId && 
                                               t.NotificationType == notificationType && 
                                               t.Channel == channel && 
@@ -142,7 +142,7 @@ namespace CareSphere.Modules.Notifications.Services
 
         public async Task<Dictionary<string, List<NotificationTemplate>>> GetAllTemplatesAsync(Guid tenantId)
         {
-            var templates = await _context.NotificationTemplates
+            var templates = await _context.NotificationTemplates.AsNoTracking()
                 .Where(t => t.TenantId == tenantId)
                 .OrderBy(t => t.TemplateName)
                 .ToListAsync();

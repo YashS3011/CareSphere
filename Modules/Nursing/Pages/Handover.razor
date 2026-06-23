@@ -1,0 +1,464 @@
+@page "/nursing/handover"
+@rendermode InteractiveServer
+@inject CareSphere.Data.ApplicationDbContext DbContext
+@inject IShiftHandoverService ShiftHandoverService
+@inject IUserService UserService
+@inject IPatientReadModel PatientReadModel
+@inject TabIsolatedAuthenticationStateProvider AuthStateProvider
+@inject NavigationManager NavigationManager
+@using Microsoft.EntityFrameworkCore
+@using CareSphere.Models
+@using CareSphere.Modules.Nursing.Services
+@using CareSphere.Modules.Admin.Services
+@using CareSphere.Modules.Shared.ReadModels
+@using CareSphere.Infrastructure
+@using System.Security.Claims
+
+<PageTitle>Shift Handover - CareSphere</PageTitle>
+
+<div class="page-header">
+    <div class="page-header-content">
+        <div class="page-title-group">
+            <div class="page-icon"><i class="bi bi-arrow-left-right"></i></div>
+            <div>
+                <h1 class="page-title">Shift Handover</h1>
+                <p class="page-subtitle">Log nurse shift handovers, patient clinical status updates, and tasks to follow up</p>
+            </div>
+        </div>
+        <div class="page-actions">
+            <a href="/nursing" class="btn btn-outline-secondary">
+                <i class="bi bi-arrow-left me-1"></i> Dashboard
+            </a>
+        </div>
+    </div>
+</div>
+
+@if (!string.IsNullOrEmpty(successMessage))
+{
+    <div class="alert alert-success alert-dismissible fade show border-0 shadow-sm mb-4" role="alert">
+        <i class="bi bi-check-circle-fill me-2"></i>@successMessage
+        <button type="button" class="btn-close" @onclick="() => successMessage = null"></button>
+    </div>
+}
+
+@if (!string.IsNullOrEmpty(errorMessage))
+{
+    <div class="alert alert-danger alert-dismissible fade show border-0 shadow-sm mb-4" role="alert">
+        <i class="bi bi-x-circle-fill me-2"></i>@errorMessage
+        <button type="button" class="btn-close" @onclick="() => errorMessage = null"></button>
+    </div>
+}
+
+<div class="row g-4">
+    <!-- Log Handover Form -->
+    <div class="col-lg-5">
+        <!-- Patient Selector -->
+        <div class="content-card mb-4">
+            <div class="content-card-body p-4">
+                <h5 class="fw-bold mb-3 text-dark"><i class="bi bi-person-fill text-primary me-2"></i>Select Patient</h5>
+                <div class="mb-3">
+                    <select class="form-select form-select-lg text-dark" @onchange="OnPatientChanged" value="@selectedPatientIdString">
+                        <option value="">-- Choose Admitted Patient --</option>
+                        @foreach (var adm in activeAdmissions)
+                        {
+                            var name = adm.Patient != null ? $"{adm.Patient.FirstName} {adm.Patient.LastName}" : "Unknown";
+                            var mrn = adm.Patient?.Mrn ?? "N/A";
+                            <option value="@adm.PatientId">@name (MRN: @mrn)</option>
+                        }
+                    </select>
+                </div>
+
+                @if (selectedPatient != null)
+                {
+                    <div class="bg-light p-3 rounded-3 mt-2 border border-light-subtle">
+                        <div class="row">
+                            <div class="col-6">
+                                <small class="text-muted d-block small">Patient Name</small>
+                                <strong class="text-dark">@selectedPatient.FullName</strong>
+                            </div>
+                            <div class="col-6">
+                                <small class="text-muted d-block small">MRN</small>
+                                <strong class="text-dark font-monospace">@selectedPatient.MRN</strong>
+                            </div>
+                        </div>
+                    </div>
+                }
+            </div>
+        </div>
+
+        <!-- Handover Details Form -->
+        @if (selectedPatient != null)
+        {
+            <div class="content-card mb-4">
+                <div class="content-card-header">
+                    <h5 class="content-card-title"><i class="bi bi-pencil-square text-primary me-2"></i>Record Handover</h5>
+                </div>
+                <div class="content-card-body p-4">
+                    <form @onsubmit="SaveHandover">
+                        <!-- Outgoing Nurse -->
+                        <div class="mb-3">
+                            <label class="form-label text-dark fw-semibold">Outgoing Nurse</label>
+                            <input type="text" class="form-control text-dark" value="@outgoingNurseName" disabled />
+                        </div>
+
+                        <!-- Incoming Nurse -->
+                        <div class="mb-3">
+                            <label class="form-label text-dark fw-semibold">Incoming Nurse <span class="text-danger">*</span></label>
+                            <select class="form-select text-dark" @bind="newHandover.IncomingNurseId" required>
+                                <option value="">-- Select Incoming Nurse --</option>
+                                @foreach (var nurse in nursesList)
+                                {
+                                    <option value="@nurse.Id">@nurse.FullName (@nurse.Role)</option>
+                                }
+                            </select>
+                        </div>
+
+                        <!-- Shift and Date -->
+                        <div class="row mb-3">
+                            <div class="col">
+                                <label class="form-label text-dark fw-semibold">Shift <span class="text-danger">*</span></label>
+                                <select class="form-select text-dark" @bind="newHandover.Shift" required>
+                                    <option value="Morning">Morning</option>
+                                    <option value="Evening">Evening</option>
+                                    <option value="Night">Night</option>
+                                </select>
+                            </div>
+                            <div class="col">
+                                <label class="form-label text-dark fw-semibold">Handover Date/Time</label>
+                                <input type="datetime-local" class="form-control text-dark" value="@handoverDateString" @onchange="OnHandoverDateChanged" required />
+                            </div>
+                        </div>
+
+                        <!-- Handover Notes -->
+                        <div class="mb-4">
+                            <label class="form-label text-dark fw-semibold">Handover Notes <span class="text-danger">*</span></label>
+                            <textarea class="form-control text-dark" rows="5" @bind="newHandover.HandoverNotes" 
+                                      placeholder="Describe patient stability, IV lines, pending lab/imaging results, active symptoms, medications due next shift, etc." required></textarea>
+                        </div>
+
+                        <div class="d-grid">
+                            <button type="submit" class="btn btn-primary btn-lg shadow-sm">
+                                <i class="bi bi-save-fill me-2"></i> Log Handover
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        }
+        else
+        {
+            <div class="alert alert-warning border-0 shadow-sm mb-4">
+                <i class="bi bi-info-circle-fill me-2 text-warning"></i> Please select a patient to record a handover.
+            </div>
+        }
+    </div>
+
+    <!-- Handover History Logs -->
+    <div class="col-lg-7">
+        <div class="content-card mb-4 h-100">
+            <div class="content-card-header d-flex justify-content-between align-items-center">
+                <h5 class="content-card-title mb-0"><i class="bi bi-clock-history text-primary me-2"></i>Handover Logs History</h5>
+                @if (selectedPatient != null)
+                {
+                    <button class="btn btn-xs btn-outline-secondary" @onclick="ClearFilter">Show All Patients</button>
+                }
+            </div>
+            <div class="content-card-body p-0">
+                @if (historyLoading)
+                {
+                    <div class="loading-state py-5">
+                        <div class="spinner-border text-primary" role="status"></div>
+                        <p class="mt-3 text-muted">Loading handover history logs...</p>
+                    </div>
+                }
+                else if (handoverHistory.Count == 0)
+                {
+                    <div class="loading-state py-5">
+                        <i class="bi bi-arrow-left-right text-muted display-4 mb-3 d-block"></i>
+                        <h5 class="fw-bold">No Records Found</h5>
+                        <p class="text-muted small">No shift handover records have been logged yet.</p>
+                    </div>
+                }
+                else
+                {
+                    <div class="table-responsive">
+                        <table class="table table-hover data-table mb-0 small">
+                            <thead>
+                                <tr>
+                                    <th class="ps-4">Date/Time</th>
+                                    <th>Patient</th>
+                                    <th>Shift</th>
+                                    <th>Outgoing Nurse</th>
+                                    <th>Incoming Nurse</th>
+                                    <th class="pe-4">Handover Notes</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                @foreach (var h in handoverHistory)
+                                {
+                                    var patientName = h.Patient != null ? $"{h.Patient.FirstName} {h.Patient.LastName}" : "Unknown";
+                                    var outgoingName = GetNurseName(h.OutgoingNurseId);
+                                    var incomingName = GetNurseName(h.IncomingNurseId);
+                                    
+                                    <tr>
+                                        <td class="ps-4 text-nowrap">
+                                            <div class="fw-semibold text-dark">@h.HandoverDate.ToLocalTime().ToString("dd MMM yyyy")</div>
+                                            <div class="text-muted small">@h.HandoverDate.ToLocalTime().ToString("hh:mm tt")</div>
+                                        </td>
+                                        <td>
+                                            <div class="fw-semibold text-dark">@patientName</div>
+                                            <div class="text-muted small font-monospace">MRN: @h.Patient?.Mrn</div>
+                                        </td>
+                                        <td>
+                                            <span class="@GetShiftBadgeClass(h.Shift) px-2 py-1">@h.Shift</span>
+                                        </td>
+                                        <td>@outgoingName</td>
+                                        <td>@incomingName</td>
+                                        <td class="pe-4">
+                                            <span class="text-wrap d-inline-block text-truncate" style="max-width: 250px;" title="@h.HandoverNotes">
+                                                @h.HandoverNotes
+                                            </span>
+                                        </td>
+                                    </tr>
+                                }
+                            </tbody>
+                        </table>
+                    </div>
+                }
+            </div>
+        </div>
+    </div>
+</div>
+
+@code {
+    [Parameter]
+    [SupplyParameterFromQuery]
+    public string? PatientId { get; set; }
+
+    private List<BedAllotment> activeAdmissions = new();
+    private Guid selectedPatientId = Guid.Empty;
+    private string selectedPatientIdString = string.Empty;
+    private PatientSummary? selectedPatient;
+
+    private List<ShiftHandover> handoverHistory = new();
+    private ShiftHandover newHandover = new() { Shift = "Morning" };
+    private List<UserListItem> nursesList = new();
+    private Dictionary<string, string> userNamesDict = new();
+
+    private bool historyLoading = false;
+    private string? successMessage;
+    private string? errorMessage;
+    private string handoverDateString = DateTime.Now.ToString("yyyy-MM-ddTHH:mm");
+
+    private Guid currentTenantId = Guid.Empty;
+    private string currentUserId = "system";
+    private string outgoingNurseName = "System";
+
+    protected override async Task OnInitializedAsync()
+    {
+        var authState = await AuthStateProvider.GetAuthenticationStateAsync();
+        var user = authState.User;
+        var tenantIdOpt = CurrentUserHelper.GetTenantId(user);
+        var userIdOpt = CurrentUserHelper.GetUserId(user);
+
+        if (tenantIdOpt.HasValue)
+        {
+            currentTenantId = tenantIdOpt.Value;
+            currentUserId = userIdOpt ?? "system";
+            outgoingNurseName = CurrentUserHelper.GetFullName(user) ?? user.Identity?.Name ?? "Nurse";
+
+            // Load active admissions
+            activeAdmissions = await DbContext.BedAllotments
+                .Include(a => a.Patient)
+                .Where(a => a.Status == "Active" && a.TenantId == currentTenantId)
+                .OrderByDescending(a => a.AdmissionDate)
+                .ToListAsync();
+
+            // Load users/nurses list
+            var allUsers = await UserService.GetUsersByTenantAsync(currentTenantId);
+            nursesList = allUsers.Where(u => u.Role == CareSphereRoles.Nurse || u.Role == CareSphereRoles.SuperAdmin || u.Role == CareSphereRoles.HospitalAdmin).ToList();
+            userNamesDict = allUsers.ToDictionary(u => u.Id, u => u.FullName);
+        }
+    }
+
+    protected override async Task OnParametersSetAsync()
+    {
+        if (!string.IsNullOrEmpty(PatientId) && Guid.TryParse(PatientId, out var parsedId))
+        {
+            selectedPatientId = parsedId;
+            selectedPatientIdString = parsedId.ToString();
+            await LoadPatientDataAsync();
+        }
+        else
+        {
+            ResetPatientSelection();
+            await LoadHistoryAsync();
+        }
+    }
+
+    private async Task OnPatientChanged(ChangeEventArgs e)
+    {
+        var val = e.Value?.ToString();
+        if (!string.IsNullOrEmpty(val) && Guid.TryParse(val, out var parsedId))
+        {
+            selectedPatientId = parsedId;
+            selectedPatientIdString = parsedId.ToString();
+            await LoadPatientDataAsync();
+        }
+        else
+        {
+            ResetPatientSelection();
+            await LoadHistoryAsync();
+        }
+    }
+
+    private void ResetPatientSelection()
+    {
+        selectedPatientId = Guid.Empty;
+        selectedPatientIdString = string.Empty;
+        selectedPatient = null;
+        newHandover = new ShiftHandover { Shift = "Morning" };
+        successMessage = null;
+        errorMessage = null;
+    }
+
+    private async Task LoadPatientDataAsync()
+    {
+        successMessage = null;
+        errorMessage = null;
+        historyLoading = true;
+
+        try
+        {
+            selectedPatient = await PatientReadModel.GetSummaryAsync(selectedPatientId, currentTenantId);
+            await LoadHistoryAsync();
+
+            newHandover = new ShiftHandover
+            {
+                PatientId = selectedPatientId,
+                Shift = "Morning",
+                OutgoingNurseId = currentUserId,
+                HandoverDate = DateTime.UtcNow
+            };
+            handoverDateString = DateTime.Now.ToString("yyyy-MM-ddTHH:mm");
+        }
+        catch (Exception ex)
+        {
+            errorMessage = "Failed to load patient: " + ex.Message;
+        }
+        finally
+        {
+            historyLoading = false;
+        }
+    }
+
+    private async Task LoadHistoryAsync()
+    {
+        historyLoading = true;
+        try
+        {
+            if (selectedPatientId != Guid.Empty)
+            {
+                handoverHistory = await ShiftHandoverService.GetByPatientAsync(selectedPatientId, currentTenantId);
+            }
+            else
+            {
+                handoverHistory = await ShiftHandoverService.GetLatestHandoversAsync(currentTenantId, 15);
+            }
+        }
+        catch (Exception ex)
+        {
+            errorMessage = "Failed to load handover logs: " + ex.Message;
+        }
+        finally
+        {
+            historyLoading = false;
+        }
+    }
+
+    private async Task ClearFilter()
+    {
+        ResetPatientSelection();
+        await LoadHistoryAsync();
+    }
+
+    private void OnHandoverDateChanged(ChangeEventArgs e)
+    {
+        handoverDateString = e.Value?.ToString() ?? DateTime.Now.ToString("yyyy-MM-ddTHH:mm");
+        if (DateTime.TryParse(handoverDateString, out var dt))
+        {
+            newHandover.HandoverDate = dt.ToUniversalTime();
+        }
+    }
+
+    private async Task SaveHandover()
+    {
+        successMessage = null;
+        errorMessage = null;
+
+        if (string.IsNullOrEmpty(newHandover.IncomingNurseId))
+        {
+            errorMessage = "Please select an incoming nurse.";
+            return;
+        }
+
+        if (string.IsNullOrWhiteSpace(newHandover.HandoverNotes))
+        {
+            errorMessage = "Handover notes cannot be empty.";
+            return;
+        }
+
+        try
+        {
+            newHandover.PatientId = selectedPatientId;
+            newHandover.OutgoingNurseId = currentUserId;
+
+            if (DateTime.TryParse(handoverDateString, out var dt))
+            {
+                newHandover.HandoverDate = dt.ToUniversalTime();
+            }
+            else
+            {
+                newHandover.HandoverDate = DateTime.UtcNow;
+            }
+
+            await ShiftHandoverService.AddHandoverAsync(newHandover, currentTenantId);
+
+            successMessage = "Shift handover logged successfully.";
+            
+            // Reload history
+            await LoadHistoryAsync();
+
+            // Reset form
+            newHandover = new ShiftHandover
+            {
+                PatientId = selectedPatientId,
+                Shift = "Morning",
+                OutgoingNurseId = currentUserId,
+                HandoverDate = DateTime.UtcNow
+            };
+            handoverDateString = DateTime.Now.ToString("yyyy-MM-ddTHH:mm");
+        }
+        catch (Exception ex)
+        {
+            errorMessage = "Failed to log handover: " + ex.Message;
+        }
+    }
+
+    private string GetNurseName(string id)
+    {
+        if (userNamesDict.TryGetValue(id, out var name))
+        {
+            return name;
+        }
+        return "Unknown Nurse";
+    }
+
+    private string GetShiftBadgeClass(string shift) => shift switch
+    {
+        "Morning" => "badge bg-success-subtle text-success border border-success-subtle",
+        "Evening" => "badge bg-warning-subtle text-warning border border-warning-subtle",
+        "Night" => "badge bg-info-subtle text-info border border-info-subtle",
+        _ => "badge bg-secondary-subtle text-secondary border border-secondary-subtle"
+    };
+}

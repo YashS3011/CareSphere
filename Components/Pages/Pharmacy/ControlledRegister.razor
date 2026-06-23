@@ -1,0 +1,213 @@
+@page "/pharmacy/controlled-register"
+@attribute [Microsoft.AspNetCore.Authorization.Authorize(Policy = PolicyNames.Permission_Pharmacy_ViewStock)]
+@using CareSphere.Models
+@using CareSphere.Modules.Clinical.Services
+@using CareSphere.Modules.Laboratory.Services
+@using CareSphere.Modules.Pharmacy.Services
+@using CareSphere.Modules.Admin.Services
+@using CareSphere.Data
+@using Microsoft.EntityFrameworkCore
+@using CareSphere.Authorization
+@inject ApplicationDbContext DbContext
+@inject IUserService UserService
+@inject TabIsolatedAuthenticationStateProvider AuthStateProvider
+@inject NavigationManager NavigationManager
+@rendermode InteractiveServer
+
+<PageTitle>Controlled Substance Register - CareSphere</PageTitle>
+
+<div class="container py-4">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <div>
+            <h1 class="h3 mb-1 text-dark fw-bold"><i class="bi bi-shield-lock-fill me-2 text-danger"></i>Controlled Substance Register</h1>
+            <p class="text-muted">Regulatory audit log of controlled substance dispensing and witness verifications</p>
+        </div>
+        <div>
+            <a href="/pharmacy/dashboard" class="btn btn-outline-secondary">
+                <i class="bi bi-arrow-left me-1"></i> Dashboard
+            </a>
+        </div>
+    </div>
+
+    @if (loading)
+    {
+        <div class="loading-state py-5">
+            <div class="spinner-border text-danger" role="status"></div>
+            <p class="mt-3 text-muted">Loading register log...</p>
+        </div>
+    }
+    else
+    {
+        <!-- Filter bar -->
+        <div class="card border-0 shadow-sm rounded-4 mb-4">
+            <div class="card-body p-3">
+                <div class="row g-3 align-items-center">
+                    <div class="col-md-5">
+                        <div class="input-group">
+                            <span class="input-group-text bg-white border-end-0"><i class="bi bi-search text-muted"></i></span>
+                            <input type="text" class="form-control border-start-0 ps-0" placeholder="Search by item code, name, patient, or MRN..." @bind="searchQuery" @bind:event="oninput" />
+                        </div>
+                    </div>
+                    <div class="col-md-3">
+                        <select class="form-select text-dark" @bind="filterItem">
+                            <option value="">-- All Items --</option>
+                            @foreach (var item in controlledItems)
+                            {
+                                <option value="@item.Id">@item.ItemName (@item.ItemCode)</option>
+                            }
+                        </select>
+                    </div>
+                    <div class="col-md-4 text-end">
+                        <span class="badge bg-danger-subtle text-danger px-3 py-2 border border-danger-subtle fs-7">
+                            <i class="bi bi-shield-fill-check me-1"></i> Total Controlled Dispenses: @filteredLogs.Count
+                        </span>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Log Table -->
+        <div class="card border-0 shadow-sm rounded-4 overflow-hidden">
+            <div class="card-body p-0">
+                <div class="table-responsive">
+                    <table class="table table-hover align-middle mb-0 small">
+                        <thead class="table-light fs-7 fw-semibold text-muted text-uppercase">
+                            <tr>
+                                <th class="ps-4">Date &amp; Time</th>
+                                <th>Item Code / Name</th>
+                                <th>Patient Name / MRN</th>
+                                <th class="text-end">Quantity</th>
+                                <th>Dispensed By</th>
+                                <th>Witnessed By</th>
+                                <th class="pe-4">Notes</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @if (!filteredLogs.Any())
+                            {
+                                <tr>
+                                    <td colspan="7" class="text-center py-5 text-muted">
+                                        <i class="bi bi-shield-slash display-4 mb-3 d-block"></i>
+                                        <h5>No logs found</h5>
+                                        <p class="small">No controlled substance dispenses match the current filters.</p>
+                                    </td>
+                                </tr>
+                            }
+                            else
+                            {
+                                @foreach (var log in filteredLogs)
+                                {
+                                    var patientName = log.Patient != null ? $"{log.Patient.FirstName} {log.Patient.LastName}" : "Unknown Patient";
+                                    var itemInfo = log.Item != null ? $"{log.Item.ItemName} ({log.Item.ItemCode})" : "Unknown Item";
+                                    
+                                    <tr>
+                                        <td class="ps-4 text-secondary">
+                                            <div class="fw-semibold text-dark">@log.LogDate.ToLocalTime().ToString("dd MMM yyyy")</div>
+                                            <div class="text-muted small">@log.LogDate.ToLocalTime().ToString("hh:mm tt")</div>
+                                        </td>
+                                        <td>
+                                            <div class="fw-bold text-dark">@log.Item?.ItemName</div>
+                                            <div class="text-muted small font-monospace">Code: @log.Item?.ItemCode</div>
+                                        </td>
+                                        <td>
+                                            <div class="fw-bold text-dark">@patientName</div>
+                                            <div class="text-muted small font-monospace">MRN: @log.Patient?.Mrn</div>
+                                        </td>
+                                        <td class="text-end fw-bold text-danger">@log.Quantity @log.Item?.Unit</td>
+                                        <td>
+                                            <div class="fw-semibold text-dark">@GetUserName(log.DispensedByUserId)</div>
+                                            <div class="small text-muted font-monospace">ID: @log.DispensedByUserId.Substring(0, Math.Min(8, log.DispensedByUserId.Length))...</div>
+                                        </td>
+                                        <td>
+                                            <div class="fw-semibold text-success"><i class="bi bi-check-circle-fill text-success me-1"></i>@GetUserName(log.WitnessUserId)</div>
+                                            <div class="small text-muted font-monospace">ID: @log.WitnessUserId.Substring(0, Math.Min(8, log.WitnessUserId.Length))...</div>
+                                        </td>
+                                        <td class="pe-4 text-muted">@log.Notes</td>
+                                    </tr>
+                                }
+                            }
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    }
+</div>
+
+@code {
+    private bool loading = true;
+    private string searchQuery = string.Empty;
+    private string filterItem = string.Empty;
+    private Guid currentTenantId = Guid.Empty;
+
+    private List<ControlledSubstanceLog> logs = new();
+    private List<PharmacyItem> controlledItems = new();
+    private Dictionary<string, string> userNamesDict = new();
+
+    private List<ControlledSubstanceLog> filteredLogs
+    {
+        get
+        {
+            var res = logs.AsEnumerable();
+            if (!string.IsNullOrWhiteSpace(searchQuery))
+            {
+                var q = searchQuery.ToLower();
+                res = res.Where(l => 
+                    (l.Item != null && (l.Item.ItemName.ToLower().Contains(q) || l.Item.ItemCode.ToLower().Contains(q))) ||
+                    (l.Patient != null && ((l.Patient.FirstName + " " + l.Patient.LastName).ToLower().Contains(q) || l.Patient.Mrn.ToLower().Contains(q))) ||
+                    GetUserName(l.DispensedByUserId).ToLower().Contains(q) ||
+                    GetUserName(l.WitnessUserId).ToLower().Contains(q)
+                );
+            }
+
+            if (!string.IsNullOrEmpty(filterItem) && Guid.TryParse(filterItem, out var itemId))
+            {
+                res = res.Where(l => l.ItemId == itemId);
+            }
+
+            return res.OrderByDescending(l => l.LogDate).ToList();
+        }
+    }
+
+    protected override async Task OnInitializedAsync()
+    {
+        loading = true;
+        var authState = await AuthStateProvider.GetAuthenticationStateAsync();
+        var user = authState.User;
+        var tenantIdOpt = CurrentUserHelper.GetTenantId(user);
+
+        if (tenantIdOpt.HasValue)
+        {
+            currentTenantId = tenantIdOpt.Value;
+
+            // Load logs
+            logs = await DbContext.ControlledSubstanceLogs
+                .Include(l => l.Item)
+                .Include(l => l.Patient)
+                .Where(l => l.TenantId == currentTenantId)
+                .OrderByDescending(l => l.LogDate)
+                .ToListAsync();
+
+            // Load controlled items for filter
+            controlledItems = await DbContext.PharmacyItems
+                .Where(i => i.TenantId == currentTenantId && i.IsControlled && i.IsActive)
+                .OrderBy(i => i.ItemName)
+                .ToListAsync();
+
+            // Load users dict for name translation
+            var allUsers = await UserService.GetUsersByTenantAsync(currentTenantId);
+            userNamesDict = allUsers.ToDictionary(u => u.Id, u => u.FullName);
+        }
+
+        loading = false;
+    }
+
+    private string GetUserName(string id)
+    {
+        if (userNamesDict.TryGetValue(id, out var name))
+        {
+            return name;
+        }
+        return "Unknown Staff";
+    }
+}

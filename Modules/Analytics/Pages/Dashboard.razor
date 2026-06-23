@@ -36,38 +36,62 @@
         }
         else if (bedMetrics != null)
         {
-            <div class="row g-4">
-                <div class="col-sm-6 col-xl-3">
-                    <div class="stat-card stat-card-primary">
-                        <div class="stat-icon"><i class="bi bi-hospital"></i></div>
-                        <div class="stat-value">@bedMetrics.TotalBeds</div>
-                        <div class="stat-label">Total Beds</div>
+            <div class="row g-4 align-items-center">
+                <div class="col-lg-7">
+                    <div class="row g-3">
+                        <div class="col-sm-6">
+                            <div class="stat-card stat-card-primary">
+                                <div class="stat-icon"><i class="bi bi-hospital"></i></div>
+                                <div>
+                                    <div class="stat-value text-dark fs-4">@bedMetrics.TotalBeds</div>
+                                    <div class="stat-label">Total Beds</div>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-sm-6">
+                            <div class="stat-card stat-card-danger">
+                                <div class="stat-icon"><i class="bi bi-person-fill-dash"></i></div>
+                                <div>
+                                    <div class="stat-value text-dark fs-4">@bedMetrics.OccupiedBeds</div>
+                                    <div class="stat-label">Occupied Beds</div>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-sm-6">
+                            <div class="stat-card stat-card-success">
+                                <div class="stat-icon"><i class="bi bi-person-fill-check"></i></div>
+                                <div>
+                                    <div class="stat-value text-dark fs-4">@bedMetrics.AvailableBeds</div>
+                                    <div class="stat-label">Available Beds</div>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-sm-6">
+                            <div class="stat-card stat-card-info">
+                                <div class="stat-icon"><i class="bi bi-pie-chart"></i></div>
+                                <div>
+                                    <div class="stat-value text-dark fs-4">@bedMetrics.OccupancyRatePercent.ToString("F1")%</div>
+                                    <div class="stat-label">Occupancy Rate</div>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-12 mt-3">
+                            <div class="p-3 bg-primary-subtle text-primary border border-primary-subtle rounded-3 text-center">
+                                <i class="bi bi-hourglass-split me-2"></i>Average Length of Stay: <strong>@bedMetrics.AverageLengthOfStayDays.ToString("F1") Days</strong>
+                            </div>
+                        </div>
                     </div>
                 </div>
-                <div class="col-sm-6 col-xl-3">
-                    <div class="stat-card stat-card-danger">
-                        <div class="stat-icon"><i class="bi bi-person-fill-dash"></i></div>
-                        <div class="stat-value">@bedMetrics.OccupiedBeds</div>
-                        <div class="stat-label">Occupied Beds</div>
-                    </div>
-                </div>
-                <div class="col-sm-6 col-xl-3">
-                    <div class="stat-card stat-card-success">
-                        <div class="stat-icon"><i class="bi bi-person-fill-check"></i></div>
-                        <div class="stat-value">@bedMetrics.AvailableBeds</div>
-                        <div class="stat-label">Available Beds</div>
-                    </div>
-                </div>
-                <div class="col-sm-6 col-xl-3">
-                    <div class="stat-card stat-card-info">
-                        <div class="stat-icon"><i class="bi bi-pie-chart"></i></div>
-                        <div class="stat-value">@bedMetrics.OccupancyRatePercent.ToString("F1")%</div>
-                        <div class="stat-label">Occupancy Rate</div>
-                    </div>
-                </div>
-                <div class="col-12 mt-4">
-                    <div class="p-3 bg-primary-subtle text-primary border border-primary-subtle rounded-3 text-center">
-                        <i class="bi bi-hourglass-split me-2"></i>Average Length of Stay: <strong>@bedMetrics.AverageLengthOfStayDays.ToString("F1") Days</strong> (Discharged patients)
+                <div class="col-lg-5">
+                    <div class="p-3 border border-light-subtle rounded-4 bg-white shadow-sm">
+                        <ApexChart TItem="ChartData" Title="Bed Occupancy Distribution" Height="220">
+                            <ApexPointSeries TItem="ChartData"
+                                             Items="GetBedChartData()"
+                                             Name="Beds"
+                                             SeriesType="SeriesType.Pie"
+                                             XValue="e => e.Label"
+                                             YValue="e => e.Value" />
+                        </ApexChart>
                     </div>
                 </div>
             </div>
@@ -100,33 +124,57 @@
         }
         else if (revenueMetrics != null)
         {
-            <div class="row g-4">
-                <div class="col-sm-6 col-xl-3">
-                    <div class="stat-card stat-card-primary">
-                        <div class="stat-icon"><i class="bi bi-receipt"></i></div>
-                        <div class="stat-value">₹@revenueMetrics.TotalInvoiced.ToString("N0")</div>
-                        <div class="stat-label">Total Invoiced</div>
+            <div class="row g-4 align-items-center">
+                <div class="col-lg-6">
+                    <div class="row g-3">
+                        <div class="col-sm-6">
+                            <div class="stat-card stat-card-primary">
+                                <div class="stat-icon"><i class="bi bi-receipt"></i></div>
+                                <div>
+                                    <div class="stat-value text-dark fs-5">₹@revenueMetrics.TotalInvoiced.ToString("N0")</div>
+                                    <div class="stat-label">Total Invoiced</div>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-sm-6">
+                            <div class="stat-card stat-card-success">
+                                <div class="stat-icon"><i class="bi bi-cash-coin"></i></div>
+                                <div>
+                                    <div class="stat-value text-dark fs-5">₹@revenueMetrics.TotalCollected.ToString("N0")</div>
+                                    <div class="stat-label">Total Collected</div>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-sm-6">
+                            <div class="stat-card stat-card-danger">
+                                <div class="stat-icon"><i class="bi bi-exclamation-circle"></i></div>
+                                <div>
+                                    <div class="stat-value text-dark fs-5">₹@revenueMetrics.TotalOutstanding.ToString("N0")</div>
+                                    <div class="stat-label">Outstanding</div>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-sm-6">
+                            <div class="stat-card stat-card-info">
+                                <div class="stat-icon"><i class="bi bi-journal-text"></i></div>
+                                <div>
+                                    <div class="stat-value text-dark fs-5">@revenueMetrics.InvoiceCount</div>
+                                    <div class="stat-label">Invoices Count</div>
+                                </div>
+                            </div>
+                        </div>
                     </div>
                 </div>
-                <div class="col-sm-6 col-xl-3">
-                    <div class="stat-card stat-card-success">
-                        <div class="stat-icon"><i class="bi bi-cash-coin"></i></div>
-                        <div class="stat-value">₹@revenueMetrics.TotalCollected.ToString("N0")</div>
-                        <div class="stat-label">Total Collected</div>
-                    </div>
-                </div>
-                <div class="col-sm-6 col-xl-3">
-                    <div class="stat-card stat-card-danger">
-                        <div class="stat-icon"><i class="bi bi-exclamation-circle"></i></div>
-                        <div class="stat-value">₹@revenueMetrics.TotalOutstanding.ToString("N0")</div>
-                        <div class="stat-label">Outstanding</div>
-                    </div>
-                </div>
-                <div class="col-sm-6 col-xl-3">
-                    <div class="stat-card stat-card-info">
-                        <div class="stat-icon"><i class="bi bi-journal-text"></i></div>
-                        <div class="stat-value">@revenueMetrics.InvoiceCount</div>
-                        <div class="stat-label">Invoices Count</div>
+                <div class="col-lg-6">
+                    <div class="p-3 border border-light-subtle rounded-4 bg-white shadow-sm">
+                        <ApexChart TItem="ChartDataDecimal" Title="Revenue Breakdown (INR)" Height="220">
+                            <ApexPointSeries TItem="ChartDataDecimal"
+                                             Items="GetRevenueChartData()"
+                                             Name="Amount"
+                                             SeriesType="SeriesType.Bar"
+                                             XValue="e => e.Label"
+                                             YValue="e => e.Value" />
+                        </ApexChart>
                     </div>
                 </div>
             </div>
@@ -430,5 +478,38 @@
             loadingPharmacy = false;
             StateHasChanged();
         }
+    }
+
+    private List<ChartData> GetBedChartData()
+    {
+        if (bedMetrics == null) return new();
+        return new List<ChartData>
+        {
+            new ChartData { Label = "Occupied", Value = bedMetrics.OccupiedBeds },
+            new ChartData { Label = "Available", Value = bedMetrics.AvailableBeds }
+        };
+    }
+
+    private List<ChartDataDecimal> GetRevenueChartData()
+    {
+        if (revenueMetrics == null) return new();
+        return new List<ChartDataDecimal>
+        {
+            new ChartDataDecimal { Label = "Invoiced", Value = revenueMetrics.TotalInvoiced },
+            new ChartDataDecimal { Label = "Collected", Value = revenueMetrics.TotalCollected },
+            new ChartDataDecimal { Label = "Outstanding", Value = revenueMetrics.TotalOutstanding }
+        };
+    }
+
+    public class ChartData
+    {
+        public string Label { get; set; } = string.Empty;
+        public int Value { get; set; }
+    }
+
+    public class ChartDataDecimal
+    {
+        public string Label { get; set; } = string.Empty;
+        public decimal Value { get; set; }
     }
 }

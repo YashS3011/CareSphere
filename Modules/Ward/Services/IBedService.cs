@@ -21,7 +21,7 @@ namespace CareSphere.Modules.Ward.Services
         Task<BedAllotment> AdmitPatientAsync(BedAllotment allotment);
         Task<BedAllotment?> GetActiveAllotmentByBedAsync(Guid bedId);
         Task<List<BedAllotment>> GetAllotmentsByPatientAsync(Guid patientId);
-        Task DischargePatientAsync(Guid allotmentId, string dischargeNotes, DateTime dischargeDate);
+        Task DischargePatientAsync(Guid allotmentId, string dischargeNotes, DateTime dischargeDate, bool forceDischarge = false);
         Task TransferPatientAsync(Guid allotmentId, Guid newBedId, string reason);
 
         Task<BedDashboardStats> GetDashboardStatsAsync();

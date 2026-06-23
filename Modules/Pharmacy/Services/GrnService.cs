@@ -86,7 +86,7 @@ namespace CareSphere.Modules.Pharmacy.Services
 
         public async Task<GoodsReceivedNote?> GetGrnByIdAsync(Guid id)
         {
-            return await _context.GoodsReceivedNotes
+            return await _context.GoodsReceivedNotes.AsNoTracking()
                 .Include(g => g.Supplier)
                 .Include(g => g.PurchaseOrder)
                 .Include(g => g.Items)
@@ -96,7 +96,7 @@ namespace CareSphere.Modules.Pharmacy.Services
 
         public async Task<List<GoodsReceivedNote>> GetGrnsAsync(Guid tenantId, Guid? supplierId, string? status, int page = 1, int pageSize = 10)
         {
-            var query = _context.GoodsReceivedNotes
+            var query = _context.GoodsReceivedNotes.AsNoTracking()
                 .Include(g => g.Supplier)
                 .Where(g => g.TenantId == tenantId);
 
@@ -119,7 +119,7 @@ namespace CareSphere.Modules.Pharmacy.Services
 
         public async Task<int> GetGrnsCountAsync(Guid tenantId, Guid? supplierId, string? status)
         {
-            var query = _context.GoodsReceivedNotes.Where(g => g.TenantId == tenantId);
+            var query = _context.GoodsReceivedNotes.AsNoTracking().Where(g => g.TenantId == tenantId);
 
             if (supplierId.HasValue && supplierId.Value != Guid.Empty)
             {

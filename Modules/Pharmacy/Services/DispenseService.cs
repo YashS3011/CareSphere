@@ -107,7 +107,7 @@ namespace CareSphere.Modules.Pharmacy.Services
             return result;
         }
 
-        public async Task<List<DispenseRecord>> DispenseItemAsync(Guid prescriptionId, int quantityToDispense, string dispensedByUserId, string? barcodeScanned = null)
+        public async Task<List<DispenseRecord>> DispenseItemAsync(Guid prescriptionId, int quantityToDispense, string dispensedByUserId, string? barcodeScanned = null, string? witnessUserId = null)
         {
             if (quantityToDispense <= 0)
                 throw new ArgumentException("Quantity to dispense must be greater than zero.", nameof(quantityToDispense));
@@ -133,6 +133,14 @@ namespace CareSphere.Modules.Pharmacy.Services
                 if (item == null)
                 {
                     item = (await _context.PharmacyItems.FirstOrDefaultAsync(i => i.TenantId == prescription.TenantId && i.ItemName.ToLower() == prescription.DrugName.ToLower()))!;
+                }
+
+                if (item != null && item.IsControlled)
+                {
+                    if (string.IsNullOrWhiteSpace(witnessUserId))
+                    {
+                        throw new InvalidOperationException("Witness verification (witness user ID) is required to dispense a controlled substance.");
+                    }
                 }
 
                 // Check remaining allowed quantity
@@ -214,6 +222,24 @@ namespace CareSphere.Modules.Pharmacy.Services
                     _context.DispenseRecords.Add(record);
                     dispenseRecords.Add(record);
 
+                    if (item != null && item.IsControlled)
+                    {
+                        var csLog = new ControlledSubstanceLog
+                        {
+                            Id = Guid.NewGuid(),
+                            TenantId = prescription.TenantId,
+                            DispenseRecordId = record.Id,
+                            ItemId = item.Id,
+                            PatientId = prescription.PatientId,
+                            DispensedByUserId = dispensedByUserId,
+                            WitnessUserId = witnessUserId!,
+                            Quantity = toDeduct,
+                            LogDate = DateTime.UtcNow,
+                            Notes = $"Controlled substance dispense witnessed by: {witnessUserId}"
+                        };
+                        _context.ControlledSubstanceLogs.Add(csLog);
+                    }
+
                     remainingToDispense -= toDeduct;
                 }
 
@@ -265,7 +291,7 @@ namespace CareSphere.Modules.Pharmacy.Services
 
         public async Task<List<DispenseRecord>> GetDispenseHistoryByPrescriptionAsync(Guid prescriptionId)
         {
-            return await _context.DispenseRecords
+            return await _context.DispenseRecords.AsNoTracking()
                 .Include(r => r.Item)
                 .Include(r => r.Batch)
                 .Where(r => r.PrescriptionId == prescriptionId)
@@ -275,7 +301,7 @@ namespace CareSphere.Modules.Pharmacy.Services
 
         public async Task<List<DispenseRecord>> GetDispenseHistoryByPatientAsync(Guid patientId)
         {
-            return await _context.DispenseRecords
+            return await _context.DispenseRecords.AsNoTracking()
                 .Include(r => r.Item)
                 .Include(r => r.Batch)
                 .Include(r => r.Prescription)

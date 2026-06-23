@@ -21,6 +21,7 @@ using Twilio;
 using Twilio.Rest.Api.V2010.Account;
 using Twilio.Types;
 using CareSphere.Modules.Shared.Events;
+using CareSphere.Modules.Shared.ReadModels;
 
 namespace CareSphere.Modules.Notifications.Services
 {
@@ -30,17 +31,23 @@ namespace CareSphere.Modules.Notifications.Services
         private readonly IConfiguration _configuration;
         private readonly IAuditService _auditService;
         private readonly ILogger<NotificationSenderService> _logger;
+        private readonly INotificationTemplateService _templateService;
+        private readonly IPatientReadModel _patientReadModel;
 
         public NotificationSenderService(
             ApplicationDbContext context,
             IConfiguration configuration,
             IAuditService auditService,
-            ILogger<NotificationSenderService> logger)
+            ILogger<NotificationSenderService> logger,
+            INotificationTemplateService templateService,
+            IPatientReadModel patientReadModel)
         {
             _context = context;
             _configuration = configuration;
             _auditService = auditService;
             _logger = logger;
+            _templateService = templateService;
+            _patientReadModel = patientReadModel;
         }
 
         private bool InitTwilio()
@@ -683,16 +690,105 @@ namespace CareSphere.Modules.Notifications.Services
             return success;
         }
 
-        public Task SendLabReportReadyAsync(LabReportReady evt)
+        public async Task SendLabReportReadyAsync(LabReportReady evt)
         {
-            // TODO: Implement notifications sending (SMS/Email/InApp) for lab report ready event
-            return Task.CompletedTask;
+            var patient = await _patientReadModel.GetSummaryAsync(evt.PatientId, evt.TenantId);
+            if (patient == null || string.IsNullOrWhiteSpace(patient.Phone))
+            {
+                return;
+            }
+
+            var template = await _templateService.GetTemplateAsync(evt.TenantId, "LabReportReady", "SMS", "en");
+            if (template == null)
+            {
+                return;
+            }
+
+            var body = template.TemplateBody
+                .Replace("{{PatientName}}", patient.FullName)
+                .Replace("{{MRN}}", patient.MRN);
+
+            await SendSmsAsync(evt.TenantId, patient.Phone, body, "LabReportReady", evt.PatientId);
         }
 
-        public Task SendAppointmentConfirmationAsync(AppointmentBookedEvent evt)
+        public async Task SendAppointmentConfirmationAsync(AppointmentBookedEvent evt)
         {
-            // TODO: Implement SMS/email confirmation using existing Twilio/template pipeline
-            return Task.CompletedTask;
+            var patient = await _patientReadModel.GetSummaryAsync(evt.PatientId, evt.TenantId);
+            if (patient == null || string.IsNullOrWhiteSpace(patient.Phone))
+            {
+                return;
+            }
+
+            var template = await _templateService.GetTemplateAsync(evt.TenantId, "AppointmentConfirmation", "SMS", "en");
+            if (template == null)
+            {
+                return;
+            }
+
+            var slotTimeStr = evt.SlotStart.ToString("dd MMM yyyy hh:mm tt");
+            var body = template.TemplateBody
+                .Replace("{{PatientName}}", patient.FullName)
+                .Replace("{{SlotTime}}", slotTimeStr);
+
+            await SendSmsAsync(evt.TenantId, patient.Phone, body, "AppointmentConfirmation", evt.PatientId);
+        }
+
+        // G11.3: Critical lab result alert — notifies ordering doctor via in-app + SMS
+        public async Task SendCriticalResultAlertAsync(CriticalResultFlagged evt)
+        {
+            try
+            {
+                var flagLabel = evt.AbnormalFlag == "HH" ? "CRITICALLY HIGH" : "CRITICALLY LOW";
+                var message = $"⚠️ CRITICAL LAB ALERT: {evt.ParameterName} is {flagLabel} ({evt.ResultValue}). Patient ID: {evt.PatientId}. Please review immediately.";
+
+                // In-app notification to the ordering doctor's user account
+                await SendInAppAsync(
+                    tenantId: evt.TenantId,
+                    recipientType: "Doctor",
+                    recipientId: evt.OrderingDoctorId.ToString(),
+                    title: $"⚠️ Critical Lab Result: {evt.ParameterName}",
+                    messageBody: message,
+                    resourceType: "LabResult",
+                    resourceId: evt.ResultId.ToString(),
+                    patientId: evt.PatientId,
+                    notificationType: "CriticalLabResult");
+
+                _logger.LogWarning($"[CRITICAL LAB] {flagLabel} result for patient {evt.PatientId}: {evt.ParameterName} = {evt.ResultValue}. Doctor {evt.OrderingDoctorId} notified.");
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, $"Failed to send critical result alert for result {evt.ResultId}.");
+            }
+        }
+
+        // G11.2: Patient discharged — sends SMS confirmation to patient
+        public async Task SendPatientDischargedAsync(PatientDischarged evt)
+        {
+            try
+            {
+                var patient = await _patientReadModel.GetSummaryAsync(evt.PatientId, evt.TenantId);
+                if (patient == null || string.IsNullOrWhiteSpace(patient.Phone))
+                    return;
+
+                var template = await _templateService.GetTemplateAsync(evt.TenantId, "DischargeConfirmation", "SMS", evt.Language);
+                string body;
+                if (template != null)
+                {
+                    body = template.TemplateBody
+                        .Replace("{{PatientName}}", patient.FullName)
+                        .Replace("{{DischargeDate}}", evt.DischargeDate.ToString("dd MMM yyyy"));
+                }
+                else
+                {
+                    body = $"Dear {patient.FullName}, you have been successfully discharged on {evt.DischargeDate:dd MMM yyyy}. Thank you for choosing CareSphere. Please follow your discharge instructions carefully.";
+                }
+
+                await SendSmsAsync(evt.TenantId, patient.Phone, body, "DischargeConfirmation", evt.PatientId);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, $"Failed to send discharge SMS for patient {evt.PatientId}.");
+            }
         }
     }
 }

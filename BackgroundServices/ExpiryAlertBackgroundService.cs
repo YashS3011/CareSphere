@@ -62,6 +62,9 @@ namespace CareSphere.BackgroundServices
                                 CareSphere.Infrastructure.TenantContext.BypassTenantId = tenantId;
                                 _logger.LogInformation($"Running expiry check for Tenant: {tenantId}");
                                 await expiryService.CheckAndGenerateExpiryAlertsAsync(tenantId);
+                                
+                                _logger.LogInformation($"Running stock reorder level check for Tenant: {tenantId}");
+                                await expiryService.CheckAndGenerateReorderAlertsAsync(tenantId);
                             }
                             finally
                             {

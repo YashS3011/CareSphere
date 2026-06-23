@@ -25,7 +25,7 @@ namespace CareSphere.Modules.Clinical.Services
 
         public async Task<List<Doctor>> GetAllDoctorsAsync(string? searchTerm = null)
         {
-            var query = _context.Doctors.AsQueryable();
+            var query = _context.Doctors.AsNoTracking().AsQueryable();
 
             if (!string.IsNullOrWhiteSpace(searchTerm))
             {
@@ -40,7 +40,7 @@ namespace CareSphere.Modules.Clinical.Services
 
         public async Task<List<Doctor>> GetActiveDoctorsAsync()
         {
-            return await _context.Doctors
+            return await _context.Doctors.AsNoTracking()
                 .Where(d => d.IsActive)
                 .OrderBy(d => d.FirstName)
                 .ThenBy(d => d.LastName)
@@ -49,7 +49,7 @@ namespace CareSphere.Modules.Clinical.Services
 
         public async Task<Doctor?> GetDoctorByIdAsync(Guid id)
         {
-            return await _context.Doctors.FindAsync(id);
+            return await _context.Doctors.AsNoTracking().FirstOrDefaultAsync(d => d.Id == id);
         }
 
         public async Task<Doctor> CreateDoctorAsync(Doctor doctor)

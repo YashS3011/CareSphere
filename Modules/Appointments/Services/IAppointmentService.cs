@@ -14,6 +14,7 @@ namespace CareSphere.Modules.Appointments.Services
                                     string bookedByUserId, Guid tenantId);
         Task CancelAsync(Guid appointmentId, Guid tenantId);
         Task MarkCompletedAsync(Guid appointmentId, Guid tenantId);
+        Task MarkArrivedAsync(Guid appointmentId, Guid tenantId);
         Task<List<Appointment>> GetByDoctorAsync(Guid doctorId, DateTime date, Guid tenantId);
         Task<List<Appointment>> GetByPatientAsync(Guid patientId, Guid tenantId);
         Task<List<Appointment>> GetAppointmentsForRangeAsync(DateTime start, DateTime end, Guid tenantId);

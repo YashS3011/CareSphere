@@ -34,7 +34,7 @@ namespace CareSphere.Modules.Nursing.Services
 
         public async Task<List<NursingNote>> GetByPatientAsync(Guid patientId, Guid tenantId)
         {
-            return await _dbContext.NursingNotes
+            return await _dbContext.NursingNotes.AsNoTracking()
                 .Where(n => n.PatientId == patientId && n.TenantId == tenantId)
                 .OrderByDescending(n => n.NoteDateTime)
                 .ToListAsync();

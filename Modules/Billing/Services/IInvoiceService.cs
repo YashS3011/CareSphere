@@ -29,5 +29,7 @@ namespace CareSphere.Modules.Billing.Services
         Task UpdateInvoiceTotalsAsync(Guid invoiceId);
         Task CreateDraftFromEncounterAsync(EncounterCompleted evt);
         Task AddDispenseLineItemAsync(DispenseCompleted evt);
+        Task AddLabRequisitionLineItemsAsync(LabRequisitionCreated evt);
+        Task AddDailyBedChargeAsync(Guid tenantId, Guid patientId, Guid? encounterId, decimal chargeAmount, string bedNumber);
     }
 }

@@ -13,10 +13,14 @@
 @using CareSphere.Data
 @using CareSphere.Components
 @using Microsoft.EntityFrameworkCore
+@using CareSphere.Authorization
 @inject ApplicationDbContext DbContext
 @inject IDispenseService DispenseService
 @inject IPharmacyItemService ItemService
+@inject IUserService UserService
+@inject TabIsolatedAuthenticationStateProvider AuthStateProvider
 @inject NavigationManager NavigationManager
+@using CareSphere.Infrastructure
 @rendermode InteractiveServer
 
 <PageTitle>Dispense Prescription - CareSphere</PageTitle>
@@ -235,6 +239,21 @@
                             }
                         </div>
 
+                        @if (targetItem.IsControlled)
+                        {
+                            <div class="mb-4 p-3 border border-danger-subtle rounded-3 bg-danger bg-opacity-10">
+                                <label class="form-label fw-semibold text-danger"><i class="bi bi-shield-lock-fill me-1"></i>Witness Staff Verification *</label>
+                                <select class="form-select text-dark border border-danger" @bind="WitnessUserId" required>
+                                    <option value="">-- Choose Witnessing Staff --</option>
+                                    @foreach (var staff in staffList)
+                                    {
+                                        <option value="@staff.Id">@staff.FullName (@staff.Role)</option>
+                                    }
+                                </select>
+                                <small class="text-muted mt-1 d-block">This item is a controlled substance. Another active staff member must witness this dispense.</small>
+                            </div>
+                        }
+
                         <div class="mb-4">
                             <label class="form-label fw-semibold text-muted">Notes / Remarks</label>
                             <textarea class="form-control" rows="2" @bind="DispenseNotes" placeholder="Optional notes..."></textarea>
@@ -298,6 +317,28 @@
     private int currentStep = 1;
     private string SearchQuery { get; set; } = string.Empty;
     private List<Prescription>? foundPrescriptions;
+    private string currentUserId = "system";
+    private Guid currentTenantId = Guid.Empty;
+    private List<UserListItem> staffList = new();
+    private string WitnessUserId { get; set; } = string.Empty;
+
+    protected override async Task OnInitializedAsync()
+    {
+        var authState = await AuthStateProvider.GetAuthenticationStateAsync();
+        var user = authState.User;
+        var tenantIdOpt = CurrentUserHelper.GetTenantId(user);
+        var userIdOpt = CurrentUserHelper.GetUserId(user);
+
+        if (tenantIdOpt.HasValue)
+        {
+            currentTenantId = tenantIdOpt.Value;
+            currentUserId = userIdOpt ?? "system";
+
+            // Load staff list for witness selection
+            var allUsers = await UserService.GetUsersByTenantAsync(currentTenantId);
+            staffList = allUsers.Where(u => u.Id != currentUserId && u.IsActive).ToList();
+        }
+    }
     private Prescription? selectedRx;
     private PharmacyItem? targetItem;
     private int alreadyDispensed = 0;
@@ -488,12 +529,18 @@
     {
         if (selectedRx == null || QtyToDispense <= 0) return;
 
+        if (targetItem != null && targetItem.IsControlled && string.IsNullOrWhiteSpace(WitnessUserId))
+        {
+            statusMessage = "Witness verification is required for controlled substances.";
+            return;
+        }
+
         try
         {
             isSubmitting = true;
             statusMessage = string.Empty;
 
-            await DispenseService.DispenseItemAsync(selectedRx.Id, QtyToDispense, "system", ConfirmBarcode);
+            await DispenseService.DispenseItemAsync(selectedRx.Id, QtyToDispense, currentUserId, ConfirmBarcode, targetItem?.IsControlled == true ? WitnessUserId : null);
             
             statusMessage = "Prescription successfully dispensed!";
             
@@ -503,6 +550,7 @@
             targetItem = null;
             SearchQuery = string.Empty;
             foundPrescriptions = null;
+            WitnessUserId = string.Empty;
         }
         catch (Exception ex)
         {

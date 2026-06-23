@@ -153,6 +153,23 @@ namespace CareSphere.BackgroundServices
                         await service.SendAppointmentConfirmationAsync(apptEvent);
                     }
                 }
+                else if (envelope.MessageType.Equals("PatientArrived", StringComparison.OrdinalIgnoreCase))
+                {
+                    var arrivedEvt = JsonSerializer.Deserialize<PatientArrived>(envelope.Payload);
+                    if (arrivedEvt != null)
+                    {
+                        var queueService = scope.ServiceProvider.GetRequiredService<CareSphere.Modules.Clinical.Services.IQueueService>();
+                        await queueService.AddToQueueAsync(new CareSphere.Models.DoctorQueueEntry
+                        {
+                            DoctorId = arrivedEvt.DoctorId,
+                            PatientId = arrivedEvt.PatientId,
+                            TenantId = arrivedEvt.TenantId,
+                            TriagePriority = "Routine",
+                            CheckedInAt = DateTime.UtcNow,
+                            Status = "Waiting"
+                        });
+                    }
+                }
 
                 await args.CompleteMessageAsync(args.Message);
             }

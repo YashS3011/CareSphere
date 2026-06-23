@@ -20,5 +20,8 @@ namespace CareSphere.Modules.Clinical.Services
         Task UpdateEncounterStatusAsync(Guid id, string status);
         Task<Encounter?> GetActiveEncounterForPatientAsync(Guid patientId);
         Task<List<Encounter>> GetAllEncountersAsync(string? searchTerm = null, string? statusFilter = null, string? typeFilter = null);
+        Task SetDispositionAsync(Guid encounterId, string disposition);
+        Task AddDiagnosisAsync(Guid encounterId, string icdCode, string icdDescription, string diagnosisType);
+        Task<List<EncounterDiagnosis>> GetDiagnosesAsync(Guid encounterId);
     }
 }

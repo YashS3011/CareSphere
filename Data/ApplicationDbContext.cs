@@ -25,6 +25,7 @@ namespace CareSphere.Data
         public DbSet<Doctor> Doctors { get; set; }
         public DbSet<DoctorQueueEntry> DoctorQueueEntries { get; set; }
         public DbSet<Encounter> Encounters { get; set; }
+        public DbSet<EncounterDiagnosis> EncounterDiagnoses { get; set; }
         public DbSet<SoapNote> SoapNotes { get; set; }
         public DbSet<Prescription> Prescriptions { get; set; }
         public DbSet<DrugFormulary> DrugFormulary { get; set; }
@@ -53,6 +54,7 @@ namespace CareSphere.Data
         public DbSet<OtcSale> OtcSales { get; set; }
         public DbSet<OtcSaleItem> OtcSaleItems { get; set; }
         public DbSet<ExpiryAlert> ExpiryAlerts { get; set; }
+        public DbSet<ControlledSubstanceLog> ControlledSubstanceLogs { get; set; }
 
         // Laboratory Management DbSets
         public DbSet<LabTestCatalog> LabTestCatalogs { get; set; }
@@ -68,6 +70,7 @@ namespace CareSphere.Data
         public DbSet<VitalSigns> VitalSigns { get; set; }
         public DbSet<NursingNote> NursingNotes { get; set; }
         public DbSet<MedicationAdministrationRecord> MedicationAdministrationRecords { get; set; }
+        public DbSet<ShiftHandover> ShiftHandovers { get; set; }
 
         // Notifications & Patient Engagement DbSets
         public DbSet<NotificationTemplate> NotificationTemplates { get; set; }
@@ -143,6 +146,13 @@ namespace CareSphere.Data
                 entity.Property(e => e.Id).HasDefaultValueSql("gen_random_uuid()");
                 entity.Property(e => e.CreatedAt).HasDefaultValueSql("now()");
                 entity.HasIndex(e => new { e.TenantId, e.Status }).HasDatabaseName("IX_Encounters_Tenant_Status");
+            });
+
+            modelBuilder.Entity<EncounterDiagnosis>(entity =>
+            {
+                entity.Property(e => e.Id).HasDefaultValueSql("gen_random_uuid()");
+                entity.Property(e => e.CreatedAt).HasDefaultValueSql("now()");
+                entity.HasIndex(e => new { e.TenantId, e.EncounterId }).HasDatabaseName("IX_EncounterDiagnoses_Tenant_Encounter");
             });
 
             modelBuilder.Entity<SoapNote>(entity =>
@@ -342,6 +352,13 @@ namespace CareSphere.Data
                 entity.Property(e => e.SentAt).HasDefaultValueSql("now()");
             });
 
+            modelBuilder.Entity<ControlledSubstanceLog>(entity =>
+            {
+                entity.Property(e => e.Id).HasDefaultValueSql("gen_random_uuid()");
+                entity.Property(e => e.CreatedAt).HasDefaultValueSql("now()");
+                entity.HasIndex(e => new { e.TenantId, e.ItemId }).HasDatabaseName("IX_ControlledSubstanceLogs_Item");
+            });
+
             // Laboratory Management configurations
             modelBuilder.Entity<LabTestCatalog>(entity =>
             {
@@ -427,6 +444,13 @@ namespace CareSphere.Data
                 entity.Property(e => e.Id).HasDefaultValueSql("gen_random_uuid()");
                 entity.Property(e => e.CreatedAt).HasDefaultValueSql("now()");
                 entity.HasIndex(e => new { e.PatientId, e.TenantId }).HasDatabaseName("IX_NursingNotes_Patient");
+            });
+
+            modelBuilder.Entity<ShiftHandover>(entity =>
+            {
+                entity.Property(e => e.Id).HasDefaultValueSql("gen_random_uuid()");
+                entity.Property(e => e.CreatedAt).HasDefaultValueSql("now()");
+                entity.HasIndex(e => new { e.PatientId, e.TenantId }).HasDatabaseName("IX_ShiftHandovers_Patient");
             });
 
             modelBuilder.Entity<MedicationAdministrationRecord>(entity =>
@@ -572,6 +596,7 @@ namespace CareSphere.Data
             modelBuilder.Entity<OtcSale>().HasQueryFilter(x => x.TenantId == _tenantContext.TenantId);
             modelBuilder.Entity<OtcSaleItem>().HasQueryFilter(x => x.TenantId == _tenantContext.TenantId);
             modelBuilder.Entity<ExpiryAlert>().HasQueryFilter(x => x.TenantId == _tenantContext.TenantId);
+            modelBuilder.Entity<ControlledSubstanceLog>().HasQueryFilter(x => x.TenantId == _tenantContext.TenantId);
             modelBuilder.Entity<LabTestCatalog>().HasQueryFilter(x => x.TenantId == _tenantContext.TenantId);
             modelBuilder.Entity<LabTestParameter>().HasQueryFilter(x => x.TenantId == _tenantContext.TenantId);
             modelBuilder.Entity<LabRequisition>().HasQueryFilter(x => x.TenantId == _tenantContext.TenantId);
@@ -585,6 +610,7 @@ namespace CareSphere.Data
             modelBuilder.Entity<VitalSigns>().HasQueryFilter(x => x.TenantId == _tenantContext.TenantId);
             modelBuilder.Entity<NursingNote>().HasQueryFilter(x => x.TenantId == _tenantContext.TenantId);
             modelBuilder.Entity<MedicationAdministrationRecord>().HasQueryFilter(x => x.TenantId == _tenantContext.TenantId);
+            modelBuilder.Entity<ShiftHandover>().HasQueryFilter(x => x.TenantId == _tenantContext.TenantId);
             modelBuilder.Entity<NotificationTemplate>().HasQueryFilter(x => x.TenantId == _tenantContext.TenantId);
             modelBuilder.Entity<NotificationLog>().HasQueryFilter(x => x.TenantId == _tenantContext.TenantId);
             modelBuilder.Entity<AppointmentReminder>().HasQueryFilter(x => x.TenantId == _tenantContext.TenantId);
@@ -596,6 +622,7 @@ namespace CareSphere.Data
             modelBuilder.Entity<TenantSettings>().HasQueryFilter(x => x.TenantId == _tenantContext.TenantId);
             modelBuilder.Entity<UserSession>().HasQueryFilter(x => x.TenantId == _tenantContext.TenantId);
             modelBuilder.Entity<ApplicationUser>().HasQueryFilter(x => x.TenantId == _tenantContext.TenantId);
+            modelBuilder.Entity<EncounterDiagnosis>().HasQueryFilter(x => x.TenantId == _tenantContext.TenantId);
         }
 
         private void BeforeSave()

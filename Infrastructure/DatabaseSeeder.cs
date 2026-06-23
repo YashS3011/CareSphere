@@ -49,7 +49,123 @@ namespace CareSphere.Infrastructure
         {
             var defaultTenantIdStr = _configuration["App:DefaultTenantId"] ?? "00000000-0000-0000-0000-000000000001";
             var defaultTenantId = Guid.Parse(defaultTenantIdStr);
+            var seedTenantId = defaultTenantId;
             var forceReset = string.Equals(_configuration["App:ForceResetDatabase"], "true", StringComparison.OrdinalIgnoreCase);
+
+            async Task SeedNotificationTemplatesAsync()
+            {
+                if (!await _context.NotificationTemplates.AnyAsync(x => x.TemplateName == "LabReportReady" && x.Channel == "SMS"))
+                {
+                    _context.NotificationTemplates.Add(new NotificationTemplate
+                    {
+                        Id = Guid.NewGuid(),
+                        TenantId = seedTenantId,
+                        TemplateName = "LabReportReady",
+                        NotificationType = "LabReportReady",
+                        Channel = "SMS",
+                        Language = "en",
+                        IsActive = true,
+                        TemplateBody = "Hi {{PatientName}}, your lab report (MRN: {{MRN}}) is ready. Please collect it from the lab desk."
+                    });
+                    await _context.SaveChangesAsync();
+                }
+
+                if (!await _context.NotificationTemplates.AnyAsync(x => x.TemplateName == "AppointmentConfirmation" && x.Channel == "SMS"))
+                {
+                    _context.NotificationTemplates.Add(new NotificationTemplate
+                    {
+                        Id = Guid.NewGuid(),
+                        TenantId = seedTenantId,
+                        TemplateName = "AppointmentConfirmation",
+                        NotificationType = "AppointmentConfirmation",
+                        Channel = "SMS",
+                        Language = "en",
+                        IsActive = true,
+                        TemplateBody = "Hi {{PatientName}}, your appointment is confirmed for {{SlotTime}}. Please arrive 10 min early."
+                    });
+                    await _context.SaveChangesAsync();
+                }
+
+                if (!await _context.NotificationTemplates.AnyAsync(x => x.TemplateName == "DischargeNotification" && x.Channel == "SMS"))
+                {
+                    _context.NotificationTemplates.Add(new NotificationTemplate
+                    {
+                        Id = Guid.NewGuid(),
+                        TenantId = seedTenantId,
+                        TemplateName = "DischargeNotification",
+                        NotificationType = "DischargeNotification",
+                        Channel = "SMS",
+                        Language = "en",
+                        IsActive = true,
+                        TemplateBody = "Dear {{PatientName}}, you have been discharged. Thank you for choosing our hospital. Get well soon!"
+                    });
+                    await _context.SaveChangesAsync();
+                }
+
+                if (!await _context.NotificationTemplates.AnyAsync(x => x.TemplateName == "AppointmentReminder" && x.Channel == "SMS"))
+                {
+                    _context.NotificationTemplates.Add(new NotificationTemplate
+                    {
+                        Id = Guid.NewGuid(),
+                        TenantId = seedTenantId,
+                        TemplateName = "AppointmentReminder",
+                        NotificationType = "AppointmentReminder",
+                        Channel = "SMS",
+                        Language = "en",
+                        IsActive = true,
+                        TemplateBody = "Reminder: Hi {{PatientName}}, you have an appointment tomorrow at {{SlotTime}}. To reschedule please contact reception. - CareSphere HMS"
+                    });
+                    await _context.SaveChangesAsync();
+                }
+
+                if (!await _context.NotificationTemplates.AnyAsync(x => x.TemplateName == "CriticalVitalsAlert" && x.Channel == "InApp"))
+                {
+                    _context.NotificationTemplates.Add(new NotificationTemplate
+                    {
+                        Id = Guid.NewGuid(),
+                        TenantId = seedTenantId,
+                        TemplateName = "CriticalVitalsAlert",
+                        NotificationType = "CriticalVitalsAlert",
+                        Channel = "InApp",
+                        Language = "en",
+                        IsActive = true,
+                        TemplateBody = "Patient {{PatientName}} (MRN: {{MRN}}) has critical vitals recorded at {{RecordedAt}}. Immediate review required."
+                    });
+                    await _context.SaveChangesAsync();
+                }
+
+                if (!await _context.NotificationTemplates.AnyAsync(x => x.TemplateName == "LabReportReady" && x.Channel == "WhatsApp"))
+                {
+                    _context.NotificationTemplates.Add(new NotificationTemplate
+                    {
+                        Id = Guid.NewGuid(),
+                        TenantId = seedTenantId,
+                        TemplateName = "LabReportReady",
+                        NotificationType = "LabReportReady",
+                        Channel = "WhatsApp",
+                        Language = "en",
+                        IsActive = true,
+                        TemplateBody = "Hello {{PatientName}} 👋, your lab report (MRN: {{MRN}}) is now ready for collection. Please visit the lab desk or ask your doctor at your next appointment. - CareSphere HMS"
+                    });
+                    await _context.SaveChangesAsync();
+                }
+
+                if (!await _context.NotificationTemplates.AnyAsync(x => x.TemplateName == "AppointmentConfirmation" && x.Channel == "WhatsApp"))
+                {
+                    _context.NotificationTemplates.Add(new NotificationTemplate
+                    {
+                        Id = Guid.NewGuid(),
+                        TenantId = seedTenantId,
+                        TemplateName = "AppointmentConfirmation",
+                        NotificationType = "AppointmentConfirmation",
+                        Channel = "WhatsApp",
+                        Language = "en",
+                        IsActive = true,
+                        TemplateBody = "Hello {{PatientName}} 👋, your appointment is confirmed for {{SlotTime}}. Please arrive 10 minutes early and carry a valid ID. See you soon! - CareSphere HMS"
+                    });
+                    await _context.SaveChangesAsync();
+                }
+            }
 
             // Check if already seeded (e.g. if any tenant settings exist)
             if (await _context.TenantSettings.IgnoreQueryFilters().AnyAsync() && !forceReset)
@@ -402,6 +518,10 @@ namespace CareSphere.Infrastructure
                     // Repair 7: Re-sync all role permissions from defaults
                     _logger.LogInformation("Re-seeding role permissions from defaults...");
                     await _permissionService.SeedRolePermissionsAsync(defaultTenantId);
+
+                    // Repair 8: Ensure notification templates exist
+                    _logger.LogInformation("Repairing/Seeding notification templates...");
+                    await SeedNotificationTemplatesAsync();
                 }
                 catch (Exception ex)
                 {
@@ -1477,6 +1597,10 @@ namespace CareSphere.Infrastructure
                     CreatedAt = DateTime.UtcNow
                 };
                 _context.ServiceBusOutboxes.Add(serviceBusOutbox);
+
+                // Seed notification templates
+                _logger.LogInformation("Seeding notification templates...");
+                await SeedNotificationTemplatesAsync();
 
                 _logger.LogInformation("Saving all seeded records to the database...");
                 await _context.SaveChangesAsync();

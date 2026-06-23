@@ -17,6 +17,7 @@ using CareSphere.Modules.Appointments.Services;
 using CareSphere.Modules.Analytics.Services;
 using CareSphere.Modules.Nursing.Services;
 using CareSphere.Modules.Shared.ReadModels;
+using ApexCharts;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Components.Authorization;
 using Microsoft.AspNetCore.Identity;
@@ -175,8 +176,10 @@ builder.Services.AddScoped<IAppointmentService, AppointmentService>();
 builder.Services.AddScoped<IDoctorScheduleService, DoctorScheduleService>();
 builder.Services.AddScoped<IAnalyticsService, AnalyticsService>();
 builder.Services.AddScoped<IVitalSignsService, VitalSignsService>();
+builder.Services.AddTransient<IVitalThresholdService, VitalThresholdService>();
 builder.Services.AddScoped<INursingNoteService, NursingNoteService>();
 builder.Services.AddScoped<IMedicationAdministrationService, MedicationAdministrationService>();
+builder.Services.AddScoped<IShiftHandoverService, ShiftHandoverService>();
 
 // Doctor Workflow & EMR Services
 builder.Services.AddTransient<IAuditService, AuditService>();
@@ -206,6 +209,7 @@ builder.Services.AddTransient<IDispenseService, DispenseService>();
 builder.Services.AddTransient<IOtcSaleService, OtcSaleService>();
 builder.Services.AddTransient<IExpiryAlertService, ExpiryAlertService>();
 builder.Services.AddHostedService<CareSphere.BackgroundServices.ExpiryAlertBackgroundService>();
+builder.Services.AddHostedService<CareSphere.BackgroundServices.BedChargeBackgroundService>();
 
 // Laboratory Management Services
 builder.Services.AddTransient<ILabCatalogService, LabCatalogService>();
@@ -251,6 +255,10 @@ ConfigureSsoProviders(builder);
 
 // QuestPDF License registration
 QuestPDF.Settings.License = QuestPDF.Infrastructure.LicenseType.Community;
+
+// Analytics Services
+builder.Services.AddTransient<CareSphere.Modules.Analytics.Services.IAnalyticsService, CareSphere.Modules.Analytics.Services.AnalyticsService>();
+builder.Services.AddApexCharts();
 
 var app = builder.Build();
 

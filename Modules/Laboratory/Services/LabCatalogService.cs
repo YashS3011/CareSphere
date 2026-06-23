@@ -121,14 +121,14 @@ namespace CareSphere.Modules.Laboratory.Services
 
         public async Task<LabTestCatalog?> GetTestByIdAsync(Guid id)
         {
-            return await _context.LabTestCatalogs
+            return await _context.LabTestCatalogs.AsNoTracking()
                 .Include(t => t.Parameters.OrderBy(p => p.SortOrder))
                 .FirstOrDefaultAsync(t => t.Id == id);
         }
 
         public async Task<List<LabTestCatalog>> GetAllTestsAsync(Guid tenantId, string? search, string? category, bool? isActive)
         {
-            var query = _context.LabTestCatalogs
+            var query = _context.LabTestCatalogs.AsNoTracking()
                 .Include(t => t.Parameters)
                 .Where(t => t.TenantId == tenantId);
 
@@ -153,7 +153,7 @@ namespace CareSphere.Modules.Laboratory.Services
 
         public async Task<List<LabTestCatalog>> GetTestsByCategoryAsync(Guid tenantId, string category)
         {
-            return await _context.LabTestCatalogs
+            return await _context.LabTestCatalogs.AsNoTracking()
                 .Where(t => t.TenantId == tenantId && t.IsActive && t.Category == category)
                 .OrderBy(t => t.TestName)
                 .ToListAsync();

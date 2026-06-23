@@ -20,6 +20,11 @@ namespace CareSphere.Models
         [Column("status")]
         public string Status { get; set; } = "Waiting"; // Waiting | InConsultation | Completed | NoShow
 
+        [Required]
+        [MaxLength(20)]
+        [Column("triage_priority")]
+        public string TriagePriority { get; set; } = "Routine"; // Routine | Urgent | Emergency
+
         [Column("queue_position")]
         public int QueuePosition { get; set; }
 

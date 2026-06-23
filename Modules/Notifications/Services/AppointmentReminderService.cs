@@ -266,7 +266,7 @@ namespace CareSphere.Modules.Notifications.Services
 
         public async Task<List<AppointmentReminder>> GetScheduledRemindersAsync(Guid tenantId)
         {
-            return await _context.AppointmentReminders
+            return await _context.AppointmentReminders.AsNoTracking()
                 .Include(r => r.Patient)
                 .Include(r => r.Doctor)
                 .Where(r => r.TenantId == tenantId && r.Status == "Scheduled")

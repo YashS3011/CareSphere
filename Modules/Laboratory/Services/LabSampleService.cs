@@ -118,7 +118,7 @@ namespace CareSphere.Modules.Laboratory.Services
 
         public async Task<List<LabSample>> GetSamplesByRequisitionAsync(Guid tenantId, Guid requisitionId)
         {
-            return await _context.LabSamples
+            return await _context.LabSamples.AsNoTracking()
                 .Where(s => s.TenantId == tenantId && s.RequisitionId == requisitionId)
                 .OrderByDescending(s => s.CollectedAt)
                 .ToListAsync();

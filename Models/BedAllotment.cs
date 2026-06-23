@@ -45,12 +45,18 @@ namespace CareSphere.Models
         [Column("tenant_id")]
         public Guid TenantId { get; set; } = Guid.Empty;
 
+        [Column("encounter_id")]
+        public Guid? EncounterId { get; set; }
+
         // Navigation properties
         [ForeignKey("BedId")]
         public Bed Bed { get; set; } = null!;
 
         [ForeignKey("PatientId")]
         public Patient Patient { get; set; } = null!;
+
+        [ForeignKey("EncounterId")]
+        public Encounter? Encounter { get; set; }
 
         public ICollection<BedTransfer> Transfers { get; set; } = new List<BedTransfer>();
     }

@@ -141,9 +141,99 @@ namespace CareSphere.Modules.Pharmacy.Services
             await _context.SaveChangesAsync();
         }
 
+        public async Task CheckAndGenerateReorderAlertsAsync(Guid tenantId)
+        {
+            var items = await _context.PharmacyItems
+                .Where(i => i.TenantId == tenantId && i.IsActive && i.ReorderLevel > 0)
+                .ToListAsync();
+
+            var accountSid = _configuration["Twilio:AccountSid"];
+            var authToken = _configuration["Twilio:AuthToken"];
+            var fromPhone = _configuration["Twilio:FromPhone"];
+            var alertPhoneNumber = _configuration["Pharmacy:ExpiryAlertPhoneNumber"];
+
+            var isTwilioConfigured = !string.IsNullOrWhiteSpace(accountSid) && 
+                                     !string.IsNullOrWhiteSpace(authToken) && 
+                                     !string.IsNullOrWhiteSpace(fromPhone) && 
+                                     !string.IsNullOrWhiteSpace(alertPhoneNumber);
+
+            var pharmacists = await _context.Users
+                .IgnoreQueryFilters()
+                .Where(u => u.TenantId == tenantId && u.Role == "Pharmacist" && u.IsActive && u.DeletedAt == null)
+                .ToListAsync();
+
+            if (!pharmacists.Any())
+            {
+                pharmacists = await _context.Users
+                    .IgnoreQueryFilters()
+                    .Where(u => u.TenantId == tenantId && (u.Role == "HospitalAdmin" || u.Role == "SuperAdmin") && u.IsActive && u.DeletedAt == null)
+                    .ToListAsync();
+            }
+
+            foreach (var item in items)
+            {
+                // Cooldown: 7 days between alerts for the same item
+                if (item.LastReorderAlertSentAt.HasValue && 
+                    (DateTime.UtcNow - item.LastReorderAlertSentAt.Value).TotalDays < 7)
+                {
+                    continue;
+                }
+
+                var totalStock = await _context.PharmacyBatches
+                    .Where(b => b.ItemId == item.Id && b.IsActive)
+                    .SumAsync(b => b.CurrentStock);
+
+                if (totalStock <= item.ReorderLevel)
+                {
+                    // Create In-App Notification for all target users
+                    foreach (var p in pharmacists)
+                    {
+                        var inApp = new InAppNotification
+                        {
+                            Id = Guid.NewGuid(),
+                            TenantId = tenantId,
+                            RecipientType = p.Role,
+                            RecipientId = p.Id,
+                            Title = "⚠️ Low Stock Reorder Alert",
+                            Message = $"Pharmacy item '{item.ItemName}' (Code: {item.ItemCode}) has fallen below reorder level. Current Stock: {totalStock} {item.Unit}, Reorder Level: {item.ReorderLevel}.",
+                            ResourceType = "PharmacyItem",
+                            ResourceId = item.Id.ToString(),
+                            IsRead = false,
+                            CreatedAt = DateTime.UtcNow
+                        };
+                        _context.InAppNotifications.Add(inApp);
+                    }
+
+                    // Send SMS Alert
+                    if (isTwilioConfigured)
+                    {
+                        try
+                        {
+                            TwilioClient.Init(accountSid, authToken);
+                            var smsBody = $"CareSphere Reorder Alert: Pharmacy item '{item.ItemName}' (Code: {item.ItemCode}) has fallen below reorder level. Current Stock: {totalStock} {item.Unit}, Reorder Level: {item.ReorderLevel}.";
+                            await MessageResource.CreateAsync(
+                                body: smsBody,
+                                from: new PhoneNumber(fromPhone),
+                                to: new PhoneNumber(alertPhoneNumber)
+                            );
+                        }
+                        catch (Exception ex)
+                        {
+                            Console.WriteLine($"[ExpiryAlertService] Failed to send SMS reorder alert for item {item.ItemCode}: {ex.Message}");
+                        }
+                    }
+
+                    item.LastReorderAlertSentAt = DateTime.UtcNow;
+                    _context.PharmacyItems.Update(item);
+                }
+            }
+
+            await _context.SaveChangesAsync();
+        }
+
         public async Task<List<ExpiryAlert>> GetUnacknowledgedAlertsAsync(Guid tenantId)
         {
-            return await _context.ExpiryAlerts
+            return await _context.ExpiryAlerts.AsNoTracking()
                 .Include(a => a.Batch)
                 .Include(a => a.Item)
                 .Where(a => a.TenantId == tenantId && !a.IsAcknowledged && a.AlertType == "InApp")
@@ -153,7 +243,7 @@ namespace CareSphere.Modules.Pharmacy.Services
 
         public async Task<List<ExpiryAlert>> GetAllAlertsAsync(Guid tenantId)
         {
-            return await _context.ExpiryAlerts
+            return await _context.ExpiryAlerts.AsNoTracking()
                 .Include(a => a.Batch)
                 .Include(a => a.Item)
                 .Where(a => a.TenantId == tenantId)

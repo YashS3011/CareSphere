@@ -36,7 +36,7 @@ namespace CareSphere.Modules.Nursing.Services
         public async Task<List<MedicationAdministrationRecord>> GetByPatientAsync(
             Guid patientId, Guid tenantId)
         {
-            return await _dbContext.MedicationAdministrationRecords
+            return await _dbContext.MedicationAdministrationRecords.AsNoTracking()
                 .Include(m => m.Prescription)
                 .Where(m => m.PatientId == patientId && m.TenantId == tenantId)
                 .OrderByDescending(m => m.AdministeredAt)
@@ -46,7 +46,7 @@ namespace CareSphere.Modules.Nursing.Services
         public async Task<List<MedicationAdministrationRecord>> GetByPrescriptionAsync(
             Guid prescriptionId, Guid tenantId)
         {
-            return await _dbContext.MedicationAdministrationRecords
+            return await _dbContext.MedicationAdministrationRecords.AsNoTracking()
                 .Where(m => m.PrescriptionId == prescriptionId && m.TenantId == tenantId)
                 .OrderByDescending(m => m.AdministeredAt)
                 .ToListAsync();

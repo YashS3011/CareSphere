@@ -138,7 +138,7 @@ namespace CareSphere.Modules.Notifications.Services
 
         public async Task<List<DischargeNotification>> GetDischargeNotificationsByPatientAsync(Guid patientId)
         {
-            return await _context.DischargeNotifications
+            return await _context.DischargeNotifications.AsNoTracking()
                 .Include(d => d.BedAllotment)
                 .Include(d => d.NotificationLog)
                 .Where(d => d.PatientId == patientId)

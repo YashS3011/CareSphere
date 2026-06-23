@@ -55,6 +55,25 @@
           }
         }
       },
+      "Blazor-ApexCharts/6.1.0": {
+        "type": "package",
+        "compile": {
+          "lib/net10.0/Blazor-ApexCharts.dll": {
+            "related": ".xml"
+          }
+        },
+        "runtime": {
+          "lib/net10.0/Blazor-ApexCharts.dll": {
+            "related": ".xml"
+          }
+        },
+        "build": {
+          "buildTransitive/Blazor-ApexCharts.props": {}
+        },
+        "buildMultiTargeting": {
+          "buildMultiTargeting/Blazor-ApexCharts.props": {}
+        }
+      },
       "Humanizer.Core/2.14.1": {
         "type": "package",
         "compile": {
@@ -1153,6 +1172,78 @@
         "lib/net8.0/Azure.Messaging.ServiceBus.xml",
         "lib/netstandard2.0/Azure.Messaging.ServiceBus.dll",
         "lib/netstandard2.0/Azure.Messaging.ServiceBus.xml"
+      ]
+    },
+    "Blazor-ApexCharts/6.1.0": {
+      "sha512": "H2mkr7HEVk+BoQKcyoQtqq3ifoo/VxS7I8B35wO9tpiarGMdnAsL9pwcQBU4E/YnADNF+zOKTIaRxhd93Qr9HA==",
+      "type": "package",
+      "path": "blazor-apexcharts/6.1.0",
+      "files": [
+        ".nupkg.metadata",
+        ".signature.p7s",
+        "LICENSE",
+        "README.md",
+        "apexchart_logo.png",
+        "blazor-apexcharts.6.1.0.nupkg.sha512",
+        "blazor-apexcharts.nuspec",
+        "build/Blazor-ApexCharts.props",
+        "build/Microsoft.AspNetCore.StaticWebAssetEndpoints.props",
+        "build/Microsoft.AspNetCore.StaticWebAssets.props",
+        "buildMultiTargeting/Blazor-ApexCharts.props",
+        "buildTransitive/Blazor-ApexCharts.props",
+        "lib/net10.0/Blazor-ApexCharts.dll",
+        "lib/net10.0/Blazor-ApexCharts.xml",
+        "lib/net8.0/Blazor-ApexCharts.dll",
+        "lib/net8.0/Blazor-ApexCharts.xml",
+        "lib/net9.0/Blazor-ApexCharts.dll",
+        "lib/net9.0/Blazor-ApexCharts.xml",
+        "staticwebassets/css/apexcharts.css",
+        "staticwebassets/js/apexcharts.esm.js",
+        "staticwebassets/js/blazor-apexcharts.js",
+        "staticwebassets/locales/ar.json",
+        "staticwebassets/locales/be-cyrl.json",
+        "staticwebassets/locales/be-latn.json",
+        "staticwebassets/locales/ca.json",
+        "staticwebassets/locales/cs.json",
+        "staticwebassets/locales/da.json",
+        "staticwebassets/locales/de.json",
+        "staticwebassets/locales/el.json",
+        "staticwebassets/locales/en.json",
+        "staticwebassets/locales/es.json",
+        "staticwebassets/locales/et.json",
+        "staticwebassets/locales/fa.json",
+        "staticwebassets/locales/fi.json",
+        "staticwebassets/locales/fr.json",
+        "staticwebassets/locales/he.json",
+        "staticwebassets/locales/hi.json",
+        "staticwebassets/locales/hr.json",
+        "staticwebassets/locales/hu.json",
+        "staticwebassets/locales/hy.json",
+        "staticwebassets/locales/id.json",
+        "staticwebassets/locales/it.json",
+        "staticwebassets/locales/ja.json",
+        "staticwebassets/locales/ka.json",
+        "staticwebassets/locales/ko.json",
+        "staticwebassets/locales/lt.json",
+        "staticwebassets/locales/lv.json",
+        "staticwebassets/locales/ms.json",
+        "staticwebassets/locales/nb.json",
+        "staticwebassets/locales/nl.json",
+        "staticwebassets/locales/pl.json",
+        "staticwebassets/locales/pt-br.json",
+        "staticwebassets/locales/pt.json",
+        "staticwebassets/locales/ru.json",
+        "staticwebassets/locales/sk.json",
+        "staticwebassets/locales/sl.json",
+        "staticwebassets/locales/sq.json",
+        "staticwebassets/locales/sr.json",
+        "staticwebassets/locales/sv.json",
+        "staticwebassets/locales/th.json",
+        "staticwebassets/locales/tr.json",
+        "staticwebassets/locales/uk.json",
+        "staticwebassets/locales/vi.json",
+        "staticwebassets/locales/zh-cn.json",
+        "staticwebassets/locales/zh-tw.json"
       ]
     },
     "Humanizer.Core/2.14.1": {
@@ -3018,6 +3109,7 @@
   "projectFileDependencyGroups": {
     "net10.0": [
       "Azure.Messaging.ServiceBus >= 7.20.1",
+      "Blazor-ApexCharts >= 6.1.0",
       "Microsoft.AspNetCore.App.Internal.Assets >= 10.0.9",
       "Microsoft.AspNetCore.Authentication.Google >= 9.0.0",
       "Microsoft.AspNetCore.Authentication.MicrosoftAccount >= 9.0.0",
@@ -3085,6 +3177,10 @@
           "Azure.Messaging.ServiceBus": {
             "target": "Package",
             "version": "[7.20.1, )"
+          },
+          "Blazor-ApexCharts": {
+            "target": "Package",
+            "version": "[6.1.0, )"
           },
           "Microsoft.AspNetCore.App.Internal.Assets": {
             "suppressParent": "All",

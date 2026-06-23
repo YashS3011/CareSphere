@@ -25,7 +25,7 @@ namespace CareSphere.Modules.Patients.Services
 
         public async Task<List<Patient>> GetPatientsAsync(string? searchTerm = null)
         {
-            var query = _context.Patients.AsQueryable();
+            var query = _context.Patients.AsNoTracking().AsQueryable();
 
             if (!string.IsNullOrWhiteSpace(searchTerm))
             {
@@ -41,7 +41,7 @@ namespace CareSphere.Modules.Patients.Services
 
         public async Task<Patient?> GetPatientByIdAsync(Guid id)
         {
-            return await _context.Patients.FindAsync(id);
+            return await _context.Patients.AsNoTracking().FirstOrDefaultAsync(p => p.Id == id);
         }
 
         public async Task<Patient> CreatePatientAsync(Patient patient)

@@ -379,7 +379,7 @@ namespace CareSphere.Modules.Pharmacy.Services
 
         public async Task<OtcSale?> GetOtcSaleByIdAsync(Guid id)
         {
-            return await _context.OtcSales
+            return await _context.OtcSales.AsNoTracking()
                 .Include(s => s.Items)
                     .ThenInclude(si => si.Item)
                 .Include(s => s.Items)
@@ -389,7 +389,7 @@ namespace CareSphere.Modules.Pharmacy.Services
 
         public async Task<List<OtcSale>> GetOtcSalesAsync(Guid tenantId, int page = 1, int pageSize = 10)
         {
-            return await _context.OtcSales
+            return await _context.OtcSales.AsNoTracking()
                 .Where(s => s.TenantId == tenantId)
                 .OrderByDescending(s => s.SaleDate)
                 .Skip((page - 1) * pageSize)

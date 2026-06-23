@@ -159,7 +159,7 @@ namespace CareSphere.Modules.Laboratory.Services
 
         public async Task<List<InAppNotification>> GetUnreadNotificationsAsync(string recipientType, string recipientId)
         {
-            return await _context.InAppNotifications
+            return await _context.InAppNotifications.AsNoTracking()
                 .Where(n => n.RecipientType == recipientType && n.RecipientId == recipientId && !n.IsRead)
                 .OrderByDescending(n => n.CreatedAt)
                 .ToListAsync();

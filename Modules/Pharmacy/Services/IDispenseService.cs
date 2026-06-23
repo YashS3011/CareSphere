@@ -21,7 +21,7 @@ namespace CareSphere.Modules.Pharmacy.Services
         /// </summary>
         Task<DispenseValidationResult> ValidatePrescriptionForDispenseAsync(Guid prescriptionId, string? barcodeScanned = null);
 
-        Task<List<DispenseRecord>> DispenseItemAsync(Guid prescriptionId, int quantityToDispense, string dispensedByUserId, string? barcodeScanned = null);
+        Task<List<DispenseRecord>> DispenseItemAsync(Guid prescriptionId, int quantityToDispense, string dispensedByUserId, string? barcodeScanned = null, string? witnessUserId = null);
 
         Task<List<DispenseRecord>> GetDispenseHistoryByPrescriptionAsync(Guid prescriptionId);
         Task<List<DispenseRecord>> GetDispenseHistoryByPatientAsync(Guid patientId);

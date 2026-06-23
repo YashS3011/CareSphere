@@ -82,12 +82,14 @@ namespace CareSphere.Modules.Clinical.Services
 
         public async Task<List<DoctorQueueEntry>> GetQueueForDoctorAsync(Guid doctorId)
         {
-            return await _context.DoctorQueueEntries
+            return await _context.DoctorQueueEntries.AsNoTracking()
                 .Include(q => q.Patient)
                 .Include(q => q.Doctor)
                 .Where(q => q.DoctorId == doctorId &&
                             (q.Status == "Waiting" || q.Status == "InConsultation"))
-                .OrderBy(q => q.QueuePosition)
+                .OrderBy(q => q.TriagePriority == "Emergency" ? 1 :
+                             q.TriagePriority == "Urgent" ? 2 : 3)
+                .ThenBy(q => q.QueuePosition)
                 .ToListAsync();
         }
 
@@ -113,7 +115,9 @@ namespace CareSphere.Modules.Clinical.Services
         {
             var waitingEntries = await _context.DoctorQueueEntries
                 .Where(q => q.DoctorId == doctorId && q.Status == "Waiting")
-                .OrderBy(q => q.QueuePosition)
+                .OrderBy(q => q.TriagePriority == "Emergency" ? 1 :
+                             q.TriagePriority == "Urgent" ? 2 : 3)
+                .ThenBy(q => q.QueuePosition)
                 .ToListAsync();
 
             var avgMinutes = await CalculateEtaAsync(doctorId);

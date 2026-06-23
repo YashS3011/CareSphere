@@ -189,3 +189,4 @@ D:\CareSphere\Tests\obj\Debug\net10.0\refint\Tests.dll
 D:\CareSphere\Tests\obj\Debug\net10.0\Tests.pdb
 D:\CareSphere\Tests\obj\Debug\net10.0\Tests.genruntimeconfig.cache
 D:\CareSphere\Tests\obj\Debug\net10.0\ref\Tests.dll
+D:\CareSphere\Tests\bin\Debug\net10.0\Blazor-ApexCharts.dll

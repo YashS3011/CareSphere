@@ -164,7 +164,7 @@ namespace CareSphere.Modules.Admin.Services
                 .Select(g => new { Role = g.Key, Count = g.Count() })
                 .ToDictionaryAsync(x => x.Role, x => x.Count);
 
-            var settings = await _context.TenantSettings
+            var settings = await _context.TenantSettings.AsNoTracking()
                 .FirstOrDefaultAsync(t => t.TenantId == tenantId);
 
             return new TenantStats

@@ -67,7 +67,7 @@ namespace CareSphere.Modules.Pharmacy.Services
 
         public async Task<PurchaseOrder?> GetPurchaseOrderByIdAsync(Guid id)
         {
-            return await _context.PurchaseOrders
+            return await _context.PurchaseOrders.AsNoTracking()
                 .Include(p => p.Supplier)
                 .Include(p => p.Items)
                     .ThenInclude(pi => pi.Item)
@@ -76,7 +76,7 @@ namespace CareSphere.Modules.Pharmacy.Services
 
         public async Task<List<PurchaseOrder>> GetPurchaseOrdersAsync(Guid tenantId, string? status, Guid? supplierId, int page = 1, int pageSize = 10)
         {
-            var query = _context.PurchaseOrders
+            var query = _context.PurchaseOrders.AsNoTracking()
                 .Include(p => p.Supplier)
                 .Where(p => p.TenantId == tenantId);
 
@@ -99,7 +99,7 @@ namespace CareSphere.Modules.Pharmacy.Services
 
         public async Task<int> GetPurchaseOrdersCountAsync(Guid tenantId, string? status, Guid? supplierId)
         {
-            var query = _context.PurchaseOrders.Where(p => p.TenantId == tenantId);
+            var query = _context.PurchaseOrders.AsNoTracking().Where(p => p.TenantId == tenantId);
 
             if (!string.IsNullOrWhiteSpace(status))
             {

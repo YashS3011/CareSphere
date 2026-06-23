@@ -72,7 +72,7 @@ namespace CareSphere.Modules.Notifications.Services
 
         public async Task<List<NotificationLog>> GetRecentLogsAsync(Guid tenantId)
         {
-            return await _context.NotificationLogs
+            return await _context.NotificationLogs.AsNoTracking()
                 .Include(l => l.Patient)
                 .Include(l => l.Doctor)
                 .Where(l => l.TenantId == tenantId)
@@ -83,7 +83,7 @@ namespace CareSphere.Modules.Notifications.Services
 
         public async Task<List<NotificationLog>> GetFailedLogsAsync(Guid tenantId)
         {
-            return await _context.NotificationLogs
+            return await _context.NotificationLogs.AsNoTracking()
                 .Include(l => l.Patient)
                 .Include(l => l.Doctor)
                 .Where(l => l.TenantId == tenantId && l.Status == "Failed" && l.RetryCount < l.MaxRetries)

@@ -1,6 +1,10 @@
 @using CareSphere.Models
 @using CareSphere.Modules.Clinical.Services
+@using System.IO
+@using System.Linq
 @inject ISoapNoteService SoapNoteService
+@inject IEncounterService EncounterService
+@inject Microsoft.AspNetCore.Hosting.IWebHostEnvironment Env
 @rendermode InteractiveServer
 
 <div class="card mb-4">
@@ -49,6 +53,93 @@
                     <small class="text-muted d-block mb-1">Treatment plan, follow-up, referrals</small>
                     <textarea class="form-control" rows="5" @bind="plan" disabled="@isFinalized"
                               placeholder="Treatment plan, medications, follow-up..."></textarea>
+                </div>
+            </div>
+
+            <hr class="my-4" />
+
+            <div class="row g-3 mb-4">
+                <div class="col-md-12">
+                    <h6 class="fw-bold mb-2"><i class="bi bi-tag-fill me-2 text-primary"></i>ICD-10 Diagnoses</h6>
+                </div>
+                
+                @if (!isFinalized)
+                {
+                    <div class="col-md-6">
+                        <label class="form-label fw-semibold">Search ICD-10 Code or Description</label>
+                        <div class="position-relative">
+                            <input class="form-control" type="text" placeholder="Type to search (e.g. Hypertension)..."
+                                   @bind="searchIcdQuery" @oninput="SearchIcd" />
+                            @if (filteredIcdCodes.Any())
+                            {
+                                <ul class="list-group position-absolute w-100 shadow" style="z-index: 1000; max-height: 200px; overflow-y: auto;">
+                                    @foreach (var item in filteredIcdCodes)
+                                    {
+                                        <button type="button" class="list-group-item list-group-item-action text-start"
+                                                @onclick="() => SelectIcdItem(item)">
+                                            <strong>@item.Code</strong> &mdash; @item.Description
+                                        </button>
+                                    }
+                                </ul>
+                            }
+                        </div>
+                    </div>
+
+                    <div class="col-md-3">
+                        <label class="form-label fw-semibold">Type</label>
+                        <select class="form-select" @bind="selectedDiagnosisType">
+                            <option value="Primary">Primary</option>
+                            <option value="Secondary">Secondary</option>
+                        </select>
+                    </div>
+
+                    <div class="col-md-3 d-flex align-items-end">
+                        <button type="button" class="btn btn-primary w-100" @onclick="AddDiagnosis"
+                                disabled="@(string.IsNullOrEmpty(selectedIcdCode))">
+                            <i class="bi bi-plus-circle me-1"></i> Add Diagnosis
+                        </button>
+                    </div>
+                }
+
+                <div class="col-md-12 mt-3">
+                    <label class="form-label fw-semibold text-muted">Current tagged diagnoses:</label>
+                    @if (diagnoses == null || !diagnoses.Any())
+                    {
+                        <div class="text-muted small p-2 border rounded bg-light">No diagnoses coded for this encounter yet.</div>
+                    }
+                    else
+                    {
+                        <div class="table-responsive">
+                            <table class="table table-sm table-bordered align-middle mb-0">
+                                <thead class="table-light">
+                                    <tr>
+                                        <th style="width: 15%">ICD Code</th>
+                                        <th>Description</th>
+                                        <th style="width: 20%">Type</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    @foreach (var diag in diagnoses)
+                                    {
+                                        <tr>
+                                            <td><span class="badge bg-dark">@diag.IcdCode</span></td>
+                                            <td>@diag.IcdDescription</td>
+                                            <td>
+                                                @if (diag.DiagnosisType == "Primary")
+                                                {
+                                                    <span class="badge bg-danger">Primary</span>
+                                                }
+                                                else
+                                                {
+                                                    <span class="badge bg-secondary">Secondary</span>
+                                                }
+                                            </td>
+                                        </tr>
+                                    }
+                                </tbody>
+                            </table>
+                        </div>
+                    }
                 </div>
             </div>
 
@@ -127,9 +218,26 @@
     private string statusMessage = string.Empty;
     private string errorMessage = string.Empty;
 
+    private List<IcdCodeItem> icdCodes = new();
+    private List<IcdCodeItem> filteredIcdCodes = new();
+    private string searchIcdQuery = "";
+    private List<EncounterDiagnosis> diagnoses = new();
+
+    private string selectedIcdCode = "";
+    private string selectedIcdDescription = "";
+    private string selectedDiagnosisType = "Secondary";
+
+    public class IcdCodeItem
+    {
+        public string Code { get; set; } = "";
+        public string Description { get; set; } = "";
+    }
+
     protected override async Task OnInitializedAsync()
     {
         await LoadSoapNote();
+        await LoadIcdCodes();
+        await LoadDiagnoses();
         isLoading = false;
     }
 
@@ -143,6 +251,86 @@
             assessment = soapNote.Assessment;
             plan = soapNote.Plan;
             isFinalized = soapNote.Status == "Final";
+        }
+    }
+
+    private async Task LoadIcdCodes()
+    {
+        try
+        {
+            var path = Path.Combine(Env.WebRootPath, "data", "icd10.csv");
+            if (File.Exists(path))
+            {
+                var lines = await File.ReadAllLinesAsync(path);
+                foreach (var line in lines.Skip(1))
+                {
+                    if (string.IsNullOrWhiteSpace(line)) continue;
+                    var parts = line.Split(',', 2);
+                    if (parts.Length == 2)
+                    {
+                        icdCodes.Add(new IcdCodeItem
+                        {
+                            Code = parts[0].Trim().Trim('"'),
+                            Description = parts[1].Trim().Trim('"')
+                        });
+                    }
+                }
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error loading ICD-10 codes: {ex.Message}");
+        }
+    }
+
+    private async Task LoadDiagnoses()
+    {
+        diagnoses = await EncounterService.GetDiagnosesAsync(EncounterId);
+    }
+
+    private void SearchIcd(ChangeEventArgs e)
+    {
+        searchIcdQuery = e.Value?.ToString() ?? "";
+        if (string.IsNullOrWhiteSpace(searchIcdQuery))
+        {
+            filteredIcdCodes.Clear();
+        }
+        else
+        {
+            var lowerQuery = searchIcdQuery.ToLower();
+            filteredIcdCodes = icdCodes
+                .Where(c => c.Code.ToLower().Contains(lowerQuery) || c.Description.ToLower().Contains(lowerQuery))
+                .Take(10)
+                .ToList();
+        }
+    }
+
+    private void SelectIcdItem(IcdCodeItem item)
+    {
+        selectedIcdCode = item.Code;
+        selectedIcdDescription = item.Description;
+        searchIcdQuery = $"{item.Code} - {item.Description}";
+        filteredIcdCodes.Clear();
+    }
+
+    private async Task AddDiagnosis()
+    {
+        if (string.IsNullOrEmpty(selectedIcdCode))
+            return;
+
+        try
+        {
+            errorMessage = string.Empty;
+            await EncounterService.AddDiagnosisAsync(EncounterId, selectedIcdCode, selectedIcdDescription, selectedDiagnosisType);
+            await LoadDiagnoses();
+            selectedIcdCode = "";
+            selectedIcdDescription = "";
+            searchIcdQuery = "";
+            selectedDiagnosisType = "Secondary";
+        }
+        catch (Exception ex)
+        {
+            errorMessage = $"Error adding diagnosis: {ex.Message}";
         }
     }
 

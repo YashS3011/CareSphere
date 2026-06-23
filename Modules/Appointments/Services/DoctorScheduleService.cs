@@ -19,7 +19,7 @@ namespace CareSphere.Modules.Appointments.Services
 
         public async Task<List<DoctorSchedule>> GetScheduleAsync(Guid doctorId, Guid tenantId)
         {
-            return await _dbContext.DoctorSchedules
+            return await _dbContext.DoctorSchedules.AsNoTracking()
                 .Where(s => s.DoctorId == doctorId && s.TenantId == tenantId)
                 .OrderBy(s => s.DayOfWeek)
                 .ToListAsync();

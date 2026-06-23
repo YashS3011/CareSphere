@@ -1,5 +1,33 @@
+:root {
+  /* Typography */
+  --font-heading: "Outfit", system-ui, sans-serif;
+  --font-body:    "Inter",  system-ui, sans-serif;
+
+  /* Core brand palette */
+  --primary:       hsl(222, 47%, 11%);   /* Deep navy */
+  --primary-light: hsl(215, 20%, 95%);
+  --accent:        hsl(210, 100%, 50%);  /* Premium blue */
+  --success:       hsl(142, 76%, 36%);
+  --danger:        hsl(346, 84%, 48%);
+  --warning:       hsl(38,  92%, 50%);
+
+  /* Card & surface */
+  --card-bg:       rgba(255, 255, 255, 0.75);
+  --card-shadow:   0 4px 30px rgba(0, 0, 0, 0.04);
+  --card-radius:   0.75rem;
+
+  /* Sidebar */
+  --sidebar-bg:    #0f172a;
+  --sidebar-text:  #94a3b8;
+  --sidebar-active-text: #ffffff;
+}
+
 html, body {
-    font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif;
+    font-family: var(--font-body);
+}
+
+h1, h2, h3 {
+    font-family: var(--font-heading);
 }
 
 a, .btn-link {

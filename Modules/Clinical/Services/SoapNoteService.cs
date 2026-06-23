@@ -38,7 +38,7 @@ namespace CareSphere.Modules.Clinical.Services
 
         public async Task<SoapNote?> GetSoapNoteByEncounterAsync(Guid encounterId)
         {
-            return await _context.SoapNotes
+            return await _context.SoapNotes.AsNoTracking()
                 .Include(s => s.CreatedByDoctor)
                 .FirstOrDefaultAsync(s => s.EncounterId == encounterId);
         }

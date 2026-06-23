@@ -23,7 +23,7 @@ namespace CareSphere.Modules.Appointments.Services
         {
             var today = DateTime.UtcNow.Date;
             var until = today.AddDays(days + 1);
-            return await _dbContext.Appointments
+            return await _dbContext.Appointments.AsNoTracking()
                 .Include(a => a.Patient)
                 .Include(a => a.Doctor)
                 .Where(a => a.TenantId == tenantId && a.SlotStart >= today && a.SlotStart < until)
@@ -34,7 +34,7 @@ namespace CareSphere.Modules.Appointments.Services
         public async Task<List<DateTime>> GetAvailableSlotsAsync(Guid doctorId, DateTime date, Guid tenantId)
         {
             var dayOfWeekVal = (int)date.DayOfWeek;
-            var schedule = await _dbContext.DoctorSchedules
+            var schedule = await _dbContext.DoctorSchedules.AsNoTracking()
                 .AsNoTracking()
                 .FirstOrDefaultAsync(s => s.DoctorId == doctorId && s.DayOfWeek == dayOfWeekVal && s.IsActive && s.TenantId == tenantId);
 
@@ -55,7 +55,7 @@ namespace CareSphere.Modules.Appointments.Services
             var startDate = date.Date;
             var endDate = date.Date.AddDays(1);
 
-            var bookedSlots = await _dbContext.Appointments
+            var bookedSlots = await _dbContext.Appointments.AsNoTracking()
                 .AsNoTracking()
                 .Where(a => a.DoctorId == doctorId &&
                             a.TenantId == tenantId &&
@@ -175,11 +175,57 @@ namespace CareSphere.Modules.Appointments.Services
             }
         }
 
+        public async Task MarkArrivedAsync(Guid appointmentId, Guid tenantId)
+        {
+            using var transaction = await _dbContext.Database.BeginTransactionAsync();
+            try
+            {
+                var appointment = await _dbContext.Appointments
+                    .FirstOrDefaultAsync(a => a.Id == appointmentId && a.TenantId == tenantId);
+                if (appointment == null)
+                {
+                    throw new KeyNotFoundException("Appointment not found");
+                }
+
+                appointment.Status = "Arrived";
+                appointment.UpdatedAt = DateTime.UtcNow;
+                _dbContext.Appointments.Update(appointment);
+
+                // Insert into outbox
+                var eventPayload = new PatientArrived
+                {
+                    AppointmentId = appointment.Id,
+                    PatientId = appointment.PatientId,
+                    DoctorId = appointment.DoctorId,
+                    TenantId = tenantId
+                };
+
+                var outboxMessage = new ServiceBusOutbox
+                {
+                    Id = Guid.NewGuid(),
+                    TenantId = tenantId,
+                    MessageType = "PatientArrived",
+                    Payload = JsonSerializer.Serialize(eventPayload),
+                    Status = "Pending",
+                    CreatedAt = DateTime.UtcNow
+                };
+
+                _dbContext.ServiceBusOutboxes.Add(outboxMessage);
+                await _dbContext.SaveChangesAsync();
+                await transaction.CommitAsync();
+            }
+            catch (Exception)
+            {
+                await transaction.RollbackAsync();
+                throw;
+            }
+        }
+
         public async Task<List<Appointment>> GetByDoctorAsync(Guid doctorId, DateTime date, Guid tenantId)
         {
             var startDate = date.Date;
             var endDate = date.Date.AddDays(1);
-            return await _dbContext.Appointments
+            return await _dbContext.Appointments.AsNoTracking()
                 .Include(a => a.Patient)
                 .Where(a => a.DoctorId == doctorId && a.TenantId == tenantId && a.SlotStart >= startDate && a.SlotStart < endDate)
                 .OrderBy(a => a.SlotStart)
@@ -188,7 +234,7 @@ namespace CareSphere.Modules.Appointments.Services
 
         public async Task<List<Appointment>> GetByPatientAsync(Guid patientId, Guid tenantId)
         {
-            return await _dbContext.Appointments
+            return await _dbContext.Appointments.AsNoTracking()
                 .Include(a => a.Doctor)
                 .Where(a => a.PatientId == patientId && a.TenantId == tenantId)
                 .OrderByDescending(a => a.SlotStart)
@@ -197,7 +243,7 @@ namespace CareSphere.Modules.Appointments.Services
 
         public async Task<List<Appointment>> GetAppointmentsForRangeAsync(DateTime start, DateTime end, Guid tenantId)
         {
-            return await _dbContext.Appointments
+            return await _dbContext.Appointments.AsNoTracking()
                 .Include(a => a.Patient)
                 .Include(a => a.Doctor)
                 .Where(a => a.TenantId == tenantId && a.SlotStart >= start && a.SlotStart <= end)

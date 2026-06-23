@@ -12,6 +12,7 @@ using CareSphere.Data;
 using CareSphere.Models;
 using Microsoft.EntityFrameworkCore;
 using System.Text.Json;
+using Microsoft.AspNetCore.Http;
 
 namespace CareSphere.Modules.Laboratory.Services
 {
@@ -20,13 +21,20 @@ namespace CareSphere.Modules.Laboratory.Services
         private readonly ApplicationDbContext _context;
         private readonly IAuditService _auditService;
         private readonly ILabReportService _reportService;
+        private readonly IHttpContextAccessor _http;
 
-        public LabResultService(ApplicationDbContext context, IAuditService auditService, ILabReportService reportService)
+        public LabResultService(ApplicationDbContext context, IAuditService auditService, ILabReportService reportService, IHttpContextAccessor http)
         {
             _context = context;
             _auditService = auditService;
             _reportService = reportService;
+            _http = http;
         }
+
+        private string CurrentUserId =>
+            _http.HttpContext?.User
+                .FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value
+            ?? "system";
 
         public async Task<LabResult> EnterResultAsync(Guid tenantId, Guid requisitionItemId, Guid parameterId, string resultValue, decimal? resultNumeric, string? notes, string enteredByUserId)
         {
@@ -185,7 +193,7 @@ namespace CareSphere.Modules.Laboratory.Services
             // TODO: replace 'system' with logged-in user ID once auth is added
             await _auditService.LogAsync(new AuditEvent
             {
-                UserId = "system",
+                UserId = CurrentUserId,
                 Action = "LAB_RESULT_ENTERED",
                 ResourceType = "LabResult",
                 ResourceId = result.Id.ToString(),
@@ -218,7 +226,7 @@ namespace CareSphere.Modules.Laboratory.Services
             // TODO: replace 'system' with logged-in user ID once auth is added
             await _auditService.LogAsync(new AuditEvent
             {
-                UserId = "system",
+                UserId = CurrentUserId,
                 Action = "LAB_RESULT_VERIFIED",
                 ResourceType = "LabResult",
                 ResourceId = resultId.ToString(),
@@ -260,11 +268,38 @@ namespace CareSphere.Modules.Laboratory.Services
                     await _reportService.GenerateReportAsync(requisition.TenantId, requisition.Id);
                 }
             }
+
+            // G11.3: Fire CriticalResultFlagged outbox event for HH/LL results so doctor is notified immediately
+            if (result.AbnormalFlag == "HH" || result.AbnormalFlag == "LL")
+            {
+                var criticalEvt = new CriticalResultFlagged
+                {
+                    TenantId = result.TenantId,
+                    PatientId = result.RequisitionItem.Requisition.PatientId,
+                    RequisitionId = result.RequisitionItem.RequisitionId,
+                    ResultId = result.Id,
+                    ParameterName = result.Parameter?.ParameterName ?? string.Empty,
+                    ResultValue = result.ResultValue,
+                    AbnormalFlag = result.AbnormalFlag,
+                    OrderingDoctorId = result.RequisitionItem.Requisition.OrderedByDoctorId,
+                    OrderingDoctorUserId = string.Empty // resolved by NotificationService
+                };
+                _context.ServiceBusOutboxes.Add(new ServiceBusOutbox
+                {
+                    Id = Guid.NewGuid(),
+                    TenantId = result.TenantId,
+                    MessageType = "CriticalResultFlagged",
+                    Payload = System.Text.Json.JsonSerializer.Serialize(criticalEvt),
+                    Status = "Pending",
+                    CreatedAt = DateTime.UtcNow
+                });
+                await _context.SaveChangesAsync();
+            }
         }
 
         public async Task<List<LabResult>> GetResultsByRequisitionItemAsync(Guid tenantId, Guid requisitionItemId)
         {
-            return await _context.LabResults
+            return await _context.LabResults.AsNoTracking()
                 .Include(r => r.Parameter)
                 .Where(r => r.TenantId == tenantId && r.RequisitionItemId == requisitionItemId)
                 .OrderBy(r => r.Parameter.SortOrder)
@@ -273,7 +308,7 @@ namespace CareSphere.Modules.Laboratory.Services
 
         public async Task<List<LabResult>> GetAbnormalResultsByPatientAsync(Guid tenantId, Guid patientId)
         {
-            return await _context.LabResults
+            return await _context.LabResults.AsNoTracking()
                 .Include(r => r.Parameter)
                 .Include(r => r.RequisitionItem)
                     .ThenInclude(ri => ri.Requisition)

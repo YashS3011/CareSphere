@@ -38,7 +38,7 @@ namespace CareSphere.Modules.Clinical.Services
 
         public async Task<List<Prescription>> GetPrescriptionsByEncounterAsync(Guid encounterId)
         {
-            return await _context.Prescriptions
+            return await _context.Prescriptions.AsNoTracking()
                 .Include(p => p.Doctor)
                 .Where(p => p.EncounterId == encounterId)
                 .OrderByDescending(p => p.IssuedAt)
@@ -78,7 +78,7 @@ namespace CareSphere.Modules.Clinical.Services
                 return new List<DrugFormulary>();
 
             var lower = searchTerm.ToLower();
-            return await _context.DrugFormulary
+            return await _context.DrugFormulary.AsNoTracking()
                 .Where(d => d.IsActive &&
                            (d.GenericName.ToLower().Contains(lower) ||
                             (d.BrandName != null && d.BrandName.ToLower().Contains(lower)) ||

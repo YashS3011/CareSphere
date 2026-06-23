@@ -64,9 +64,25 @@
 
                     @if (selectedPatientSummary != null)
                     {
-                        <div class="selected-patient-banner">
+                        <div class="selected-patient-banner mb-3">
                             <i class="bi bi-person-check-fill me-2"></i>
                             Selected: <strong>@selectedPatientSummary.FullName</strong> &mdash; <span class="text-muted">MRN: @selectedPatientSummary.MRN</span>
+                        </div>
+
+                        <div class="mb-3">
+                            <label class="form-label fw-semibold">Link to Clinical Encounter <span class="text-muted">(optional)</span></label>
+                            <select class="form-select" @bind="selectedEncounterId">
+                                <option value="">-- No Linked Encounter --</option>
+                                @if (patientEncounters != null)
+                                {
+                                    @foreach (var enc in patientEncounters)
+                                    {
+                                        <option value="@enc.Id">
+                                            @enc.AdmissionDate.ToLocalTime().ToString("dd MMM yyyy") — Dr. @(enc.Doctor?.FirstName) @(enc.Doctor?.LastName) (@enc.EncounterType)
+                                        </option>
+                                    }
+                                }
+                            </select>
                         </div>
                     }
                     <InputText type="hidden" @bind-Value="allotment.PatientIdAsString" />
@@ -184,7 +200,20 @@
         }
     }
 
-    private void SelectPatient(PatientSummary summary) { selectedPatientSummary = summary; allotment.PatientIdAsString = summary.Id.ToString(); }
+    private List<Encounter>? patientEncounters;
+    private string selectedEncounterId = string.Empty;
+
+    private async Task SelectPatient(PatientSummary summary)
+    {
+        selectedPatientSummary = summary;
+        allotment.PatientIdAsString = summary.Id.ToString();
+        selectedEncounterId = string.Empty;
+        patientEncounters = await DbContext.Encounters
+            .Include(e => e.Doctor)
+            .Where(e => e.PatientId == summary.Id && e.TenantId == TenantContext.TenantId)
+            .OrderByDescending(e => e.AdmissionDate)
+            .ToListAsync();
+    }
 
     private async Task ProcessValidSubmit()
     {
@@ -198,7 +227,8 @@
                 AdmissionDate = allotment.AdmissionDate.ToUniversalTime(),
                 AdmissionType = allotment.AdmissionType,
                 AdmittingDoctor = allotment.AdmittingDoctor,
-                Notes = allotment.Notes
+                Notes = allotment.Notes,
+                EncounterId = string.IsNullOrEmpty(selectedEncounterId) ? null : Guid.Parse(selectedEncounterId)
             };
             await BedService.AdmitPatientAsync(newAllotment);
             NavigationManager.NavigateTo("/beds/dashboard");

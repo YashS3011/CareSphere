@@ -16,6 +16,7 @@ using System.Threading.Tasks;
 using Microsoft.EntityFrameworkCore;
 using CareSphere.Data;
 using CareSphere.Models;
+using Microsoft.AspNetCore.Http;
 
 namespace CareSphere.Modules.Billing.Services
 {
@@ -23,12 +24,19 @@ namespace CareSphere.Modules.Billing.Services
     {
         private readonly ApplicationDbContext _context;
         private readonly IAuditService _auditService;
+        private readonly IHttpContextAccessor _http;
 
-        public ClaimService(ApplicationDbContext context, IAuditService auditService)
+        public ClaimService(ApplicationDbContext context, IAuditService auditService, IHttpContextAccessor http)
         {
             _context = context;
             _auditService = auditService;
+            _http = http;
         }
+
+        private string CurrentUserId =>
+            _http.HttpContext?.User
+                .FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value
+            ?? "system";
 
         public async Task<InsuranceClaim> CreateClaimAsync(Guid tenantId, Guid invoiceId, string insuranceProvider, string policyNumber, string memberName, decimal claimedAmount)
         {
@@ -95,7 +103,7 @@ namespace CareSphere.Modules.Billing.Services
             await _auditService.LogAsync(new AuditEvent
             {
                 TenantId = tenantId,
-                UserId = "system",
+                UserId = CurrentUserId,
                 Action = "CLAIM_CREATED",
                 ResourceType = "InsuranceClaim",
                 ResourceId = claim.Id.ToString()
@@ -257,7 +265,7 @@ namespace CareSphere.Modules.Billing.Services
             await _auditService.LogAsync(new AuditEvent
             {
                 TenantId = claim.TenantId,
-                UserId = "system",
+                UserId = CurrentUserId,
                 Action = "CLAIM_SUBMITTED",
                 ResourceType = "InsuranceClaim",
                 ResourceId = claimId.ToString()
@@ -319,7 +327,7 @@ namespace CareSphere.Modules.Billing.Services
 
         public async Task<List<InsuranceClaim>> GetClaimsByPatientAsync(Guid patientId)
         {
-            return await _context.InsuranceClaims
+            return await _context.InsuranceClaims.AsNoTracking()
                 .Include(c => c.Patient)
                 .Include(c => c.ClaimStatusHistories)
                 .Where(c => c.PatientId == patientId)
@@ -329,7 +337,7 @@ namespace CareSphere.Modules.Billing.Services
 
         public async Task<(List<InsuranceClaim> Claims, int TotalCount)> GetClaimsByStatusAsync(string? status, int page, int pageSize, string searchTerm = "")
         {
-            var query = _context.InsuranceClaims
+            var query = _context.InsuranceClaims.AsNoTracking()
                 .Include(c => c.Patient)
                 .AsQueryable();
 
@@ -360,7 +368,7 @@ namespace CareSphere.Modules.Billing.Services
 
         public async Task<InsuranceClaim?> GetClaimByIdAsync(Guid claimId)
         {
-            return await _context.InsuranceClaims
+            return await _context.InsuranceClaims.AsNoTracking()
                 .Include(c => c.Patient)
                 .Include(c => c.Encounter)
                 .Include(c => c.BillingInvoice)

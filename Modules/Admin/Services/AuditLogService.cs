@@ -52,7 +52,7 @@ namespace CareSphere.Modules.Admin.Services
             int pageNumber = 1,
             int pageSize = 50)
         {
-            var query = _context.AuditEvents
+            var query = _context.AuditEvents.AsNoTracking()
                 .Where(e => e.TenantId == tenantId)
                 .AsQueryable();
 
@@ -90,7 +90,7 @@ namespace CareSphere.Modules.Admin.Services
 
         public async Task<List<AuditEvent>> GetAuditLogsByUserAsync(Guid tenantId, string userId)
         {
-            return await _context.AuditEvents
+            return await _context.AuditEvents.AsNoTracking()
                 .Where(e => e.TenantId == tenantId && e.UserId == userId)
                 .OrderByDescending(e => e.Timestamp)
                 .ToListAsync();
@@ -98,7 +98,7 @@ namespace CareSphere.Modules.Admin.Services
 
         public async Task<List<AuditEvent>> GetAuditLogsByResourceAsync(Guid tenantId, string resourceType, string resourceId)
         {
-            return await _context.AuditEvents
+            return await _context.AuditEvents.AsNoTracking()
                 .Where(e => e.TenantId == tenantId && e.ResourceType == resourceType && e.ResourceId == resourceId)
                 .OrderByDescending(e => e.Timestamp)
                 .ToListAsync();
@@ -154,7 +154,7 @@ namespace CareSphere.Modules.Admin.Services
 
         public async Task<List<string>> GetDistinctActionsAsync(Guid tenantId)
         {
-            return await _context.AuditEvents
+            return await _context.AuditEvents.AsNoTracking()
                 .Where(e => e.TenantId == tenantId)
                 .Select(e => e.Action)
                 .Distinct()
@@ -164,7 +164,7 @@ namespace CareSphere.Modules.Admin.Services
 
         public async Task<List<string>> GetDistinctResourceTypesAsync(Guid tenantId)
         {
-            return await _context.AuditEvents
+            return await _context.AuditEvents.AsNoTracking()
                 .Where(e => e.TenantId == tenantId)
                 .Select(e => e.ResourceType)
                 .Distinct()

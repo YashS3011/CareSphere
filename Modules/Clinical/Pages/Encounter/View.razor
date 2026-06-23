@@ -43,17 +43,25 @@ else if (encounter != null)
                 }
                 @if (encounter.Status == "InProgress")
                 {
-                    <a href="/laboratory/requisitions/create?patientId=@encounter.PatientId&encounterId=@encounter.Id" class="btn btn-outline-primary"><i class="bi bi-flask me-1"></i> Order Lab</a>
-                    <button class="btn btn-warning" @onclick='() => UpdateStatus("Completed")'><i class="bi bi-check-circle me-1"></i> Complete</button>
+                    <a href="/laboratory/requisitions/create?patientId=@encounter.PatientId&encounterId=@encounter.Id" class="btn btn-outline-primary me-2"><i class="bi bi-flask me-1"></i> Order Lab</a>
+                    <div class="d-inline-block me-2">
+                        <select class="form-select w-auto d-inline-block" @bind="selectedDisposition">
+                            <option value="">Select Disposition...</option>
+                            <option value="OPD">OPD</option>
+                            <option value="IPD">IPD</option>
+                            <option value="Emergency">Emergency</option>
+                        </select>
+                    </div>
+                    <button class="btn btn-warning" @onclick="CompleteEncounter" disabled="@(string.IsNullOrEmpty(selectedDisposition))"><i class="bi bi-check-circle me-1"></i> Complete</button>
                 }
-                <a href="/encounters" class="btn btn-outline-secondary"><i class="bi bi-arrow-left me-1"></i> Back</a>
+                <a href="/encounters" class="btn btn-outline-secondary ms-2"><i class="bi bi-arrow-left me-1"></i> Back</a>
             </div>
         </div>
     </div>
 
     @if (!string.IsNullOrEmpty(statusMessage))
     {
-        <div class="alert alert-success"><i class="bi bi-check-circle me-2"></i>@statusMessage</div>
+        <div class="alert alert-info"><i class="bi bi-info-circle me-2"></i>@statusMessage</div>
     }
 
     <!-- Encounter Summary -->
@@ -63,13 +71,13 @@ else if (encounter != null)
         </div>
         <div class="content-card-body">
             <div class="row g-3">
-                <div class="col-md-3">
+                <div class="col-md-2">
                     <div class="detail-item">
                         <span class="detail-label">Patient</span>
                         <span class="detail-value fw-semibold">@encounter.Patient.FirstName @encounter.Patient.LastName</span>
                     </div>
                 </div>
-                <div class="col-md-3">
+                <div class="col-md-2">
                     <div class="detail-item">
                         <span class="detail-label">Doctor</span>
                         <span class="detail-value">Dr. @encounter.Doctor.FirstName @encounter.Doctor.LastName<br/><small class="text-muted">@encounter.Doctor.Specialization</small></span>
@@ -85,6 +93,27 @@ else if (encounter != null)
                                 case "IPD": <span class="badge bg-primary-subtle text-primary">IPD</span> break;
                                 case "Emergency": <span class="badge bg-danger-subtle text-danger">Emergency</span> break;
                                 default: <span class="badge bg-secondary-subtle text-secondary">@encounter.EncounterType</span> break;
+                            }
+                        </span>
+                    </div>
+                </div>
+                <div class="col-md-2">
+                    <div class="detail-item">
+                        <span class="detail-label">Disposition</span>
+                        <span class="detail-value">
+                            @if (!string.IsNullOrEmpty(encounter.DischargeDisposition))
+                            {
+                                @switch (encounter.DischargeDisposition)
+                                {
+                                    case "OPD": <span class="badge bg-info-subtle text-info">OPD</span> break;
+                                    case "IPD": <span class="badge bg-primary-subtle text-primary">IPD</span> break;
+                                    case "Emergency": <span class="badge bg-danger-subtle text-danger">Emergency</span> break;
+                                    default: <span class="badge bg-secondary-subtle text-secondary">@encounter.DischargeDisposition</span> break;
+                                }
+                            }
+                            else
+                            {
+                                <span class="text-muted">&mdash;</span>
                             }
                         </span>
                     </div>
@@ -115,6 +144,7 @@ else if (encounter != null)
     private Encounter? encounter;
     private bool isNotFound = false;
     private string statusMessage = string.Empty;
+    private string selectedDisposition = "";
 
     protected override async Task OnInitializedAsync()
     {
@@ -132,5 +162,27 @@ else if (encounter != null)
             _ = Task.Delay(3000).ContinueWith(_ => InvokeAsync(() => { statusMessage = string.Empty; StateHasChanged(); }));
         }
         catch (Exception ex) { statusMessage = $"Error: {ex.Message}"; }
+    }
+
+    private async Task CompleteEncounter()
+    {
+        if (string.IsNullOrEmpty(selectedDisposition))
+        {
+            statusMessage = "Error: Please select a disposition.";
+            return;
+        }
+
+        try
+        {
+            await EncounterService.SetDispositionAsync(id, selectedDisposition);
+            await EncounterService.UpdateEncounterStatusAsync(id, "Completed");
+            encounter = await EncounterService.GetEncounterByIdAsync(id);
+            statusMessage = "Encounter completed successfully.";
+            _ = Task.Delay(3000).ContinueWith(_ => InvokeAsync(() => { statusMessage = string.Empty; StateHasChanged(); }));
+        }
+        catch (Exception ex)
+        {
+            statusMessage = $"Error: {ex.Message}";
+        }
     }
 }

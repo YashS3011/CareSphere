@@ -16,6 +16,7 @@ using Microsoft.EntityFrameworkCore;
 using CareSphere.Data;
 using CareSphere.Models;
 using CareSphere.Infrastructure;
+using Microsoft.AspNetCore.Http;
 
 namespace CareSphere.Modules.Billing.Services
 {
@@ -25,18 +26,26 @@ namespace CareSphere.Modules.Billing.Services
         private readonly RazorpayClientWrapper _razorpayClient;
         private readonly IInvoiceService _invoiceService;
         private readonly IAuditService _auditService;
+        private readonly IHttpContextAccessor _http;
 
         public PaymentService(
             ApplicationDbContext context, 
             RazorpayClientWrapper razorpayClient, 
             IInvoiceService invoiceService, 
-            IAuditService auditService)
+            IAuditService auditService,
+            IHttpContextAccessor http)
         {
             _context = context;
             _razorpayClient = razorpayClient;
             _invoiceService = invoiceService;
             _auditService = auditService;
+            _http = http;
         }
+
+        private string CurrentUserId =>
+            _http.HttpContext?.User
+                .FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value
+            ?? "system";
 
         public async Task<Payment> RecordCashPaymentAsync(Guid tenantId, Guid invoiceId, decimal amount, string? notes, string recordedByUserId)
         {
@@ -44,8 +53,15 @@ namespace CareSphere.Modules.Billing.Services
             if (invoice == null)
                 throw new KeyNotFoundException("Invoice not found.");
 
-            if (invoice.Status == "Draft" || invoice.Status == "Cancelled")
-                throw new InvalidOperationException("Cannot record payments on Draft or Cancelled invoices.");
+            await _context.Entry(invoice).ReloadAsync();
+
+            if (invoice.Status == "Cancelled")
+                throw new InvalidOperationException("Cannot record payments on Cancelled invoices.");
+
+            if (invoice.Status == "Draft")
+            {
+                invoice = await _invoiceService.FinalizeInvoiceAsync(invoiceId);
+            }
 
             var payment = new Payment
             {
@@ -88,8 +104,15 @@ namespace CareSphere.Modules.Billing.Services
             if (invoice == null)
                 throw new KeyNotFoundException("Invoice not found.");
 
-            if (invoice.Status == "Draft" || invoice.Status == "Cancelled")
-                throw new InvalidOperationException("Cannot initiate payment on Draft or Cancelled invoices.");
+            await _context.Entry(invoice).ReloadAsync();
+
+            if (invoice.Status == "Cancelled")
+                throw new InvalidOperationException("Cannot initiate payment on Cancelled invoices.");
+
+            if (invoice.Status == "Draft")
+            {
+                invoice = await _invoiceService.FinalizeInvoiceAsync(invoiceId);
+            }
 
             // Initiate Order via wrapper
             var razorpayOrder = await _razorpayClient.CreateOrderAsync(invoice.BalanceAmount, invoice.InvoiceNumber);
@@ -117,7 +140,7 @@ namespace CareSphere.Modules.Billing.Services
             await _auditService.LogAsync(new AuditEvent
             {
                 TenantId = tenantId,
-                UserId = "system",
+                UserId = CurrentUserId,
                 Action = "PAYMENT_INITIATED",
                 ResourceType = "Payment",
                 ResourceId = payment.Id.ToString()
@@ -153,7 +176,7 @@ namespace CareSphere.Modules.Billing.Services
             await _auditService.LogAsync(new AuditEvent
             {
                 TenantId = payment.TenantId,
-                UserId = "system",
+                UserId = CurrentUserId,
                 Action = "PAYMENT_VERIFIED",
                 ResourceType = "Payment",
                 ResourceId = payment.Id.ToString()
@@ -164,7 +187,7 @@ namespace CareSphere.Modules.Billing.Services
 
         public async Task<List<Payment>> GetPaymentsByInvoiceAsync(Guid invoiceId)
         {
-            return await _context.Payments
+            return await _context.Payments.AsNoTracking()
                 .Where(p => p.InvoiceId == invoiceId)
                 .OrderByDescending(p => p.CreatedAt)
                 .ToListAsync();
@@ -176,12 +199,19 @@ namespace CareSphere.Modules.Billing.Services
             if (invoice == null)
                 throw new KeyNotFoundException("Invoice not found.");
 
+            await _context.Entry(invoice).ReloadAsync();
+
             var claim = await _context.InsuranceClaims.FindAsync(claimId);
             if (claim == null)
                 throw new KeyNotFoundException("Insurance claim not found.");
 
-            if (invoice.Status == "Draft" || invoice.Status == "Cancelled")
-                throw new InvalidOperationException("Cannot settle Draft or Cancelled invoices.");
+            if (invoice.Status == "Cancelled")
+                throw new InvalidOperationException("Cannot settle Cancelled invoices.");
+
+            if (invoice.Status == "Draft")
+            {
+                invoice = await _invoiceService.FinalizeInvoiceAsync(invoiceId);
+            }
 
             var payment = new Payment
             {

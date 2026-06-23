@@ -397,6 +397,10 @@ namespace CareSphere.Migrations
                         .HasColumnName("created_at")
                         .HasDefaultValueSql("now()");
 
+                    b.Property<decimal>("DailyChargeAmount")
+                        .HasColumnType("numeric")
+                        .HasColumnName("daily_charge_amount");
+
                     b.Property<DateTime?>("DeletedAt")
                         .HasColumnType("timestamp with time zone")
                         .HasColumnName("deleted_at");
@@ -478,6 +482,10 @@ namespace CareSphere.Migrations
                         .HasColumnType("text")
                         .HasColumnName("discharge_notes");
 
+                    b.Property<Guid?>("EncounterId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("encounter_id");
+
                     b.Property<string>("Notes")
                         .HasColumnType("text")
                         .HasColumnName("notes");
@@ -503,6 +511,8 @@ namespace CareSphere.Migrations
                     b.HasKey("Id");
 
                     b.HasIndex("BedId");
+
+                    b.HasIndex("EncounterId");
 
                     b.HasIndex("PatientId");
 
@@ -838,6 +848,82 @@ namespace CareSphere.Migrations
                     b.ToTable("claim_status_history");
                 });
 
+            modelBuilder.Entity("CareSphere.Models.ControlledSubstanceLog", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid")
+                        .HasColumnName("id")
+                        .HasDefaultValueSql("gen_random_uuid()");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_at")
+                        .HasDefaultValueSql("now()");
+
+                    b.Property<DateTime?>("DeletedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("deleted_at");
+
+                    b.Property<Guid>("DispenseRecordId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("dispense_record_id");
+
+                    b.Property<string>("DispensedByUserId")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)")
+                        .HasColumnName("dispensed_by_user_id");
+
+                    b.Property<Guid>("ItemId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("item_id");
+
+                    b.Property<DateTime>("LogDate")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("log_date");
+
+                    b.Property<string>("Notes")
+                        .HasColumnType("text")
+                        .HasColumnName("notes");
+
+                    b.Property<Guid>("PatientId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("patient_id");
+
+                    b.Property<int>("Quantity")
+                        .HasColumnType("integer")
+                        .HasColumnName("quantity");
+
+                    b.Property<Guid>("TenantId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("tenant_id");
+
+                    b.Property<DateTime?>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("updated_at");
+
+                    b.Property<string>("WitnessUserId")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)")
+                        .HasColumnName("witness_user_id");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("DispenseRecordId");
+
+                    b.HasIndex("ItemId");
+
+                    b.HasIndex("PatientId");
+
+                    b.HasIndex("TenantId", "ItemId")
+                        .HasDatabaseName("IX_ControlledSubstanceLogs_Item");
+
+                    b.ToTable("controlled_substance_logs");
+                });
+
             modelBuilder.Entity("CareSphere.Models.DischargeNotification", b =>
                 {
                     b.Property<Guid>("Id")
@@ -1127,6 +1213,12 @@ namespace CareSphere.Migrations
                         .HasColumnType("uuid")
                         .HasColumnName("tenant_id");
 
+                    b.Property<string>("TriagePriority")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("character varying(20)")
+                        .HasColumnName("triage_priority");
+
                     b.Property<DateTime?>("UpdatedAt")
                         .HasColumnType("timestamp with time zone")
                         .HasColumnName("updated_at");
@@ -1355,6 +1447,11 @@ namespace CareSphere.Migrations
                         .HasColumnType("timestamp with time zone")
                         .HasColumnName("discharge_date");
 
+                    b.Property<string>("DischargeDisposition")
+                        .HasMaxLength(50)
+                        .HasColumnType("character varying(50)")
+                        .HasColumnName("discharge_disposition");
+
                     b.Property<Guid>("DoctorId")
                         .HasColumnType("uuid")
                         .HasColumnName("doctor_id");
@@ -1393,6 +1490,64 @@ namespace CareSphere.Migrations
                         .HasDatabaseName("IX_Encounters_Tenant_Status");
 
                     b.ToTable("encounters");
+                });
+
+            modelBuilder.Entity("CareSphere.Models.EncounterDiagnosis", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid")
+                        .HasColumnName("id")
+                        .HasDefaultValueSql("gen_random_uuid()");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_at")
+                        .HasDefaultValueSql("now()");
+
+                    b.Property<DateTime?>("DeletedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("deleted_at");
+
+                    b.Property<string>("DiagnosisType")
+                        .IsRequired()
+                        .HasMaxLength(50)
+                        .HasColumnType("character varying(50)")
+                        .HasColumnName("diagnosis_type");
+
+                    b.Property<Guid>("EncounterId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("encounter_id");
+
+                    b.Property<string>("IcdCode")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("character varying(20)")
+                        .HasColumnName("icd_code");
+
+                    b.Property<string>("IcdDescription")
+                        .IsRequired()
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)")
+                        .HasColumnName("icd_description");
+
+                    b.Property<Guid>("TenantId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("tenant_id");
+
+                    b.Property<DateTime?>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("updated_at");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("EncounterId");
+
+                    b.HasIndex("TenantId", "EncounterId")
+                        .HasDatabaseName("IX_EncounterDiagnoses_Tenant_Encounter");
+
+                    b.ToTable("encounter_diagnoses");
                 });
 
             modelBuilder.Entity("CareSphere.Models.ExpiryAlert", b =>
@@ -3015,6 +3170,10 @@ namespace CareSphere.Migrations
                         .HasColumnType("character varying(20)")
                         .HasColumnName("gender");
 
+                    b.Property<string>("KnownAllergies")
+                        .HasColumnType("text")
+                        .HasColumnName("known_allergies");
+
                     b.Property<string>("LastName")
                         .IsRequired()
                         .HasMaxLength(100)
@@ -3400,6 +3559,10 @@ namespace CareSphere.Migrations
                         .HasMaxLength(200)
                         .HasColumnType("character varying(200)")
                         .HasColumnName("item_name");
+
+                    b.Property<DateTime?>("LastReorderAlertSentAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("last_reorder_alert_sent_at");
 
                     b.Property<int>("ReorderLevel")
                         .HasColumnType("integer")
@@ -3815,6 +3978,71 @@ namespace CareSphere.Migrations
                         .HasDatabaseName("IX_Outbox_Status");
 
                     b.ToTable("service_bus_outbox");
+                });
+
+            modelBuilder.Entity("CareSphere.Models.ShiftHandover", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid")
+                        .HasColumnName("id")
+                        .HasDefaultValueSql("gen_random_uuid()");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_at")
+                        .HasDefaultValueSql("now()");
+
+                    b.Property<DateTime?>("DeletedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("deleted_at");
+
+                    b.Property<DateTime>("HandoverDate")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("handover_date");
+
+                    b.Property<string>("HandoverNotes")
+                        .IsRequired()
+                        .HasColumnType("text")
+                        .HasColumnName("handover_notes");
+
+                    b.Property<string>("IncomingNurseId")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)")
+                        .HasColumnName("incoming_nurse_id");
+
+                    b.Property<string>("OutgoingNurseId")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)")
+                        .HasColumnName("outgoing_nurse_id");
+
+                    b.Property<Guid>("PatientId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("patient_id");
+
+                    b.Property<string>("Shift")
+                        .IsRequired()
+                        .HasMaxLength(50)
+                        .HasColumnType("character varying(50)")
+                        .HasColumnName("shift");
+
+                    b.Property<Guid>("TenantId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("tenant_id");
+
+                    b.Property<DateTime?>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("updated_at");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("PatientId", "TenantId")
+                        .HasDatabaseName("IX_ShiftHandovers_Patient");
+
+                    b.ToTable("shift_handovers");
                 });
 
             modelBuilder.Entity("CareSphere.Models.SoapNote", b =>
@@ -4749,6 +4977,10 @@ namespace CareSphere.Migrations
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
 
+                    b.HasOne("CareSphere.Models.Encounter", "Encounter")
+                        .WithMany()
+                        .HasForeignKey("EncounterId");
+
                     b.HasOne("CareSphere.Models.Patient", "Patient")
                         .WithMany()
                         .HasForeignKey("PatientId")
@@ -4756,6 +4988,8 @@ namespace CareSphere.Migrations
                         .IsRequired();
 
                     b.Navigation("Bed");
+
+                    b.Navigation("Encounter");
 
                     b.Navigation("Patient");
                 });
@@ -4824,6 +5058,33 @@ namespace CareSphere.Migrations
                         .IsRequired();
 
                     b.Navigation("InsuranceClaim");
+                });
+
+            modelBuilder.Entity("CareSphere.Models.ControlledSubstanceLog", b =>
+                {
+                    b.HasOne("CareSphere.Models.DispenseRecord", "DispenseRecord")
+                        .WithMany()
+                        .HasForeignKey("DispenseRecordId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("CareSphere.Models.PharmacyItem", "Item")
+                        .WithMany()
+                        .HasForeignKey("ItemId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("CareSphere.Models.Patient", "Patient")
+                        .WithMany()
+                        .HasForeignKey("PatientId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("DispenseRecord");
+
+                    b.Navigation("Item");
+
+                    b.Navigation("Patient");
                 });
 
             modelBuilder.Entity("CareSphere.Models.DischargeNotification", b =>
@@ -4931,6 +5192,17 @@ namespace CareSphere.Migrations
                     b.Navigation("Doctor");
 
                     b.Navigation("Patient");
+                });
+
+            modelBuilder.Entity("CareSphere.Models.EncounterDiagnosis", b =>
+                {
+                    b.HasOne("CareSphere.Models.Encounter", "Encounter")
+                        .WithMany()
+                        .HasForeignKey("EncounterId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Encounter");
                 });
 
             modelBuilder.Entity("CareSphere.Models.ExpiryAlert", b =>
@@ -5308,6 +5580,17 @@ namespace CareSphere.Migrations
                     b.Navigation("Item");
 
                     b.Navigation("PurchaseOrder");
+                });
+
+            modelBuilder.Entity("CareSphere.Models.ShiftHandover", b =>
+                {
+                    b.HasOne("CareSphere.Models.Patient", "Patient")
+                        .WithMany()
+                        .HasForeignKey("PatientId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Patient");
                 });
 
             modelBuilder.Entity("CareSphere.Models.SoapNote", b =>

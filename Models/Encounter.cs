@@ -32,6 +32,10 @@ namespace CareSphere.Models
         [Column("discharge_date")]
         public DateTime? DischargeDate { get; set; }
 
+        [Column("discharge_disposition")]
+        [MaxLength(50)]
+        public string? DischargeDisposition { get; set; }
+
         [Column("chief_complaint")]
         public string? ChiefComplaint { get; set; }
 

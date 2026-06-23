@@ -42,6 +42,20 @@
                         }
                     </div>
 
+                    @* Patient Allergy Alerts *@
+                    @if (allergyAlerts != null && allergyAlerts.Any())
+                    {
+                        @foreach (var alert in allergyAlerts)
+                        {
+                            <div class="col-12">
+                                <div class="alert alert-danger py-2 mb-2">
+                                    <i class="bi bi-exclamation-triangle-fill me-1"></i>
+                                    <strong>Allergy Warning:</strong> @alert.AlertMessage
+                                </div>
+                            </div>
+                        }
+                    }
+
                     @* Drug Interaction Alerts *@
                     @if (interactionAlerts != null && interactionAlerts.Any())
                     {
@@ -229,6 +243,7 @@
     private List<Prescription>? prescriptions;
     private List<DrugFormulary>? drugResults;
     private List<DrugInteractionAlert>? interactionAlerts;
+    private List<AllergyAlert>? allergyAlerts;
 
     // Form fields
     private string drugSearchTerm = string.Empty;
@@ -334,6 +349,16 @@
                 hasContraindication = false;
             }
         }
+
+        // Check patient drug allergies
+        if (!string.IsNullOrEmpty(selectedDrugCode))
+        {
+            allergyAlerts = await CdsService.CheckAllergiesAsync(PatientId, selectedDrugCode);
+        }
+        else
+        {
+            allergyAlerts = null;
+        }
     }
 
     private async Task AddPrescription()
@@ -399,6 +424,7 @@
             rxNotes = string.Empty;
             contraindicationJustification = string.Empty;
             interactionAlerts = null;
+            allergyAlerts = null;
             hasContraindication = false;
 
             addSuccess = "Prescription added successfully.";

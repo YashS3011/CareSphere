@@ -2,6 +2,9 @@ using CareSphere.Data;
 using CareSphere.Models;
 using Microsoft.EntityFrameworkCore;
 using CareSphere.Modules.Notifications.Services;
+using CareSphere.Modules.Shared.Events;
+using CareSphere.Modules.Shared.Services;
+using System.Text.Json;
 
 namespace CareSphere.Modules.Ward.Services
 {
@@ -10,17 +13,19 @@ namespace CareSphere.Modules.Ward.Services
     {
         private readonly ApplicationDbContext _context;
         private readonly IDischargeNotificationService _dischargeNotificationService;
+        private readonly IServiceBusService _serviceBus;
 
-        public BedService(ApplicationDbContext context, IDischargeNotificationService dischargeNotificationService)
+        public BedService(ApplicationDbContext context, IDischargeNotificationService dischargeNotificationService, IServiceBusService serviceBus)
         {
             _context = context;
             _dischargeNotificationService = dischargeNotificationService;
+            _serviceBus = serviceBus;
         }
 
         // --- Ward Methods ---
         public async Task<List<Ward>> GetAllWardsAsync()
         {
-            return await _context.Wards
+            return await _context.Wards.AsNoTracking()
                 .Include(w => w.Beds)
                 .OrderByDescending(w => w.CreatedAt)
                 .ToListAsync();
@@ -28,7 +33,7 @@ namespace CareSphere.Modules.Ward.Services
 
         public async Task<Ward?> GetWardByIdAsync(Guid id)
         {
-            return await _context.Wards
+            return await _context.Wards.AsNoTracking()
                 .Include(w => w.Beds)
                 .FirstOrDefaultAsync(w => w.Id == id);
         }
@@ -81,7 +86,7 @@ namespace CareSphere.Modules.Ward.Services
         // --- Bed Methods ---
         public async Task<List<Bed>> GetAllBedsAsync(string? wardId = null, string? status = null)
         {
-            var query = _context.Beds.Include(b => b.Ward).AsQueryable();
+            var query = _context.Beds.AsNoTracking().Include(b => b.Ward).AsQueryable();
 
             if (!string.IsNullOrEmpty(wardId) && Guid.TryParse(wardId, out var wId))
             {
@@ -98,7 +103,7 @@ namespace CareSphere.Modules.Ward.Services
 
         public async Task<Bed?> GetBedByIdAsync(Guid id)
         {
-            return await _context.Beds
+            return await _context.Beds.AsNoTracking()
                 .Include(b => b.Ward)
                 .FirstOrDefaultAsync(b => b.Id == id);
         }
@@ -151,7 +156,7 @@ namespace CareSphere.Modules.Ward.Services
 
         public async Task<List<Bed>> GetAvailableBedsAsync()
         {
-            return await _context.Beds
+            return await _context.Beds.AsNoTracking()
                 .Include(b => b.Ward)
                 .Where(b => b.Status == "Available" && b.IsActive)
                 .OrderBy(b => b.Ward.Name)
@@ -187,13 +192,36 @@ namespace CareSphere.Modules.Ward.Services
             bed.Status = "Occupied";
             _context.Beds.Update(bed);
 
+            // Write PatientAdmitted outbox event
+            var ward = await _context.Wards.FindAsync(bed.WardId);
+            var admittedEvt = new PatientAdmitted
+            {
+                TenantId = allotment.TenantId,
+                PatientId = allotment.PatientId,
+                AllotmentId = allotment.Id,
+                BedId = bed.Id,
+                WardName = ward?.Name ?? string.Empty,
+                BedNumber = bed.BedNumber,
+                AdmissionDate = allotment.AdmissionDate,
+                AdmissionType = allotment.AdmissionType
+            };
+            _context.ServiceBusOutboxes.Add(new ServiceBusOutbox
+            {
+                Id = Guid.NewGuid(),
+                TenantId = allotment.TenantId,
+                MessageType = "PatientAdmitted",
+                Payload = JsonSerializer.Serialize(admittedEvt),
+                Status = "Pending",
+                CreatedAt = DateTime.UtcNow
+            });
+
             await _context.SaveChangesAsync();
             return allotment;
         }
 
         public async Task<BedAllotment?> GetActiveAllotmentByBedAsync(Guid bedId)
         {
-            return await _context.BedAllotments
+            return await _context.BedAllotments.AsNoTracking()
                 .Include(a => a.Patient)
                 .Include(a => a.Bed)
                 .ThenInclude(b => b.Ward)
@@ -202,7 +230,7 @@ namespace CareSphere.Modules.Ward.Services
 
         public async Task<List<BedAllotment>> GetAllotmentsByPatientAsync(Guid patientId)
         {
-            return await _context.BedAllotments
+            return await _context.BedAllotments.AsNoTracking()
                 .Include(a => a.Bed)
                 .ThenInclude(b => b.Ward)
                 .Where(a => a.PatientId == patientId)
@@ -210,11 +238,23 @@ namespace CareSphere.Modules.Ward.Services
                 .ToListAsync();
         }
 
-        public async Task DischargePatientAsync(Guid allotmentId, string dischargeNotes, DateTime dischargeDate)
+        public async Task DischargePatientAsync(Guid allotmentId, string dischargeNotes, DateTime dischargeDate, bool forceDischarge = false)
         {
             var allotment = await _context.BedAllotments.FindAsync(allotmentId);
             if (allotment == null || allotment.Status != "Active")
                 throw new InvalidOperationException("Invalid or inactive allotment.");
+
+            // G5.3: Billing clearance gate — block discharge if patient has outstanding invoices
+            if (!forceDischarge)
+            {
+                var hasUnpaid = await _context.BillingInvoices
+                    .AnyAsync(i => i.PatientId == allotment.PatientId
+                               && i.Status != "Paid"
+                               && i.Status != "Cancelled");
+                if (hasUnpaid)
+                    throw new InvalidOperationException(
+                        "Patient has an outstanding balance. Please clear billing before discharge, or use Force Discharge (Admin only).");
+            }
 
             allotment.Status = "Discharged";
             allotment.DischargeNotes = dischargeNotes;
@@ -228,12 +268,31 @@ namespace CareSphere.Modules.Ward.Services
                 _context.Beds.Update(bed);
             }
 
+            // Write PatientDischarged outbox event
+            var pref = await _context.PatientPreferences.FirstOrDefaultAsync(p => p.PatientId == allotment.PatientId);
+            var lang = pref?.PreferredLanguage ?? "en";
+            var dischargedEvt = new PatientDischarged
+            {
+                TenantId = allotment.TenantId,
+                PatientId = allotment.PatientId,
+                AllotmentId = allotment.Id,
+                DischargeDate = dischargeDate,
+                Language = lang
+            };
+            _context.ServiceBusOutboxes.Add(new ServiceBusOutbox
+            {
+                Id = Guid.NewGuid(),
+                TenantId = allotment.TenantId,
+                MessageType = "PatientDischarged",
+                Payload = JsonSerializer.Serialize(dischargedEvt),
+                Status = "Pending",
+                CreatedAt = DateTime.UtcNow
+            });
+
             await _context.SaveChangesAsync();
 
             try
             {
-                var pref = await _context.PatientPreferences.FirstOrDefaultAsync(p => p.PatientId == allotment.PatientId);
-                var lang = pref?.PreferredLanguage ?? "en";
                 await _dischargeNotificationService.SendDischargeNotificationAsync(allotment.TenantId, allotment.PatientId, allotment.Id, dischargeDate, lang);
             }
             catch (Exception)
@@ -301,7 +360,7 @@ namespace CareSphere.Modules.Ward.Services
         // --- Dashboard Stats ---
         public async Task<BedDashboardStats> GetDashboardStatsAsync()
         {
-            var beds = await _context.Beds.Include(b => b.Ward).ToListAsync();
+            var beds = await _context.Beds.AsNoTracking().Include(b => b.Ward).ToListAsync();
 
             var stats = new BedDashboardStats
             {

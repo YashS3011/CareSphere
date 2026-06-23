@@ -2,6 +2,7 @@
 @rendermode InteractiveServer
 @inject CareSphere.Data.ApplicationDbContext DbContext
 @inject IVitalSignsService VitalSignsService
+@inject CareSphere.Modules.Nursing.Services.IVitalThresholdService VitalThresholdService
 @inject IPatientReadModel PatientReadModel
 @inject TabIsolatedAuthenticationStateProvider AuthStateProvider
 @inject NavigationManager NavigationManager
@@ -443,15 +444,7 @@
             var result = await VitalSignsService.RecordAsync(newVitals, currentTenantId);
 
             // Check if there was any threshold breach to show visual warning in Blazor UI
-            var breaches = new List<string>();
-            if (result.SpO2.HasValue && result.SpO2.Value < 92)
-                breaches.Add($"SpO2 ({result.SpO2.Value}%)");
-            if (result.HeartRate.HasValue && (result.HeartRate.Value > 130 || result.HeartRate.Value < 40))
-                breaches.Add($"Heart Rate ({result.HeartRate.Value} bpm)");
-            if (result.BloodPressureSystolic.HasValue && (result.BloodPressureSystolic.Value > 180 || result.BloodPressureSystolic.Value < 80))
-                breaches.Add($"Systolic BP ({result.BloodPressureSystolic.Value} mmHg)");
-            if (result.Temperature.HasValue && (result.Temperature.Value > 39.5m || result.Temperature.Value < 35.0m))
-                breaches.Add($"Temperature ({result.Temperature.Value}°C)");
+            var breaches = VitalThresholdService.CheckThresholds(result);
 
             if (breaches.Count > 0)
             {

@@ -60,5 +60,7 @@ namespace CareSphere.Modules.Notifications.Services
         Task<bool> RetryLogAsync(Guid logId);
         Task SendLabReportReadyAsync(LabReportReady evt);
         Task SendAppointmentConfirmationAsync(AppointmentBookedEvent evt);
+        Task SendCriticalResultAlertAsync(CriticalResultFlagged evt);   // G11.3
+        Task SendPatientDischargedAsync(PatientDischarged evt);          // G11.2
     }
 }

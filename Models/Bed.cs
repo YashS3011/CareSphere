@@ -29,6 +29,9 @@ namespace CareSphere.Models
         [Column("is_active")]
         public bool IsActive { get; set; } = true;
 
+        [Column("daily_charge_amount")]
+        public decimal DailyChargeAmount { get; set; } = 0.0m;
+
         [Column("tenant_id")]
         public Guid TenantId { get; set; } = Guid.Empty;
 
