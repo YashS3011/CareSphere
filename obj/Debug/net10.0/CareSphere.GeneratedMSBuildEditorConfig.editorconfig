@@ -75,6 +75,10 @@ build_metadata.AdditionalFiles.CssScope =
 build_metadata.AdditionalFiles.TargetPath = Q29tcG9uZW50c1xQYWdlc1xBZG1pblxVc2VyRWRpdC5yYXpvcg==
 build_metadata.AdditionalFiles.CssScope = 
 
+[D:/CareSphere/Components/Pages/Admin/_Imports.razor]
+build_metadata.AdditionalFiles.TargetPath = Q29tcG9uZW50c1xQYWdlc1xBZG1pblxfSW1wb3J0cy5yYXpvcg==
+build_metadata.AdditionalFiles.CssScope = 
+
 [D:/CareSphere/Components/Pages/Auth/AccessDenied.razor]
 build_metadata.AdditionalFiles.TargetPath = Q29tcG9uZW50c1xQYWdlc1xBdXRoXEFjY2Vzc0RlbmllZC5yYXpvcg==
 build_metadata.AdditionalFiles.CssScope = 
@@ -109,6 +113,10 @@ build_metadata.AdditionalFiles.CssScope =
 
 [D:/CareSphere/Components/Pages/Billing/PaymentModal.razor]
 build_metadata.AdditionalFiles.TargetPath = Q29tcG9uZW50c1xQYWdlc1xCaWxsaW5nXFBheW1lbnRNb2RhbC5yYXpvcg==
+build_metadata.AdditionalFiles.CssScope = 
+
+[D:/CareSphere/Components/Pages/Billing/_Imports.razor]
+build_metadata.AdditionalFiles.TargetPath = Q29tcG9uZW50c1xQYWdlc1xCaWxsaW5nXF9JbXBvcnRzLnJhem9y
 build_metadata.AdditionalFiles.CssScope = 
 
 [D:/CareSphere/Components/Pages/Counter.razor]
@@ -151,6 +159,10 @@ build_metadata.AdditionalFiles.CssScope =
 build_metadata.AdditionalFiles.TargetPath = Q29tcG9uZW50c1xQYWdlc1xMYWJvcmF0b3J5XFRlc3RDYXRhbG9nRWRpdC5yYXpvcg==
 build_metadata.AdditionalFiles.CssScope = 
 
+[D:/CareSphere/Components/Pages/Laboratory/_Imports.razor]
+build_metadata.AdditionalFiles.TargetPath = Q29tcG9uZW50c1xQYWdlc1xMYWJvcmF0b3J5XF9JbXBvcnRzLnJhem9y
+build_metadata.AdditionalFiles.CssScope = 
+
 [D:/CareSphere/Components/Pages/Notifications/NotificationLogDetail.razor]
 build_metadata.AdditionalFiles.TargetPath = Q29tcG9uZW50c1xQYWdlc1xOb3RpZmljYXRpb25zXE5vdGlmaWNhdGlvbkxvZ0RldGFpbC5yYXpvcg==
 build_metadata.AdditionalFiles.CssScope = 
@@ -165,6 +177,10 @@ build_metadata.AdditionalFiles.CssScope =
 
 [D:/CareSphere/Components/Pages/Notifications/ScheduledReminderList.razor]
 build_metadata.AdditionalFiles.TargetPath = Q29tcG9uZW50c1xQYWdlc1xOb3RpZmljYXRpb25zXFNjaGVkdWxlZFJlbWluZGVyTGlzdC5yYXpvcg==
+build_metadata.AdditionalFiles.CssScope = 
+
+[D:/CareSphere/Components/Pages/Notifications/_Imports.razor]
+build_metadata.AdditionalFiles.TargetPath = Q29tcG9uZW50c1xQYWdlc1xOb3RpZmljYXRpb25zXF9JbXBvcnRzLnJhem9y
 build_metadata.AdditionalFiles.CssScope = 
 
 [D:/CareSphere/Components/Pages/Pharmacy/BatchList.razor]
@@ -233,6 +249,10 @@ build_metadata.AdditionalFiles.CssScope =
 
 [D:/CareSphere/Components/Pages/Pharmacy/SupplierList.razor]
 build_metadata.AdditionalFiles.TargetPath = Q29tcG9uZW50c1xQYWdlc1xQaGFybWFjeVxTdXBwbGllckxpc3QucmF6b3I=
+build_metadata.AdditionalFiles.CssScope = 
+
+[D:/CareSphere/Components/Pages/Pharmacy/_Imports.razor]
+build_metadata.AdditionalFiles.TargetPath = Q29tcG9uZW50c1xQYWdlc1xQaGFybWFjeVxfSW1wb3J0cy5yYXpvcg==
 build_metadata.AdditionalFiles.CssScope = 
 
 [D:/CareSphere/Components/Pages/Weather.razor]

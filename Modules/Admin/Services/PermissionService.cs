@@ -238,9 +238,10 @@ namespace CareSphere.Modules.Admin.Services
 
         public async Task SeedRolePermissionsAsync(Guid tenantId)
         {
-            // Only seed if no role permissions exist for this tenant
-            var hasSeeded = await _context.RolePermissions.AnyAsync(rp => rp.TenantId == tenantId);
-            if (hasSeeded) return;
+            var existing = await _context.RolePermissions
+                .Where(rp => rp.TenantId == tenantId)
+                .ToListAsync();
+            _context.RolePermissions.RemoveRange(existing);
 
             foreach (var (role, perms) in RolePermissionDefaults.DefaultPermissions)
             {

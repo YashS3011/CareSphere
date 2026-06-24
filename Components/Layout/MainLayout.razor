@@ -1,47 +1,45 @@
 @inherits LayoutComponentBase
 @inject IJSRuntime JS
 @inject UserTimeZoneService UserTimeZone
-@using Microsoft.AspNetCore.Components.Authorization
-@using CareSphere.Infrastructure
+@inject PageTitleService PageTitle
+@implements IDisposable
 
-<div class="page">
-    <main>
-        <ImpersonationBanner />
-        <div class="top-navbar bg-primary text-white d-flex justify-content-between align-items-center">
-            <a class="navbar-brand fw-bold text-white d-flex align-items-center text-decoration-none" href="/">
-                <i class="bi bi-heart-pulse-fill me-2 fs-4"></i>
-                <span class="fs-4">CareSphere</span>
-            </a>
-            
-            <div class="d-flex align-items-center gap-3">
-                <AuthorizeView>
-                    <Authorized>
-                        <div class="text-white me-2 d-none d-sm-block">
-                            <span class="small opacity-75">Logged in as:</span>
-                            <span class="fw-semibold">@(CurrentUserHelper.GetFullName(context.User) ?? context.User.Identity?.Name ?? "User")</span>
-                            <span class="badge bg-white text-primary ms-1" style="font-size: 0.75rem;">
-                                @(CurrentUserHelper.GetUserRole(context.User) ?? "")
-                            </span>
-                        </div>
-                        <NotificationsPanel />
-                        <a class="btn btn-outline-light btn-sm ms-2" href="/auth/logout">
-                            <i class="bi bi-box-arrow-right me-1"></i>Sign Out
+<AuthorizeView>
+    <Authorized>
+        <div class="layout-container">
+            <NavMenu />
+
+            <div class="flex-grow-1 d-flex flex-column min-width-0">
+                <!-- Top Navbar -->
+                <header class="navbar-top">
+                    <div class="d-flex align-items-center">
+                        <button class="btn d-md-none border-0 p-1 me-2 text-dark" type="button" data-bs-toggle="offcanvas" data-bs-target="#sidebar" aria-controls="sidebar">
+                            <i class="bi bi-list fs-3"></i>
+                        </button>
+                        <h4 class="navbar-top-title">@PageTitle.Title</h4>
+                    </div>
+                    <div class="d-flex align-items-center gap-3">
+                        <a href="/" class="btn btn-outline-secondary btn-sm rounded-pill px-3">
+                            <i class="bi bi-house-door-fill me-1"></i> Home
                         </a>
-                    </Authorized>
-                    <NotAuthorized>
-                        <a class="btn btn-light btn-sm text-primary" href="/auth/login">
-                            <i class="bi bi-box-arrow-in-right me-1"></i>Sign In
+                        <a class="btn btn-outline-danger btn-sm rounded-pill px-3" href="/auth/logout">
+                            <i class="bi bi-box-arrow-right me-1"></i> Sign Out
                         </a>
-                    </NotAuthorized>
-                </AuthorizeView>
+                    </div>
+                </header>
+
+                <!-- Body Area -->
+                <main class="flex-grow-1 p-4 overflow-auto" style="height: calc(100vh - 64px); background-color: var(--surface-bg);">
+                    <ImpersonationBanner />
+                    @Body
+                </main>
             </div>
         </div>
-
-        <article class="content px-4 py-4 container">
-            @Body
-        </article>
-    </main>
-</div>
+    </Authorized>
+    <NotAuthorized>
+        @Body
+    </NotAuthorized>
+</AuthorizeView>
 
 <div id="blazor-error-ui" data-nosnippet>
     An unhandled error has occurred.
@@ -50,6 +48,16 @@
 </div>
 
 @code {
+    protected override void OnInitialized()
+    {
+        PageTitle.OnTitleChanged += StateHasChanged;
+    }
+
+    public void Dispose()
+    {
+        PageTitle.OnTitleChanged -= StateHasChanged;
+    }
+
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
         if (firstRender && !UserTimeZone.TimeZoneOffset.HasValue)
@@ -67,4 +75,3 @@
         }
     }
 }
-

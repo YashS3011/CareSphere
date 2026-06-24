@@ -5,6 +5,7 @@
 @inject UserTimeZoneService UserTimeZone
 @inject IConfiguration Configuration
 @inject IJSRuntime JS
+@inject CareSphere.Infrastructure.PageTitleService PageTitle
 @using Microsoft.EntityFrameworkCore
 @rendermode InteractiveServer
 
@@ -169,6 +170,7 @@ else
 
     protected override async Task OnInitializedAsync()
     {
+        PageTitle.SetTitle("Administration / Audit Logs");
         var tenantId = GetTenantId();
         distinctActions = await AuditLogService.GetDistinctActionsAsync(tenantId);
         distinctResourceTypes = await AuditLogService.GetDistinctResourceTypesAsync(tenantId);

@@ -49,53 +49,63 @@ namespace CareSphere.Modules.Billing.Services
 
         public async Task<Payment> RecordCashPaymentAsync(Guid tenantId, Guid invoiceId, decimal amount, string? notes, string recordedByUserId)
         {
-            var invoice = await _context.BillingInvoices.FindAsync(invoiceId);
-            if (invoice == null)
-                throw new KeyNotFoundException("Invoice not found.");
-
-            await _context.Entry(invoice).ReloadAsync();
-
-            if (invoice.Status == "Cancelled")
-                throw new InvalidOperationException("Cannot record payments on Cancelled invoices.");
-
-            if (invoice.Status == "Draft")
+            using var transaction = await _context.Database.BeginTransactionAsync();
+            try
             {
-                invoice = await _invoiceService.FinalizeInvoiceAsync(invoiceId);
+                var invoice = await _context.BillingInvoices.FindAsync(invoiceId);
+                if (invoice == null)
+                    throw new KeyNotFoundException("Invoice not found.");
+
+                await _context.Entry(invoice).ReloadAsync();
+
+                if (invoice.Status == "Cancelled")
+                    throw new InvalidOperationException("Cannot record payments on Cancelled invoices.");
+
+                if (invoice.Status == "Draft")
+                {
+                    invoice = await _invoiceService.FinalizeInvoiceAsync(invoiceId);
+                }
+
+                var payment = new Payment
+                {
+                    Id = Guid.NewGuid(),
+                    TenantId = tenantId,
+                    InvoiceId = invoiceId,
+                    PatientId = invoice.PatientId,
+                    PaymentDate = DateTime.UtcNow,
+                    Amount = amount,
+                    PaymentMethod = "Cash",
+                    Status = "Success",
+                    Notes = notes,
+                    RecordedByUserId = recordedByUserId,
+                    CreatedAt = DateTime.UtcNow
+                };
+
+                _context.Payments.Add(payment);
+                await _context.SaveChangesAsync();
+
+                // Recalculate totals
+                await _invoiceService.UpdateInvoiceTotalsAsync(invoiceId);
+
+                // Log Audit Event
+                // TODO: Replace recordedByUserId with actual logged-in user ID
+                await _auditService.LogAsync(new AuditEvent
+                {
+                    TenantId = tenantId,
+                    UserId = recordedByUserId,
+                    Action = "PAYMENT_RECORDED",
+                    ResourceType = "Payment",
+                    ResourceId = payment.Id.ToString()
+                });
+
+                await transaction.CommitAsync();
+                return payment;
             }
-
-            var payment = new Payment
+            catch (Exception)
             {
-                Id = Guid.NewGuid(),
-                TenantId = tenantId,
-                InvoiceId = invoiceId,
-                PatientId = invoice.PatientId,
-                PaymentDate = DateTime.UtcNow,
-                Amount = amount,
-                PaymentMethod = "Cash",
-                Status = "Success",
-                Notes = notes,
-                RecordedByUserId = recordedByUserId,
-                CreatedAt = DateTime.UtcNow
-            };
-
-            _context.Payments.Add(payment);
-            await _context.SaveChangesAsync();
-
-            // Recalculate totals
-            await _invoiceService.UpdateInvoiceTotalsAsync(invoiceId);
-
-            // Log Audit Event
-            // TODO: Replace recordedByUserId with actual logged-in user ID
-            await _auditService.LogAsync(new AuditEvent
-            {
-                TenantId = tenantId,
-                UserId = recordedByUserId,
-                Action = "PAYMENT_RECORDED",
-                ResourceType = "Payment",
-                ResourceId = payment.Id.ToString()
-            });
-
-            return payment;
+                await transaction.RollbackAsync();
+                throw;
+            }
         }
 
         public async Task<RazorpayOrderResult> InitiateRazorpayPaymentAsync(Guid tenantId, Guid invoiceId, string paymentMethod)
@@ -151,38 +161,48 @@ namespace CareSphere.Modules.Billing.Services
 
         public async Task<Payment> VerifyRazorpayPaymentAsync(string razorpayOrderId, string razorpayPaymentId, string razorpaySignature)
         {
-            var payment = await _context.Payments
-                .FirstOrDefaultAsync(p => p.RazorpayOrderId == razorpayOrderId);
-
-            if (payment == null)
-                throw new KeyNotFoundException("Payment record for the specified order not found.");
-
-            bool isVerified = _razorpayClient.VerifySignature(razorpayOrderId, razorpayPaymentId, razorpaySignature);
-
-            payment.RazorpayPaymentId = razorpayPaymentId;
-            payment.RazorpaySignature = razorpaySignature;
-            payment.Status = isVerified ? "Success" : "Failed";
-
-            await _context.SaveChangesAsync();
-
-            if (isVerified)
+            using var transaction = await _context.Database.BeginTransactionAsync();
+            try
             {
-                // Update Invoice totals
-                await _invoiceService.UpdateInvoiceTotalsAsync(payment.InvoiceId);
+                var payment = await _context.Payments
+                    .FirstOrDefaultAsync(p => p.RazorpayOrderId == razorpayOrderId);
+
+                if (payment == null)
+                    throw new KeyNotFoundException("Payment record for the specified order not found.");
+
+                bool isVerified = _razorpayClient.VerifySignature(razorpayOrderId, razorpayPaymentId, razorpaySignature);
+
+                payment.RazorpayPaymentId = razorpayPaymentId;
+                payment.RazorpaySignature = razorpaySignature;
+                payment.Status = isVerified ? "Success" : "Failed";
+
+                await _context.SaveChangesAsync();
+
+                if (isVerified)
+                {
+                    // Update Invoice totals
+                    await _invoiceService.UpdateInvoiceTotalsAsync(payment.InvoiceId);
+                }
+
+                // Log Audit Event
+                // TODO: Replace with actual logged-in user ID
+                await _auditService.LogAsync(new AuditEvent
+                {
+                    TenantId = payment.TenantId,
+                    UserId = CurrentUserId,
+                    Action = "PAYMENT_VERIFIED",
+                    ResourceType = "Payment",
+                    ResourceId = payment.Id.ToString()
+                });
+
+                await transaction.CommitAsync();
+                return payment;
             }
-
-            // Log Audit Event
-            // TODO: Replace with actual logged-in user ID
-            await _auditService.LogAsync(new AuditEvent
+            catch (Exception)
             {
-                TenantId = payment.TenantId,
-                UserId = CurrentUserId,
-                Action = "PAYMENT_VERIFIED",
-                ResourceType = "Payment",
-                ResourceId = payment.Id.ToString()
-            });
-
-            return payment;
+                await transaction.RollbackAsync();
+                throw;
+            }
         }
 
         public async Task<List<Payment>> GetPaymentsByInvoiceAsync(Guid invoiceId)
@@ -195,88 +215,98 @@ namespace CareSphere.Modules.Billing.Services
 
         public async Task<Payment> RecordInsuranceSettlementAsync(Guid tenantId, Guid invoiceId, Guid claimId, decimal amount, string? transactionReference, string recordedByUserId)
         {
-            var invoice = await _context.BillingInvoices.FindAsync(invoiceId);
-            if (invoice == null)
-                throw new KeyNotFoundException("Invoice not found.");
-
-            await _context.Entry(invoice).ReloadAsync();
-
-            var claim = await _context.InsuranceClaims.FindAsync(claimId);
-            if (claim == null)
-                throw new KeyNotFoundException("Insurance claim not found.");
-
-            if (invoice.Status == "Cancelled")
-                throw new InvalidOperationException("Cannot settle Cancelled invoices.");
-
-            if (invoice.Status == "Draft")
+            using var transaction = await _context.Database.BeginTransactionAsync();
+            try
             {
-                invoice = await _invoiceService.FinalizeInvoiceAsync(invoiceId);
+                var invoice = await _context.BillingInvoices.FindAsync(invoiceId);
+                if (invoice == null)
+                    throw new KeyNotFoundException("Invoice not found.");
+
+                await _context.Entry(invoice).ReloadAsync();
+
+                var claim = await _context.InsuranceClaims.FindAsync(claimId);
+                if (claim == null)
+                    throw new KeyNotFoundException("Insurance claim not found.");
+
+                if (invoice.Status == "Cancelled")
+                    throw new InvalidOperationException("Cannot settle Cancelled invoices.");
+
+                if (invoice.Status == "Draft")
+                {
+                    invoice = await _invoiceService.FinalizeInvoiceAsync(invoiceId);
+                }
+
+                var payment = new Payment
+                {
+                    Id = Guid.NewGuid(),
+                    TenantId = tenantId,
+                    InvoiceId = invoiceId,
+                    PatientId = invoice.PatientId,
+                    PaymentDate = DateTime.UtcNow,
+                    Amount = amount,
+                    PaymentMethod = "Insurance",
+                    TransactionReference = transactionReference ?? claim.ClaimNumber,
+                    Status = "Success",
+                    Notes = $"Settlement for Claim {claim.ClaimNumber}",
+                    RecordedByUserId = recordedByUserId,
+                    CreatedAt = DateTime.UtcNow
+                };
+
+                _context.Payments.Add(payment);
+
+                // Update Claim status to Approved or PartiallyApproved
+                claim.Status = amount >= claim.ClaimedAmount ? "Approved" : "PartiallyApproved";
+                claim.ApprovedAmount = amount;
+                claim.ApprovedAt = DateTime.UtcNow;
+                claim.UpdatedAt = DateTime.UtcNow;
+
+                // Log Claim status history
+                var history = new ClaimStatusHistory
+                {
+                    Id = Guid.NewGuid(),
+                    TenantId = tenantId,
+                    ClaimId = claimId,
+                    PreviousStatus = "Submitted",
+                    NewStatus = claim.Status,
+                    ChangedAt = DateTime.UtcNow,
+                    ChangedByUserId = recordedByUserId,
+                    Remarks = $"Insurance settlement recorded of INR {amount:N2}. Transaction Ref: {transactionReference}"
+                };
+                _context.ClaimStatusHistories.Add(history);
+
+                await _context.SaveChangesAsync();
+
+                // Recalculate invoice totals
+                await _invoiceService.UpdateInvoiceTotalsAsync(invoiceId);
+
+                // Log Audit Events
+                // TODO: Replace with logged-in user ID
+                await _auditService.LogAsync(new AuditEvent
+                {
+                    TenantId = tenantId,
+                    UserId = recordedByUserId,
+                    Action = "PAYMENT_RECORDED",
+                    ResourceType = "Payment",
+                    ResourceId = payment.Id.ToString()
+                });
+
+                await _auditService.LogAsync(new AuditEvent
+                {
+                    TenantId = tenantId,
+                    UserId = recordedByUserId,
+                    Action = "CLAIM_STATUS_UPDATED",
+                    ResourceType = "InsuranceClaim",
+                    ResourceId = claimId.ToString()
+                });
+
+                await transaction.CommitAsync();
+                return payment;
             }
-
-            var payment = new Payment
+            catch (Exception)
             {
-                Id = Guid.NewGuid(),
-                TenantId = tenantId,
-                InvoiceId = invoiceId,
-                PatientId = invoice.PatientId,
-                PaymentDate = DateTime.UtcNow,
-                Amount = amount,
-                PaymentMethod = "Insurance",
-                TransactionReference = transactionReference ?? claim.ClaimNumber,
-                Status = "Success",
-                Notes = $"Settlement for Claim {claim.ClaimNumber}",
-                RecordedByUserId = recordedByUserId,
-                CreatedAt = DateTime.UtcNow
-            };
-
-            _context.Payments.Add(payment);
-
-            // Update Claim status to Approved or PartiallyApproved
-            claim.Status = amount >= claim.ClaimedAmount ? "Approved" : "PartiallyApproved";
-            claim.ApprovedAmount = amount;
-            claim.ApprovedAt = DateTime.UtcNow;
-            claim.UpdatedAt = DateTime.UtcNow;
-
-            // Log Claim status history
-            var history = new ClaimStatusHistory
-            {
-                Id = Guid.NewGuid(),
-                TenantId = tenantId,
-                ClaimId = claimId,
-                PreviousStatus = "Submitted",
-                NewStatus = claim.Status,
-                ChangedAt = DateTime.UtcNow,
-                ChangedByUserId = recordedByUserId,
-                Remarks = $"Insurance settlement recorded of INR {amount:N2}. Transaction Ref: {transactionReference}"
-            };
-            _context.ClaimStatusHistories.Add(history);
-
-            await _context.SaveChangesAsync();
-
-            // Recalculate invoice totals
-            await _invoiceService.UpdateInvoiceTotalsAsync(invoiceId);
-
-            // Log Audit Events
-            // TODO: Replace with logged-in user ID
-            await _auditService.LogAsync(new AuditEvent
-            {
-                TenantId = tenantId,
-                UserId = recordedByUserId,
-                Action = "PAYMENT_RECORDED",
-                ResourceType = "Payment",
-                ResourceId = payment.Id.ToString()
-            });
-
-            await _auditService.LogAsync(new AuditEvent
-            {
-                TenantId = tenantId,
-                UserId = recordedByUserId,
-                Action = "CLAIM_STATUS_UPDATED",
-                ResourceType = "InsuranceClaim",
-                ResourceId = claimId.ToString()
-            });
-
-            return payment;
+                await transaction.RollbackAsync();
+                throw;
+            }
         }
     }
 }

@@ -248,10 +248,6 @@ D:\CareSphere\obj\Debug\net10.0\scopedcss\Modules\Laboratory\Layout\LaboratoryLa
 D:\CareSphere\obj\Debug\net10.0\scopedcss\Modules\Notifications\Layout\NotificationsLayout.razor.rz.scp.css
 D:\CareSphere\obj\Debug\net10.0\scopedcss\Modules\Nursing\Layout\NursingLayout.razor.rz.scp.css
 D:\CareSphere\obj\Debug\net10.0\scopedcss\Modules\Pharmacy\Layout\PharmacyLayout.razor.rz.scp.css
-D:\CareSphere\obj\Debug\net10.0\compressed\mfuuwe67di-{0}-9hjcuhp7f8-9hjcuhp7f8.gz
-D:\CareSphere\obj\Debug\net10.0\compressed\ajdfzskxy7-{0}-9hjcuhp7f8-9hjcuhp7f8.gz
-D:\CareSphere\obj\Debug\net10.0\compressed\by4i8uveuz-{0}-i5ssdyoxz3-i5ssdyoxz3.gz
-D:\CareSphere\obj\Debug\net10.0\compressed\yzdcvmnpv3-{0}-qdrqnle0o1-qdrqnle0o1.gz
 D:\CareSphere\obj\Debug\net10.0\compressed\ixzw9t7njf-{0}-aibew1av77-aibew1av77.gz
 D:\CareSphere\bin\Debug\net10.0\Blazor-ApexCharts.dll
 D:\CareSphere\obj\Debug\net10.0\compressed\q731hh5ls5-{0}-fipu15mg5j-fipu15mg5j.gz
@@ -301,3 +297,7 @@ D:\CareSphere\obj\Debug\net10.0\compressed\p8kpjarlyl-{0}-74w0y3no2v-74w0y3no2v.
 D:\CareSphere\obj\Debug\net10.0\compressed\dko6y7plta-{0}-j4a4u2uj29-j4a4u2uj29.gz
 D:\CareSphere\obj\Debug\net10.0\compressed\1j8oabzfj7-{0}-qz6clc5837-qz6clc5837.gz
 D:\CareSphere\obj\Debug\net10.0\compressed\0g0tdqq8mx-{0}-ody88ncx6z-ody88ncx6z.gz
+D:\CareSphere\obj\Debug\net10.0\compressed\by4i8uveuz-{0}-tmy6fzcykp-tmy6fzcykp.gz
+D:\CareSphere\obj\Debug\net10.0\compressed\yzdcvmnpv3-{0}-10525tj7e2-10525tj7e2.gz
+D:\CareSphere\obj\Debug\net10.0\compressed\mfuuwe67di-{0}-r3g5bdjmy2-r3g5bdjmy2.gz
+D:\CareSphere\obj\Debug\net10.0\compressed\ajdfzskxy7-{0}-r3g5bdjmy2-r3g5bdjmy2.gz

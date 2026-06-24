@@ -7,6 +7,7 @@
 @inject IPharmacyItemService ItemService
 @inject NavigationManager NavigationManager
 @inject ITenantContext TenantContext
+@inject CareSphere.Infrastructure.PageTitleService PageTitle
 @rendermode InteractiveServer
 
 <PageTitle>Pharmacy Dashboard - CareSphere</PageTitle>
@@ -176,6 +177,7 @@ else
         try
         {
             loading = true;
+            PageTitle.SetTitle("Pharmacy / Dashboard");
             currentTenantId = TenantContext.TenantId;
             await AlertService.CheckAndGenerateExpiryAlertsAsync(currentTenantId);
             totalCatalogItems = await DbContext.PharmacyItems.CountAsync(i => i.TenantId == currentTenantId && i.IsActive);

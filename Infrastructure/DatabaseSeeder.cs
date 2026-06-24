@@ -224,6 +224,121 @@ namespace CareSphere.Infrastructure
                             await _userManager.AddToRoleAsync(nurse2User, CareSphereRoles.Nurse);
                     }
 
+                    // Ensure HospitalAdmin exists
+                    var hospAdmin = await _userManager.Users.IgnoreQueryFilters()
+                        .FirstOrDefaultAsync(u => u.NormalizedEmail == "HOSPITALADMIN@CARESPHERE.DEV");
+                    if (hospAdmin == null)
+                    {
+                        _logger.LogInformation("Inserting missing hospitaladmin@caresphere.dev account...");
+                        var user = new ApplicationUser
+                        {
+                            UserName = "hospitaladmin@caresphere.dev",
+                            Email = "hospitaladmin@caresphere.dev",
+                            FullName = "Test Hospital Admin",
+                            TenantId = defaultTenantId,
+                            Role = CareSphereRoles.HospitalAdmin,
+                            IsActive = true,
+                            CreatedAt = DateTime.UtcNow,
+                            PreferredLanguage = "en",
+                            EmailConfirmed = true
+                        };
+                        var res = await _userManager.CreateAsync(user, "HospitalAdmin@123");
+                        if (res.Succeeded)
+                            await _userManager.AddToRoleAsync(user, CareSphereRoles.HospitalAdmin);
+                    }
+
+                    // Ensure FrontDesk exists
+                    var frontDesk = await _userManager.Users.IgnoreQueryFilters()
+                        .FirstOrDefaultAsync(u => u.NormalizedEmail == "FRONTDESK@CARESPHERE.DEV");
+                    if (frontDesk == null)
+                    {
+                        _logger.LogInformation("Inserting missing frontdesk@caresphere.dev account...");
+                        var user = new ApplicationUser
+                        {
+                            UserName = "frontdesk@caresphere.dev",
+                            Email = "frontdesk@caresphere.dev",
+                            FullName = "Test Front Desk",
+                            TenantId = defaultTenantId,
+                            Role = CareSphereRoles.FrontDesk,
+                            IsActive = true,
+                            CreatedAt = DateTime.UtcNow,
+                            PreferredLanguage = "en",
+                            EmailConfirmed = true
+                        };
+                        var res = await _userManager.CreateAsync(user, "FrontDesk@123");
+                        if (res.Succeeded)
+                            await _userManager.AddToRoleAsync(user, CareSphereRoles.FrontDesk);
+                    }
+
+                    // Ensure Finance exists
+                    var finance = await _userManager.Users.IgnoreQueryFilters()
+                        .FirstOrDefaultAsync(u => u.NormalizedEmail == "FINANCE@CARESPHERE.DEV");
+                    if (finance == null)
+                    {
+                        _logger.LogInformation("Inserting missing finance@caresphere.dev account...");
+                        var user = new ApplicationUser
+                        {
+                            UserName = "finance@caresphere.dev",
+                            Email = "finance@caresphere.dev",
+                            FullName = "Test Finance",
+                            TenantId = defaultTenantId,
+                            Role = CareSphereRoles.Finance,
+                            IsActive = true,
+                            CreatedAt = DateTime.UtcNow,
+                            PreferredLanguage = "en",
+                            EmailConfirmed = true
+                        };
+                        var res = await _userManager.CreateAsync(user, "Finance@123");
+                        if (res.Succeeded)
+                            await _userManager.AddToRoleAsync(user, CareSphereRoles.Finance);
+                    }
+
+                    // Ensure NabhAuditor exists
+                    var nabhAuditor = await _userManager.Users.IgnoreQueryFilters()
+                        .FirstOrDefaultAsync(u => u.NormalizedEmail == "NABHAUDITOR@CARESPHERE.DEV");
+                    if (nabhAuditor == null)
+                    {
+                        _logger.LogInformation("Inserting missing nabhauditor@caresphere.dev account...");
+                        var user = new ApplicationUser
+                        {
+                            UserName = "nabhauditor@caresphere.dev",
+                            Email = "nabhauditor@caresphere.dev",
+                            FullName = "Test NABH Auditor",
+                            TenantId = defaultTenantId,
+                            Role = CareSphereRoles.NabhAuditor,
+                            IsActive = true,
+                            CreatedAt = DateTime.UtcNow,
+                            PreferredLanguage = "en",
+                            EmailConfirmed = true
+                        };
+                        var res = await _userManager.CreateAsync(user, "NabhAuditor@123");
+                        if (res.Succeeded)
+                            await _userManager.AddToRoleAsync(user, CareSphereRoles.NabhAuditor);
+                    }
+
+                    // Ensure Patient exists
+                    var patient = await _userManager.Users.IgnoreQueryFilters()
+                        .FirstOrDefaultAsync(u => u.NormalizedEmail == "PATIENT@CARESPHERE.DEV");
+                    if (patient == null)
+                    {
+                        _logger.LogInformation("Inserting missing patient@caresphere.dev account...");
+                        var user = new ApplicationUser
+                        {
+                            UserName = "patient@caresphere.dev",
+                            Email = "patient@caresphere.dev",
+                            FullName = "Test Patient",
+                            TenantId = defaultTenantId,
+                            Role = CareSphereRoles.Patient,
+                            IsActive = true,
+                            CreatedAt = DateTime.UtcNow,
+                            PreferredLanguage = "en",
+                            EmailConfirmed = true
+                        };
+                        var res = await _userManager.CreateAsync(user, "Patient@123");
+                        if (res.Succeeded)
+                            await _userManager.AddToRoleAsync(user, CareSphereRoles.Patient);
+                    }
+
                     // Repair 2.1: Ensure platform admin role and user exist
                     var platRoleExists = await _roleManager.RoleExistsAsync("platform_super_admin");
                     if (!platRoleExists)
@@ -672,14 +787,19 @@ namespace CareSphere.Infrastructure
                     return userId;
                 };
 
-                // Seed the 7 main login users
+                // Seed the main login users for all roles in HMS matrix
                 var adminUserId = await CreateUserAsync("admin@caresphere.in", "System Administrator", CareSphereRoles.SuperAdmin, "Admin@123456");
+                var hospitalAdminUserId = await CreateUserAsync("hospitaladmin@caresphere.dev", "Test Hospital Admin", CareSphereRoles.HospitalAdmin, "HospitalAdmin@123");
                 var receptionistUserId = await CreateUserAsync("receptionist@caresphere.dev", "Test Receptionist", CareSphereRoles.Receptionist, "Receptionist@123");
                 var nurseUserId = await CreateUserAsync("nurse@caresphere.dev", "Test Nurse", CareSphereRoles.Nurse, "Nurse@123");
                 var billingUserId = await CreateUserAsync("billingstaff@caresphere.dev", "Test Billing Staff", CareSphereRoles.BillingStaff, "BillingStaff@123");
                 var doctorUserId = await CreateUserAsync("doctor@caresphere.dev", "Test Doctor", CareSphereRoles.Doctor, "Doctor@123", doctorId);
                 var pharmacistUserId = await CreateUserAsync("pharmacist@caresphere.dev", "Test Pharmacist", CareSphereRoles.Pharmacist, "Pharmacist@123");
                 var labtechUserId = await CreateUserAsync("labtech@caresphere.dev", "Test Lab Technician", CareSphereRoles.LabTechnician, "LabTech@123");
+                var frontDeskUserId = await CreateUserAsync("frontdesk@caresphere.dev", "Test Front Desk", CareSphereRoles.FrontDesk, "FrontDesk@123");
+                var financeUserId = await CreateUserAsync("finance@caresphere.dev", "Test Finance", CareSphereRoles.Finance, "Finance@123");
+                var nabhAuditorUserId = await CreateUserAsync("nabhauditor@caresphere.dev", "Test NABH Auditor", CareSphereRoles.NabhAuditor, "NabhAuditor@123");
+                var patientUserId = await CreateUserAsync("patient@caresphere.dev", "Test Patient", CareSphereRoles.Patient, "Patient@123");
                 var nurse2UserId = await CreateUserAsync("nurse2@caresphere.dev", "Test Nurse (Nursing Module)", CareSphereRoles.Nurse, "Nurse@123");
                 var platformAdminUserId = await CreateUserAsync("platformadmin@caresphere.dev", "Platform Administrator", "platform_super_admin", "PlatformAdmin@123", customTenantId: Guid.Empty);
 
@@ -1055,7 +1175,7 @@ namespace CareSphere.Infrastructure
                     Quantity = 1m,
                     UnitPrice = 500.00m,
                     DiscountPercent = 10m,
-                    TaxPercent = 9m,
+                    TaxPercent = 10m,
                     LineTotal = 495.00m
                 };
                 _context.BillingLineItems.Add(billingLineItem);

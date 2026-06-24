@@ -244,6 +244,7 @@ builder.Services.AddScoped<IUserService, UserService>();
 builder.Services.AddTransient<ITenantService, TenantService>();
 builder.Services.AddScoped<IImpersonationService, ImpersonationService>();
 builder.Services.AddScoped<UserTimeZoneService>();
+builder.Services.AddScoped<CareSphere.Infrastructure.PageTitleService>();
 builder.Services.AddScoped<SupabaseAuthService>();
 builder.Services.AddScoped<DatabaseSeeder>();
 

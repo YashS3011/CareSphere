@@ -1,0 +1,18 @@
+[
+  {
+    "ContainingType": "CareSphere.Controllers.TwilioController",
+    "Method": "GetTwiml",
+    "RelativePath": "api/twilio/twiml/{notificationLogId}",
+    "HttpMethod": "GET",
+    "IsController": true,
+    "Order": 0,
+    "Parameters": [
+      {
+        "Name": "notificationLogId",
+        "Type": "System.Guid",
+        "IsRequired": true
+      }
+    ],
+    "ReturnTypes": []
+  }
+]

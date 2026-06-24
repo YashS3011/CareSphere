@@ -1,3 +1,2 @@
-.layout-container {
-    --module-accent: #0a58ca; /* Analytics: deep blue */
-}
+﻿/* Unified accent color is inherited from :root in sidebar-system.css */
+

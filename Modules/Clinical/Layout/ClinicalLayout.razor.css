@@ -1,3 +1,2 @@
-.layout-container {
-    --module-accent: #6610f2; /* Clinical: indigo */
-}
+﻿/* Unified accent color is inherited from :root in sidebar-system.css */
+

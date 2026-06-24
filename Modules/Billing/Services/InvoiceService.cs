@@ -347,9 +347,9 @@ namespace CareSphere.Modules.Billing.Services
             invoice.DiscountAmount = invoice.BillingLineItems.Sum(li => (li.Quantity * li.UnitPrice) * (li.DiscountPercent / 100m));
             invoice.TaxAmount = invoice.BillingLineItems.Sum(li => ((li.Quantity * li.UnitPrice) - ((li.Quantity * li.UnitPrice) * (li.DiscountPercent / 100m))) * (li.TaxPercent / 100m));
             invoice.TotalAmount = invoice.BillingLineItems.Sum(li => li.LineTotal);
-            invoice.PaidAmount = invoice.Payments
-                .Where(p => p.Status == "Success")
-                .Sum(p => p.Amount);
+            invoice.PaidAmount = await _context.Payments
+                .Where(p => p.InvoiceId == invoiceId && p.Status == "Success")
+                .SumAsync(p => p.Amount);
 
             // In DB BalanceAmount is computed, but we can set it in model for in-memory consistencies if needed
             invoice.BalanceAmount = invoice.TotalAmount - invoice.PaidAmount;

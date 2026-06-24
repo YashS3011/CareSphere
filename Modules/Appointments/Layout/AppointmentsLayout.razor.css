@@ -1,3 +1,2 @@
-.layout-container {
-    --module-accent: #d63384; /* Appointments: pink */
-}
+﻿/* Unified accent color is inherited from :root in sidebar-system.css */
+

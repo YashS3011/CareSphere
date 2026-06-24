@@ -1,325 +1,540 @@
 @inject AuthenticationStateProvider AuthStateProvider
-@inject ITenantService TenantService
-@inject IConfiguration Configuration
+@inject NavigationManager NavigationManager
 
-<div class="top-row ps-3 navbar navbar-dark bg-primary text-white">
-    <div class="container-fluid">
-        <a class="navbar-brand fw-bold" href=""><i class="bi bi-heart-pulse-fill me-2"></i>CareSphere</a>
+<aside class="sidebar-system offcanvas-md offcanvas-start" id="sidebar" tabindex="-1">
+    <!-- Brand / Header -->
+    <div class="sidebar-header">
+        <div class="module-icon-badge">
+            <i class="bi bi-heart-pulse-fill text-white"></i>
+        </div>
+        <span class="sidebar-header-text">CareSphere</span>
     </div>
-</div>
 
-<input type="checkbox" title="Navigation menu" class="navbar-toggler" />
-
-<div class="nav-scrollable" onclick="document.querySelector('.navbar-toggler').click()">
-    <nav class="nav flex-column mt-3">
-
-        <!-- User profile header -->
-        <AuthorizeView>
-            <Authorized>
-                <div class="px-3 mb-3 py-2 bg-primary bg-opacity-10 rounded mx-2">
-                    <div class="d-flex align-items-center">
-                        <div class="bg-primary bg-opacity-25 rounded-circle d-flex align-items-center justify-content-center me-2"
-                             style="width: 36px; height: 36px; flex-shrink: 0;">
-                            <i class="bi bi-person-fill text-primary"></i>
-                        </div>
-                        <div style="min-width: 0;">
-                            <div class="fw-semibold small text-truncate">
-                                @(CurrentUserHelper.GetFullName(context.User) ?? context.User.Identity?.Name ?? "User")
-                            </div>
-                            <span class="badge bg-primary" style="font-size: 0.65rem;">
-                                @(CurrentUserHelper.GetUserRole(context.User) ?? "")
-                            </span>
-                        </div>
-                    </div>
-                </div>
-            </Authorized>
-        </AuthorizeView>
-
+    <!-- Navigation List -->
+    <nav class="sidebar-nav">
         <!-- Dashboard — any authenticated user -->
         <AuthorizeView>
             <Authorized>
-                <div class="nav-item px-3">
-                    <NavLink class="nav-link" href="" Match="NavLinkMatch.All">
-                        <i class="bi bi-speedometer2 me-3" aria-hidden="true"></i> Dashboard
-                    </NavLink>
-                </div>
+                <NavLink class="sidebar-link" href="/dashboard" Match="NavLinkMatch.All" ActiveClass="sidebar-link-active">
+                    <i class="bi bi-speedometer2"></i>
+                    <span class="sidebar-text">Dashboard</span>
+                </NavLink>
             </Authorized>
         </AuthorizeView>
 
-        <!-- Patient section -->
+        <!-- CLINICAL & CORE SECTION -->
         <AuthorizeView>
             <Authorized>
-                <div class="nav-item px-3">
-                    <NavLink class="nav-link" href="patients">
-                        <i class="bi bi-people-fill me-3" aria-hidden="true"></i> Patients
-                    </NavLink>
-                </div>
+                @if (HasClinicalOrCoreAccess(context.User))
+                {
+                    <small class="text-muted px-3 mt-3 mb-1 fw-bold text-uppercase d-block" style="font-size: 0.65rem; letter-spacing: 0.05em; opacity: 0.8;">Clinical &amp; Core</small>
+                }
             </Authorized>
         </AuthorizeView>
 
-        <!-- Appointments section -->
+        <!-- Patients -->
+        <AuthorizeView Policy="@PolicyNames.Permission_Patients_View">
+            <Authorized>
+                <NavLink class="sidebar-link" href="/patients" Match="NavLinkMatch.All" ActiveClass="sidebar-link-active">
+                    <i class="bi bi-people-fill"></i>
+                    <span class="sidebar-text">Patient List</span>
+                </NavLink>
+            </Authorized>
+        </AuthorizeView>
+        <AuthorizeView Policy="@PolicyNames.Permission_Patients_Create">
+            <Authorized>
+                <NavLink class="sidebar-link" href="/patients/create" ActiveClass="sidebar-link-active">
+                    <i class="bi bi-person-plus-fill"></i>
+                    <span class="sidebar-text">Register Patient</span>
+                </NavLink>
+            </Authorized>
+        </AuthorizeView>
+        <AuthorizeView Policy="@PolicyNames.Permission_Patients_Edit">
+            <Authorized>
+                <NavLink class="sidebar-link" href="/patients/preferences" ActiveClass="sidebar-link-active">
+                    <i class="bi bi-sliders"></i>
+                    <span class="sidebar-text">Patient Preferences</span>
+                </NavLink>
+            </Authorized>
+        </AuthorizeView>
+
+        <!-- Appointments -->
         <AuthorizeView Policy="@PolicyNames.Permission_Appointments_View">
             <Authorized>
-                <div class="nav-item px-3">
-                    <NavLink class="nav-link" href="appointments">
-                        <i class="bi bi-calendar-event me-3" aria-hidden="true"></i> Appointments
-                    </NavLink>
-                </div>
+                <NavLink class="sidebar-link" href="/appointments" Match="NavLinkMatch.All" ActiveClass="sidebar-link-active">
+                    <i class="bi bi-calendar-event"></i>
+                    <span class="sidebar-text">Appointments</span>
+                </NavLink>
+            </Authorized>
+        </AuthorizeView>
+        <AuthorizeView Policy="@PolicyNames.Permission_Appointments_Book">
+            <Authorized>
+                <NavLink class="sidebar-link" href="/appointments/book" ActiveClass="sidebar-link-active">
+                    <i class="bi bi-plus-circle"></i>
+                    <span class="sidebar-text">Book Appointment</span>
+                </NavLink>
+            </Authorized>
+        </AuthorizeView>
+        <AuthorizeView Policy="@PolicyNames.Permission_DoctorSchedule_Manage">
+            <Authorized>
+                <NavLink class="sidebar-link" href="/appointments/schedules" ActiveClass="sidebar-link-active">
+                    <i class="bi bi-calendar-week"></i>
+                    <span class="sidebar-text">Doctor Schedules</span>
+                </NavLink>
             </Authorized>
         </AuthorizeView>
 
-        <!-- Bed / Ward section -->
+        <!-- Bed & Ward -->
+        <AuthorizeView Policy="@PolicyNames.Permission_Beds_View">
+            <Authorized>
+                <NavLink class="sidebar-link" href="/beds/dashboard" ActiveClass="sidebar-link-active">
+                    <i class="bi bi-hospital"></i>
+                    <span class="sidebar-text">Bed Dashboard</span>
+                </NavLink>
+                <NavLink class="sidebar-link" href="/wards" Match="NavLinkMatch.All" ActiveClass="sidebar-link-active">
+                    <i class="bi bi-building"></i>
+                    <span class="sidebar-text">Ward List</span>
+                </NavLink>
+                <NavLink class="sidebar-link" href="/beds" Match="NavLinkMatch.All" ActiveClass="sidebar-link-active">
+                    <i class="bi bi-bed"></i>
+                    <span class="sidebar-text">Bed List</span>
+                </NavLink>
+            </Authorized>
+        </AuthorizeView>
+        <AuthorizeView Policy="@PolicyNames.Permission_Beds_Manage">
+            <Authorized>
+                <NavLink class="sidebar-link" href="/wards/create" ActiveClass="sidebar-link-active">
+                    <i class="bi bi-plus-circle"></i>
+                    <span class="sidebar-text">Add Ward</span>
+                </NavLink>
+                <NavLink class="sidebar-link" href="/beds/create" ActiveClass="sidebar-link-active">
+                    <i class="bi bi-plus-circle-fill"></i>
+                    <span class="sidebar-text">Add Bed</span>
+                </NavLink>
+            </Authorized>
+        </AuthorizeView>
+        <AuthorizeView Policy="@PolicyNames.Permission_BedAllotment_View">
+            <Authorized>
+                <NavLink class="sidebar-link" href="/allotments" Match="NavLinkMatch.All" ActiveClass="sidebar-link-active">
+                    <i class="bi bi-journal-medical"></i>
+                    <span class="sidebar-text">Allotments</span>
+                </NavLink>
+            </Authorized>
+        </AuthorizeView>
+        <AuthorizeView Policy="@PolicyNames.Permission_Beds_Allocate">
+            <Authorized>
+                <NavLink class="sidebar-link" href="/allotments/create" ActiveClass="sidebar-link-active">
+                    <i class="bi bi-person-plus"></i>
+                    <span class="sidebar-text">New Admission</span>
+                </NavLink>
+                <NavLink class="sidebar-link" href="/allotments/transfer" ActiveClass="sidebar-link-active">
+                    <i class="bi bi-arrow-left-right"></i>
+                    <span class="sidebar-text">Transfer Patient</span>
+                </NavLink>
+            </Authorized>
+        </AuthorizeView>
+
+        <!-- Clinical / Doctor -->
+        <AuthorizeView Policy="@PolicyNames.Permission_Queue_View">
+            <Authorized>
+                @if (doctorId != Guid.Empty)
+                {
+                    <NavLink class="sidebar-link" href="@($"/doctor/queue/{doctorId}")" Match="NavLinkMatch.All" ActiveClass="sidebar-link-active">
+                        <i class="bi bi-clock"></i>
+                        <span class="sidebar-text">My Queue</span>
+                    </NavLink>
+                }
+                else
+                {
+                    <NavLink class="sidebar-link" href="/doctor/queue" Match="NavLinkMatch.All" ActiveClass="sidebar-link-active">
+                        <i class="bi bi-clock"></i>
+                        <span class="sidebar-text">Doctor Queue</span>
+                    </NavLink>
+                }
+            </Authorized>
+        </AuthorizeView>
+        <AuthorizeView Policy="@PolicyNames.Permission_Encounters_Create">
+            <Authorized>
+                <NavLink class="sidebar-link" href="/encounter/new" ActiveClass="sidebar-link-active">
+                    <i class="bi bi-clipboard-plus"></i>
+                    <span class="sidebar-text">New Encounter</span>
+                </NavLink>
+            </Authorized>
+        </AuthorizeView>
+        <AuthorizeView Policy="@PolicyNames.Permission_Encounters_View">
+            <Authorized>
+                <NavLink class="sidebar-link" href="/encounters" Match="NavLinkMatch.All" ActiveClass="sidebar-link-active">
+                    <i class="bi bi-clipboard2-pulse"></i>
+                    <span class="sidebar-text">Encounters</span>
+                </NavLink>
+                <NavLink class="sidebar-link" href="/prescriptions" Match="NavLinkMatch.All" ActiveClass="sidebar-link-active">
+                    <i class="bi bi-prescription2"></i>
+                    <span class="sidebar-text">Prescriptions</span>
+                </NavLink>
+            </Authorized>
+        </AuthorizeView>
+        <AuthorizeView Policy="@PolicyNames.Permission_TeleConsult_Start">
+            <Authorized>
+                <NavLink class="sidebar-link" href="/teleconsult" Match="NavLinkMatch.All" ActiveClass="sidebar-link-active">
+                    <i class="bi bi-camera-video"></i>
+                    <span class="sidebar-text">Teleconsult</span>
+                </NavLink>
+            </Authorized>
+        </AuthorizeView>
+
+        <!-- Nursing -->
+        <AuthorizeView Policy="@PolicyNames.Permission_Vitals_View">
+            <Authorized>
+                <NavLink class="sidebar-link" href="/nursing" Match="NavLinkMatch.All" ActiveClass="sidebar-link-active">
+                    <i class="bi bi-heart-pulse"></i>
+                    <span class="sidebar-text">Nursing Dashboard</span>
+                </NavLink>
+                <NavLink class="sidebar-link" href="/nursing/vitals" ActiveClass="sidebar-link-active">
+                    <i class="bi bi-activity"></i>
+                    <span class="sidebar-text">Vitals</span>
+                </NavLink>
+            </Authorized>
+        </AuthorizeView>
+        <AuthorizeView Policy="@PolicyNames.Permission_NursingNotes_View">
+            <Authorized>
+                <NavLink class="sidebar-link" href="/nursing/notes" ActiveClass="sidebar-link-active">
+                    <i class="bi bi-clipboard-pulse"></i>
+                    <span class="sidebar-text">Nursing Notes</span>
+                </NavLink>
+            </Authorized>
+        </AuthorizeView>
+        <AuthorizeView Policy="@PolicyNames.Permission_MedicationAdmin_View">
+            <Authorized>
+                <NavLink class="sidebar-link" href="/nursing/mar" ActiveClass="sidebar-link-active">
+                    <i class="bi bi-capsule"></i>
+                    <span class="sidebar-text">MAR</span>
+                </NavLink>
+            </Authorized>
+        </AuthorizeView>
+
+        <!-- DIAGNOSTIC & SUPPORT SECTION -->
         <AuthorizeView>
             <Authorized>
-                <div class="nav-item px-3">
-                    <NavLink class="nav-link" href="beds/dashboard">
-                        <i class="bi bi-hospital me-3" aria-hidden="true"></i> Bed Dashboard
-                    </NavLink>
-                </div>
-                <div class="nav-item px-3">
-                    <NavLink class="nav-link" href="wards">
-                        <i class="bi bi-building me-3" aria-hidden="true"></i> Wards Master
-                    </NavLink>
-                </div>
-                <div class="nav-item px-3">
-                    <NavLink class="nav-link" href="beds">
-                        <i class="bi bi-bed me-3" aria-hidden="true"></i> Beds Master
-                    </NavLink>
-                </div>
-                <div class="nav-item px-3">
-                    <NavLink class="nav-link" href="allotments">
-                        <i class="bi bi-journal-medical me-3" aria-hidden="true"></i> Allotments
-                    </NavLink>
-                </div>
+                @if (HasDiagnosticAccess(context.User))
+                {
+                    <small class="text-muted px-3 mt-3 mb-1 fw-bold text-uppercase d-block" style="font-size: 0.65rem; letter-spacing: 0.05em; opacity: 0.8;">Diagnostic &amp; Support</small>
+                }
             </Authorized>
         </AuthorizeView>
 
-        <hr class="mx-3 my-2" />
-
-        <!-- Doctor section -->
-        <AuthorizeView>
-            <Authorized>
-                <div class="nav-item px-3">
-                    <NavLink class="nav-link" href="doctors">
-                        <i class="bi bi-person-badge me-3" aria-hidden="true"></i> Doctors
-                    </NavLink>
-                </div>
-                <div class="nav-item px-3">
-                    <NavLink class="nav-link" href="doctor/queue/00000000-0000-0000-0000-000000000000">
-                        <i class="bi bi-clock me-3" aria-hidden="true"></i> Queue
-                    </NavLink>
-                </div>
-                <div class="nav-item px-3">
-                    <NavLink class="nav-link" href="encounters">
-                        <i class="bi bi-clipboard2-pulse me-3" aria-hidden="true"></i> Encounters
-                    </NavLink>
-                </div>
-            </Authorized>
-        </AuthorizeView>
-
-        <hr class="mx-3 my-2" />
-
-        <!-- Billing section -->
-        <AuthorizeView Policy="@PolicyNames.Permission_Billing_ViewInvoices">
-            <Authorized>
-                <div class="nav-item px-3">
-                    <NavLink class="nav-link" href="billing/dashboard">
-                        <i class="bi bi-wallet2 me-3" aria-hidden="true"></i> Billing Dashboard
-                    </NavLink>
-                </div>
-                <div class="nav-item px-3">
-                    <NavLink class="nav-link" href="billing/invoices">
-                        <i class="bi bi-file-earmark-spreadsheet me-3" aria-hidden="true"></i> Invoices
-                    </NavLink>
-                </div>
-                <div class="nav-item px-3">
-                    <NavLink class="nav-link" href="billing/claims">
-                        <i class="bi bi-shield-check me-3" aria-hidden="true"></i> Claims
-                    </NavLink>
-                </div>
-            </Authorized>
-        </AuthorizeView>
-
-        <hr class="mx-3 my-2" />
-
-        <!-- Pharmacy section -->
-        <AuthorizeView Policy="@PolicyNames.Permission_Pharmacy_ViewStock">
-            <Authorized>
-                <div class="nav-item px-3">
-                    <NavLink class="nav-link" href="pharmacy/dashboard">
-                        <i class="bi bi-capsule me-3" aria-hidden="true"></i> Pharmacy Dashboard
-                    </NavLink>
-                </div>
-                <div class="nav-item px-3">
-                    <NavLink class="nav-link" href="pharmacy/items">
-                        <i class="bi bi-box-seam me-3" aria-hidden="true"></i> Pharmacy Items
-                    </NavLink>
-                </div>
-                <div class="nav-item px-3">
-                    <NavLink class="nav-link" href="pharmacy/suppliers">
-                        <i class="bi bi-truck me-3" aria-hidden="true"></i> Suppliers
-                    </NavLink>
-                </div>
-                <div class="nav-item px-3">
-                    <NavLink class="nav-link" href="pharmacy/purchase-orders">
-                        <i class="bi bi-cart4 me-3" aria-hidden="true"></i> Purchase Orders
-                    </NavLink>
-                </div>
-                <div class="nav-item px-3">
-                    <NavLink class="nav-link" href="pharmacy/grn">
-                        <i class="bi bi-box-arrow-in-down me-3" aria-hidden="true"></i> GRN (Receipts)
-                    </NavLink>
-                </div>
-                <div class="nav-item px-3">
-                    <NavLink class="nav-link" href="pharmacy/dispense">
-                        <i class="bi bi-prescription2 me-3" aria-hidden="true"></i> Dispense Rx
-                    </NavLink>
-                </div>
-                <div class="nav-item px-3">
-                    <NavLink class="nav-link" href="pharmacy/otc-sale">
-                        <i class="bi bi-shop me-3" aria-hidden="true"></i> OTC Sale (POS)
-                    </NavLink>
-                </div>
-                <div class="nav-item px-3">
-                    <NavLink class="nav-link" href="pharmacy/expiry-alerts">
-                        <i class="bi bi-exclamation-triangle me-3" aria-hidden="true"></i> Expiry Alerts
-                    </NavLink>
-                </div>
-                <div class="nav-item px-3">
-                    <NavLink class="nav-link" href="pharmacy/stock-ledger">
-                        <i class="bi bi-journal-text me-3" aria-hidden="true"></i> Stock Ledger
-                    </NavLink>
-                </div>
-            </Authorized>
-        </AuthorizeView>
-
-        <hr class="mx-3 my-2" />
-
-        <!-- Laboratory section -->
+        <!-- Laboratory -->
         <AuthorizeView Policy="@PolicyNames.Permission_Lab_ViewReports">
             <Authorized>
-                <div class="nav-item px-3">
-                    <NavLink class="nav-link" href="lab/dashboard">
-                        <i class="bi bi-flask me-3" aria-hidden="true"></i> Lab Dashboard
-                    </NavLink>
-                </div>
-                <div class="nav-item px-3">
-                    <NavLink class="nav-link" href="laboratory/catalog">
-                        <i class="bi bi-book me-3" aria-hidden="true"></i> Test Catalog
-                    </NavLink>
-                </div>
-                <div class="nav-item px-3">
-                    <NavLink class="nav-link" href="laboratory/requisitions">
-                        <i class="bi bi-receipt me-3" aria-hidden="true"></i> Requisitions
-                    </NavLink>
-                </div>
-                <div class="nav-item px-3">
-                    <NavLink class="nav-link" href="lab/notifications">
-                        <i class="bi bi-bell me-3" aria-hidden="true"></i> Notifications
-                    </NavLink>
-                </div>
+                <NavLink class="sidebar-link" href="/lab/dashboard" Match="NavLinkMatch.All" ActiveClass="sidebar-link-active">
+                    <i class="bi bi-flask"></i>
+                    <span class="sidebar-text">Lab Dashboard</span>
+                </NavLink>
+                <NavLink class="sidebar-link" href="/laboratory/catalog" ActiveClass="sidebar-link-active">
+                    <i class="bi bi-list-task"></i>
+                    <span class="sidebar-text">Test Catalog</span>
+                </NavLink>
             </Authorized>
         </AuthorizeView>
-
-        <hr class="mx-3 my-2" />
-
-        <!-- Notifications section -->
-        <AuthorizeView Policy="@PolicyNames.Permission_Admin_ManageTenant">
+        <AuthorizeView Policy="@PolicyNames.Permission_Lab_OrderTests">
             <Authorized>
-                <div class="nav-item px-3">
-                    <NavLink class="nav-link" href="notifications/dashboard">
-                        <i class="bi bi-bell-fill me-3" aria-hidden="true"></i> Notif Dashboard
-                    </NavLink>
-                </div>
-                <div class="nav-item px-3">
-                    <NavLink class="nav-link" href="notifications/templates">
-                        <i class="bi bi-file-earmark-text-fill me-3" aria-hidden="true"></i> Alert Templates
-                    </NavLink>
-                </div>
-                <div class="nav-item px-3">
-                    <NavLink class="nav-link" href="notifications/reminders">
-                        <i class="bi bi-calendar-check-fill me-3" aria-hidden="true"></i> Alert Reminders
-                    </NavLink>
-                </div>
-                <div class="nav-item px-3">
-                    <NavLink class="nav-link" href="notifications/dashboard?showLogs=true">
-                        <i class="bi bi-clock-history me-3" aria-hidden="true"></i> Outbox Logs
-                    </NavLink>
-                </div>
+                <NavLink class="sidebar-link" href="/laboratory/requisitions" ActiveClass="sidebar-link-active">
+                    <i class="bi bi-journal-text"></i>
+                    <span class="sidebar-text">Requisitions</span>
+                </NavLink>
             </Authorized>
         </AuthorizeView>
-
-        <!-- Analytics section -->
-        <AuthorizeView Policy="@PolicyNames.Permission_Analytics_View">
+        <AuthorizeView Policy="@PolicyNames.Permission_Lab_CollectSample">
             <Authorized>
-                <div class="nav-item px-3">
-                    <NavLink class="nav-link" href="admin/analytics">
-                        <i class="bi bi-graph-up me-3" aria-hidden="true"></i> Analytics
-                    </NavLink>
-                </div>
+                <NavLink class="sidebar-link" href="/laboratory/samples" ActiveClass="sidebar-link-active">
+                    <i class="bi bi-droplet"></i>
+                    <span class="sidebar-text">Sample Collection</span>
+                </NavLink>
             </Authorized>
         </AuthorizeView>
-
-        <hr class="mx-3 my-2" />
-
-        <!-- Admin section -->
-        <AuthorizeView Policy="@PolicyNames.Permission_Admin_ManageUsers">
+        <AuthorizeView Policy="@PolicyNames.Permission_Lab_EnterResults">
             <Authorized>
-                <div class="nav-item px-3">
-                    <small class="text-muted px-1 fw-semibold text-uppercase" style="font-size: 0.7rem;">Administration</small>
-                </div>
-                <div class="nav-item px-3">
-                    <NavLink class="nav-link" href="admin/dashboard">
-                        <i class="bi bi-shield-check me-3" aria-hidden="true"></i> Admin Dashboard
-                    </NavLink>
-                </div>
-                <div class="nav-item px-3">
-                    <NavLink class="nav-link" href="admin/users">
-                        <i class="bi bi-people me-3" aria-hidden="true"></i> Users
-                    </NavLink>
-                </div>
-                <div class="nav-item px-3">
-                    <NavLink class="nav-link" href="admin/roles">
-                        <i class="bi bi-shield-lock me-3" aria-hidden="true"></i> Role Permissions
-                    </NavLink>
-                </div>
-                <div class="nav-item px-3">
-                    <NavLink class="nav-link" href="admin/audit-log">
-                        <i class="bi bi-journal-check me-3" aria-hidden="true"></i> Audit Log
-                    </NavLink>
-                </div>
-                <div class="nav-item px-3">
-                    <NavLink class="nav-link" href="admin/sessions">
-                        <i class="bi bi-display me-3" aria-hidden="true"></i> Sessions
-                    </NavLink>
-                </div>
-                <div class="nav-item px-3">
-                    <NavLink class="nav-link" href="admin/tenant-settings">
-                        <i class="bi bi-gear-fill me-3" aria-hidden="true"></i> Tenant Settings
-                    </NavLink>
-                </div>
+                <NavLink class="sidebar-link" href="/laboratory/results" ActiveClass="sidebar-link-active">
+                    <i class="bi bi-clipboard-data"></i>
+                    <span class="sidebar-text">Result Entry</span>
+                </NavLink>
             </Authorized>
         </AuthorizeView>
 
-        <hr class="mx-3 my-2" />
+        <!-- Pharmacy -->
+        <AuthorizeView Policy="@PolicyNames.Permission_Pharmacy_ViewStock">
+            <Authorized>
+                <NavLink class="sidebar-link" href="/pharmacy/dashboard" Match="NavLinkMatch.All" ActiveClass="sidebar-link-active">
+                    <i class="bi bi-capsule-pill"></i>
+                    <span class="sidebar-text">Pharmacy Dashboard</span>
+                </NavLink>
+                <NavLink class="sidebar-link" href="/pharmacy/items" ActiveClass="sidebar-link-active">
+                    <i class="bi bi-box-seam"></i>
+                    <span class="sidebar-text">Drug Catalog</span>
+                </NavLink>
+                <NavLink class="sidebar-link" href="/pharmacy/stock-ledger" ActiveClass="sidebar-link-active">
+                    <i class="bi bi-journal-bookmark"></i>
+                    <span class="sidebar-text">Stock Ledger</span>
+                </NavLink>
+                <NavLink class="sidebar-link" href="/pharmacy/expiry-alerts" ActiveClass="sidebar-link-active">
+                    <i class="bi bi-exclamation-triangle"></i>
+                    <span class="sidebar-text">Expiry Alerts</span>
+                </NavLink>
+            </Authorized>
+        </AuthorizeView>
+        <AuthorizeView Policy="@PolicyNames.Permission_Pharmacy_ManagePO">
+            <Authorized>
+                <NavLink class="sidebar-link" href="/pharmacy/po" ActiveClass="sidebar-link-active">
+                    <i class="bi bi-file-earmark-text"></i>
+                    <span class="sidebar-text">Purchase Orders</span>
+                </NavLink>
+                <NavLink class="sidebar-link" href="/pharmacy/grn" ActiveClass="sidebar-link-active">
+                    <i class="bi bi-truck"></i>
+                    <span class="sidebar-text">Goods Received</span>
+                </NavLink>
+                <NavLink class="sidebar-link" href="/pharmacy/suppliers" ActiveClass="sidebar-link-active">
+                    <i class="bi bi-people"></i>
+                    <span class="sidebar-text">Suppliers</span>
+                </NavLink>
+            </Authorized>
+        </AuthorizeView>
+        <AuthorizeView Policy="@PolicyNames.Permission_Pharmacy_Dispense">
+            <Authorized>
+                <NavLink class="sidebar-link" href="/pharmacy/dispense" ActiveClass="sidebar-link-active">
+                    <i class="bi bi-prescription2"></i>
+                    <span class="sidebar-text">Dispense Rx</span>
+                </NavLink>
+            </Authorized>
+        </AuthorizeView>
+        <AuthorizeView Policy="@PolicyNames.Permission_Pharmacy_OtcSale">
+            <Authorized>
+                <NavLink class="sidebar-link" href="/pharmacy/otc-sale" ActiveClass="sidebar-link-active">
+                    <i class="bi bi-shop"></i>
+                    <span class="sidebar-text">OTC POS</span>
+                </NavLink>
+            </Authorized>
+        </AuthorizeView>
+        <AuthorizeView Policy="@PolicyNames.Permission_Pharmacy_ManageInventory">
+            <Authorized>
+                <NavLink class="sidebar-link" href="/pharmacy/controlled-register" ActiveClass="sidebar-link-active">
+                    <i class="bi bi-shield-lock"></i>
+                    <span class="sidebar-text">CS Register</span>
+                </NavLink>
+            </Authorized>
+        </AuthorizeView>
 
-        <!-- Logout -->
+        <!-- FINANCE & BILLING SECTION -->
         <AuthorizeView>
             <Authorized>
-                <div class="nav-item px-3 mb-3">
-                    <a class="nav-link text-danger" href="/auth/logout">
-                        <i class="bi bi-box-arrow-right me-3" aria-hidden="true"></i> Sign Out
-                    </a>
-                </div>
+                @if (HasBillingAccess(context.User))
+                {
+                    <small class="text-muted px-3 mt-3 mb-1 fw-bold text-uppercase d-block" style="font-size: 0.65rem; letter-spacing: 0.05em; opacity: 0.8;">Finance &amp; Billing</small>
+                }
             </Authorized>
-            <NotAuthorized>
-                <div class="nav-item px-3 mb-3">
-                    <a class="nav-link" href="/auth/login">
-                        <i class="bi bi-box-arrow-in-right me-3" aria-hidden="true"></i> Sign In
-                    </a>
-                </div>
-            </NotAuthorized>
         </AuthorizeView>
 
+        <!-- Billing -->
+        <AuthorizeView Policy="@PolicyNames.Permission_Billing_ViewInvoices">
+            <Authorized>
+                <NavLink class="sidebar-link" href="/billing/dashboard" Match="NavLinkMatch.All" ActiveClass="sidebar-link-active">
+                    <i class="bi bi-wallet2"></i>
+                    <span class="sidebar-text">Billing Dashboard</span>
+                </NavLink>
+                <NavLink class="sidebar-link" href="/billing/invoices" ActiveClass="sidebar-link-active">
+                    <i class="bi bi-file-earmark-spreadsheet"></i>
+                    <span class="sidebar-text">Invoices</span>
+                </NavLink>
+            </Authorized>
+        </AuthorizeView>
+        <AuthorizeView Policy="@PolicyNames.Permission_Payments_Manage">
+            <Authorized>
+                <NavLink class="sidebar-link" href="/billing/payments" ActiveClass="sidebar-link-active">
+                    <i class="bi bi-credit-card"></i>
+                    <span class="sidebar-text">Payments</span>
+                </NavLink>
+            </Authorized>
+        </AuthorizeView>
+        <AuthorizeView Policy="@PolicyNames.Permission_InsuranceClaims_View">
+            <Authorized>
+                <NavLink class="sidebar-link" href="/billing/claims" ActiveClass="sidebar-link-active">
+                    <i class="bi bi-shield-check"></i>
+                    <span class="sidebar-text">Insurance Claims</span>
+                </NavLink>
+            </Authorized>
+        </AuthorizeView>
+
+        <!-- SYSTEM & MANAGEMENT SECTION -->
+        <AuthorizeView>
+            <Authorized>
+                @if (HasAdminAccess(context.User))
+                {
+                    <small class="text-muted px-3 mt-3 mb-1 fw-bold text-uppercase d-block" style="font-size: 0.65rem; letter-spacing: 0.05em; opacity: 0.8;">System &amp; Administration</small>
+                }
+            </Authorized>
+        </AuthorizeView>
+
+        <!-- Notifications -->
+        <AuthorizeView Policy="@PolicyNames.Permission_Admin_ManageTenant">
+            <Authorized>
+                <NavLink class="sidebar-link" href="/notifications/dashboard" Match="NavLinkMatch.All" ActiveClass="sidebar-link-active">
+                    <i class="bi bi-bell-fill"></i>
+                    <span class="sidebar-text">Notif Dashboard</span>
+                </NavLink>
+                <NavLink class="sidebar-link" href="/notifications/templates" ActiveClass="sidebar-link-active">
+                    <i class="bi bi-file-earmark-text-fill"></i>
+                    <span class="sidebar-text">Alert Templates</span>
+                </NavLink>
+                <NavLink class="sidebar-link" href="/notifications/logs" ActiveClass="sidebar-link-active">
+                    <i class="bi bi-clock-history"></i>
+                    <span class="sidebar-text">Notification Logs</span>
+                </NavLink>
+                <NavLink class="sidebar-link" href="/notifications/reminders" ActiveClass="sidebar-link-active">
+                    <i class="bi bi-calendar-event"></i>
+                    <span class="sidebar-text">Scheduled Reminders</span>
+                </NavLink>
+            </Authorized>
+        </AuthorizeView>
+
+        <!-- Analytics -->
+        <AuthorizeView Policy="@PolicyNames.Permission_Analytics_View">
+            <Authorized>
+                <NavLink class="sidebar-link" href="/admin/analytics" ActiveClass="sidebar-link-active">
+                    <i class="bi bi-graph-up-arrow"></i>
+                    <span class="sidebar-text">Analytics</span>
+                </NavLink>
+            </Authorized>
+        </AuthorizeView>
+
+        <!-- Administration -->
+        <AuthorizeView Policy="@PolicyNames.Permission_Admin_ManageUsers">
+            <Authorized>
+                <NavLink class="sidebar-link" href="/admin/users" Match="NavLinkMatch.All" ActiveClass="sidebar-link-active">
+                    <i class="bi bi-people"></i>
+                    <span class="sidebar-text">Users</span>
+                </NavLink>
+            </Authorized>
+        </AuthorizeView>
+        <AuthorizeView Policy="@PolicyNames.Permission_Admin_ManageRoles">
+            <Authorized>
+                <NavLink class="sidebar-link" href="/admin/roles" ActiveClass="sidebar-link-active">
+                    <i class="bi bi-shield-lock"></i>
+                    <span class="sidebar-text">Roles &amp; Perms</span>
+                </NavLink>
+            </Authorized>
+        </AuthorizeView>
+        <AuthorizeView Policy="@PolicyNames.Permission_Admin_ViewAuditLog">
+            <Authorized>
+                <NavLink class="sidebar-link" href="/admin/sessions" ActiveClass="sidebar-link-active">
+                    <i class="bi bi-person-lines-fill"></i>
+                    <span class="sidebar-text">Sessions</span>
+                </NavLink>
+                <NavLink class="sidebar-link" href="/admin/audit-log" ActiveClass="sidebar-link-active">
+                    <i class="bi bi-journal-text"></i>
+                    <span class="sidebar-text">Audit Logs</span>
+                </NavLink>
+            </Authorized>
+        </AuthorizeView>
+        <AuthorizeView Policy="@PolicyNames.Permission_Admin_ManageTenant">
+            <Authorized>
+                <NavLink class="sidebar-link" href="/admin/tenant-settings" ActiveClass="sidebar-link-active">
+                    <i class="bi bi-gear"></i>
+                    <span class="sidebar-text">Tenant Settings</span>
+                </NavLink>
+            </Authorized>
+        </AuthorizeView>
     </nav>
-</div>
+
+    <!-- User profile footer -->
+    <AuthorizeView>
+        <Authorized>
+            <div class="sidebar-footer">
+                <div class="d-flex align-items-center">
+                    <div class="bg-light bg-opacity-25 rounded-circle d-flex align-items-center justify-content-center me-2 flex-shrink-0" style="width: 32px; height: 32px;">
+                        <i class="bi bi-person-fill text-white"></i>
+                    </div>
+                    <div style="min-width: 0;" class="user-footer-text text-white">
+                        <div class="fw-semibold small text-truncate">
+                            @(CurrentUserHelper.GetFullName(context.User) ?? context.User.Identity?.Name ?? "User")
+                        </div>
+                        <span class="badge bg-light text-dark fw-bold" style="font-size: 0.65rem;">
+                            @(CurrentUserHelper.GetUserRole(context.User) ?? "")
+                        </span>
+                        <div class="text-white-50 text-truncate" style="font-size: 0.7rem; margin-top: 1px;">
+                            @(context.User.FindFirst("target_hospital_name")?.Value ?? "CareSphere")
+                        </div>
+                    </div>
+                </div>
+                <div class="sidebar-footer-tablet-avatar" title="@(CurrentUserHelper.GetFullName(context.User) ?? "User")">
+                    @((CurrentUserHelper.GetFullName(context.User) ?? "U").Substring(0, 1).ToUpper())
+                </div>
+            </div>
+        </Authorized>
+    </AuthorizeView>
+</aside>
+
+@code {
+    private Guid doctorId = Guid.Empty;
+
+    protected override async Task OnInitializedAsync()
+    {
+        var state = await AuthStateProvider.GetAuthenticationStateAsync();
+        doctorId = CurrentUserHelper.GetDoctorId(state.User) ?? Guid.Empty;
+    }
+
+    private bool HasClinicalOrCoreAccess(System.Security.Claims.ClaimsPrincipal user)
+    {
+        return user.HasClaim(c => c.Type == CareSphereClaimTypes.Permission && (
+            c.Value == CareSpherePermissions.Patients_View ||
+            c.Value == CareSpherePermissions.Patients_Create ||
+            c.Value == CareSpherePermissions.Patients_Edit ||
+            c.Value == CareSpherePermissions.Appointments_View ||
+            c.Value == CareSpherePermissions.Appointments_Book ||
+            c.Value == CareSpherePermissions.DoctorSchedule_Manage ||
+            c.Value == CareSpherePermissions.Beds_View ||
+            c.Value == CareSpherePermissions.Beds_Manage ||
+            c.Value == CareSpherePermissions.BedAllotment_View ||
+            c.Value == CareSpherePermissions.Beds_Allocate ||
+            c.Value == CareSpherePermissions.Queue_View ||
+            c.Value == CareSpherePermissions.Encounters_Create ||
+            c.Value == CareSpherePermissions.Encounters_View ||
+            c.Value == CareSpherePermissions.TeleConsult_Start ||
+            c.Value == CareSpherePermissions.Vitals_View ||
+            c.Value == CareSpherePermissions.NursingNotes_View ||
+            c.Value == CareSpherePermissions.MedicationAdmin_View
+        ));
+    }
+
+    private bool HasDiagnosticAccess(System.Security.Claims.ClaimsPrincipal user)
+    {
+        return user.HasClaim(c => c.Type == CareSphereClaimTypes.Permission && (
+            c.Value == CareSpherePermissions.Lab_ViewReports ||
+            c.Value == CareSpherePermissions.Lab_OrderTests ||
+            c.Value == CareSpherePermissions.Lab_CollectSample ||
+            c.Value == CareSpherePermissions.Lab_EnterResults ||
+            c.Value == CareSpherePermissions.Pharmacy_ViewStock ||
+            c.Value == CareSpherePermissions.Pharmacy_ManagePO ||
+            c.Value == CareSpherePermissions.Pharmacy_Dispense ||
+            c.Value == CareSpherePermissions.Pharmacy_OtcSale ||
+            c.Value == CareSpherePermissions.Pharmacy_ManageInventory
+        ));
+    }
+
+    private bool HasBillingAccess(System.Security.Claims.ClaimsPrincipal user)
+    {
+        return user.HasClaim(c => c.Type == CareSphereClaimTypes.Permission && (
+            c.Value == CareSpherePermissions.Billing_ViewInvoices ||
+            c.Value == CareSpherePermissions.Payments_Manage ||
+            c.Value == CareSpherePermissions.InsuranceClaims_View
+        ));
+    }
+
+    private bool HasAdminAccess(System.Security.Claims.ClaimsPrincipal user)
+    {
+        return user.HasClaim(c => c.Type == CareSphereClaimTypes.Permission && (
+            c.Value == CareSpherePermissions.Admin_ManageUsers ||
+            c.Value == CareSpherePermissions.Admin_ManageRoles ||
+            c.Value == CareSpherePermissions.Admin_ViewAuditLog ||
+            c.Value == CareSpherePermissions.Admin_ManageTenant ||
+            c.Value == CareSpherePermissions.Analytics_View
+        ));
+    }
+}

@@ -10,6 +10,7 @@
 @inject ILabNotificationService NotificationService
 @inject NavigationManager NavigationManager
 @inject CareSphere.Authorization.TabIsolatedAuthenticationStateProvider AuthStateProvider
+@inject CareSphere.Infrastructure.PageTitleService PageTitle
 @inject ITenantContext TenantContext
 @rendermode InteractiveServer
 
@@ -190,6 +191,7 @@ else
         try
         {
             var authState = await AuthStateProvider.GetAuthenticationStateAsync();
+            PageTitle.SetTitle("Laboratory / Dashboard");
             currentTenantId = TenantContext.TenantId;
             currentDoctorId = authState.User.FindFirst("doctor_id")?.Value ?? authState.User.FindFirst(CareSphereClaimTypes.DoctorId)?.Value ?? "00000000-0000-0000-0000-000000000000";
             loading = true;

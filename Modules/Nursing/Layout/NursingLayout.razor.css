@@ -1,3 +1,2 @@
-.layout-container {
-    --module-accent: #dc3545; /* Nursing: red/rose */
-}
+﻿/* Unified accent color is inherited from :root in sidebar-system.css */
+

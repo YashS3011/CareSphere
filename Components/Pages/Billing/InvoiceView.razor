@@ -169,16 +169,24 @@
                     <div class="card-body d-grid gap-2">
                         @if (invoice.Status != "Cancelled" && invoice.BalanceAmount > 0)
                         {
-                            <button class="btn btn-success text-start py-2.5" @onclick="OpenPaymentModal">
-                                <i class="bi bi-cash-stack me-2 fs-5"></i> Add Payment / Settlement
-                            </button>
+                            <AuthorizeView Policy="@PolicyNames.Permission_Billing_RecordPayments">
+                                <Authorized>
+                                    <button class="btn btn-success text-start py-2.5" @onclick="OpenPaymentModal">
+                                        <i class="bi bi-cash-stack me-2 fs-5"></i> Add Payment / Settlement
+                                    </button>
+                                </Authorized>
+                            </AuthorizeView>
                         }
 
                         @if (invoice.Status == "Finalized" || invoice.Status == "PartiallyPaid")
                         {
-                            <button class="btn btn-warning text-start py-2.5" @onclick="OpenClaimModal">
-                                <i class="bi bi-shield-plus me-2 fs-5"></i> Create Insurance Claim
-                            </button>
+                            <AuthorizeView Policy="@PolicyNames.Permission_Billing_ManageClaims">
+                                <Authorized>
+                                    <button class="btn btn-warning text-start py-2.5" @onclick="OpenClaimModal">
+                                        <i class="bi bi-shield-plus me-2 fs-5"></i> Create Insurance Claim
+                                    </button>
+                                </Authorized>
+                            </AuthorizeView>
                         }
 
                         <button class="btn btn-outline-primary text-start py-2.5" @onclick="GenerateInvoicePdf" disabled="@isGeneratingPdf">

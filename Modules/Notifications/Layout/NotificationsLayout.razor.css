@@ -1,3 +1,2 @@
-.layout-container {
-    --module-accent: #fd7e14; /* Notifications: orange */
-}
+﻿/* Unified accent color is inherited from :root in sidebar-system.css */
+

@@ -3,108 +3,38 @@
 @using Microsoft.AspNetCore.Components.Authorization
 @using CareSphere.Infrastructure
 @using CareSphere.Components
+@using CareSphere.Components.Layout
+@inject PageTitleService PageTitle
+@implements IDisposable
 
 <div class="layout-container">
-    <!-- Sidebar -->
-    <aside class="sidebar-system offcanvas-md offcanvas-start" id="sidebar" tabindex="-1">
-        <!-- Sidebar Top Header -->
-        <div class="sidebar-header">
-            <div class="module-icon-badge">
-                <i class="bi bi-shield-lock-fill text-white"></i>
-            </div>
-            <span class="sidebar-header-text">🏥 Administration</span>
-        </div>
+    <NavMenu />
 
-        <!-- Sidebar Navigation -->
-        <nav class="sidebar-nav">
-            <NavLink class="sidebar-link" href="/admin/users" Match="NavLinkMatch.All" ActiveClass="sidebar-link-active">
-                <i class="bi bi-people"></i>
-                <span class="sidebar-text">Users</span>
-            </NavLink>
-            <NavLink class="sidebar-link" href="/admin/roles" ActiveClass="sidebar-link-active">
-                <i class="bi bi-shield-lock"></i>
-                <span class="sidebar-text">Roles &amp; Perms</span>
-            </NavLink>
-            <NavLink class="sidebar-link" href="/admin/sessions" ActiveClass="sidebar-link-active">
-                <i class="bi bi-person-lines-fill"></i>
-                <span class="sidebar-text">Sessions</span>
-            </NavLink>
-            <NavLink class="sidebar-link" href="/admin/audit-log" ActiveClass="sidebar-link-active">
-                <i class="bi bi-journal-text"></i>
-                <span class="sidebar-text">Audit Logs</span>
-            </NavLink>
-            <NavLink class="sidebar-link" href="/admin/tenant-settings" ActiveClass="sidebar-link-active">
-                <i class="bi bi-gear"></i>
-                <span class="sidebar-text">Tenant Settings</span>
-            </NavLink>
-            <NavLink class="sidebar-link" href="/admin/analytics" ActiveClass="sidebar-link-active">
-                <i class="bi bi-graph-up-arrow"></i>
-                <span class="sidebar-text">Analytics</span>
-            </NavLink>
-        </nav>
-
-        <!-- Sidebar User Footer -->
-        <AuthorizeView>
-            <Authorized>
-                <div class="sidebar-footer">
-                    <div class="d-flex align-items-center">
-                        <div class="bg-light bg-opacity-25 rounded-circle d-flex align-items-center justify-content-center me-2 flex-shrink-0"
-                             style="width: 32px; height: 32px;">
-                            <i class="bi bi-person-fill text-white"></i>
-                        </div>
-                        <div style="min-width: 0;" class="user-footer-text text-white">
-                            <div class="fw-semibold small text-truncate">
-                                @(CurrentUserHelper.GetFullName(context.User) ?? context.User.Identity?.Name ?? "User")
-                            </div>
-                            <span class="badge bg-light text-dark fw-bold" style="font-size: 0.65rem;">
-                                @(CurrentUserHelper.GetUserRole(context.User) ?? "")
-                            </span>
-                            <div class="text-white-50 text-truncate" style="font-size: 0.7rem; margin-top: 1px;">
-                                @(context.User.FindFirst("target_hospital_name")?.Value ?? "CareSphere Hospital")
-                            </div>
-                        </div>
-                    </div>
-                    <!-- Small avatar fallback for tablet mode -->
-                    <div class="sidebar-footer-tablet-avatar" title="@(CurrentUserHelper.GetFullName(context.User) ?? "User")">
-                        @((CurrentUserHelper.GetFullName(context.User) ?? "U").Substring(0, 1).ToUpper())
-                    </div>
-                </div>
-            </Authorized>
-        </AuthorizeView>
-    </aside>
-
-    <!-- Main Content Area -->
     <div class="flex-grow-1 d-flex flex-column min-width-0">
-        <!-- Top Navbar -->
         <header class="navbar-top">
             <div class="d-flex align-items-center">
-                <!-- Hamburger Menu for Mobile -->
                 <button class="btn d-md-none border-0 p-1 me-2 text-dark" type="button" data-bs-toggle="offcanvas" data-bs-target="#sidebar" aria-controls="sidebar">
                     <i class="bi bi-list fs-3"></i>
                 </button>
-                <h4 class="navbar-top-title">
-                    Administration / Admin Dashboard
-                </h4>
+                <h4 class="navbar-top-title">@PageTitle.Title</h4>
             </div>
-
             <div class="d-flex align-items-center gap-3">
                 <AuthorizeView>
                     <Authorized>
-                        <a href="/" class="btn btn-outline-secondary btn-sm rounded-pill px-3">
-                            <i class="bi bi-house-door-fill me-1"></i> Home
-                        </a>
-                        <a class="btn btn-outline-danger btn-sm rounded-pill px-3" href="/auth/logout">
-                            <i class="bi bi-box-arrow-right me-1"></i> Sign Out
-                        </a>
+                        <a href="/" class="btn btn-outline-secondary btn-sm rounded-pill px-3"><i class="bi bi-house-door-fill me-1"></i> Home</a>
+                        <a class="btn btn-outline-danger btn-sm rounded-pill px-3" href="/auth/logout"><i class="bi bi-box-arrow-right me-1"></i> Sign Out</a>
                     </Authorized>
                 </AuthorizeView>
             </div>
         </header>
-
-        <!-- Main Body -->
-        <main class="flex-grow-1 p-4 bg-light overflow-auto" style="height: calc(100vh - 64px);">
+        <main class="flex-grow-1 p-4 overflow-auto" style="height: calc(100vh - 64px); background-color: var(--surface-bg);">
             <ImpersonationBanner />
             @Body
         </main>
     </div>
 </div>
+
+@code {
+    protected override void OnInitialized() => PageTitle.OnTitleChanged += StateHasChanged;
+    public void Dispose() => PageTitle.OnTitleChanged -= StateHasChanged;
+}

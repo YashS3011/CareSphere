@@ -4,6 +4,7 @@
 @inject ITenantService TenantService
 @inject IConfiguration Configuration
 @inject AuthenticationStateProvider AuthStateProvider
+@inject CareSphere.Infrastructure.PageTitleService PageTitle
 @rendermode InteractiveServer
 
 <PageTitle>Role Permissions — CareSphere</PageTitle>
@@ -124,6 +125,7 @@
 
     protected override async Task OnInitializedAsync()
     {
+        PageTitle.SetTitle("Administration / Roles & Permissions");
         tenantStats = await TenantService.GetTenantStatsAsync(GetTenantId());
     }
 
