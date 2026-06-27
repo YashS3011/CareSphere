@@ -1,0 +1,452 @@
+/* =============================================================================
+   CareSphere — NEW Unified Role Layout System (cs-* classes)
+   Used by: AdminLayout, ClinicalLayout, NursingLayout, PatientsLayout,
+            PharmacyLayout, LaboratoryLayout, BillingLayout, WardLayout,
+            PlatformAdminLayout, PatientLayout
+   ============================================================================= */
+
+/* ─── Layout Shell ─────────────────────────────────────────────────────────── */
+.cs-layout {
+    display:        flex;
+    min-height:     100vh;
+    flex-direction: row;
+    background:     var(--surface-bg);
+}
+
+/* ─── Sidebar ──────────────────────────────────────────────────────────────── */
+.cs-sidebar {
+    width:            260px;
+    min-height:       100vh;
+    background:       var(--sidebar-bg) !important;
+    color:            var(--sidebar-color) !important;
+    display:          flex;
+    flex-direction:   column;
+    position:         sticky;
+    top:              0;
+    flex-shrink:      0;
+    border-right:     1px solid var(--sidebar-border-color);
+    z-index:          1030;
+    overflow-y:       auto;
+    scrollbar-width:  thin;
+    scrollbar-color:  rgba(255,255,255,.08) transparent;
+}
+
+/* Patient sidebar uses a teal brand */
+.cs-sidebar-patient {
+    background: #0f2235;
+}
+
+/* ─── Brand area ────────────────────────────────────────────────────────────── */
+.cs-sidebar-brand {
+    padding:       0.875rem 1rem;
+    border-bottom: 1px solid var(--sidebar-border-color);
+    flex-shrink:   0;
+}
+
+.cs-brand-link {
+    display:         flex;
+    align-items:     center;
+    gap:             0.75rem;
+    text-decoration: none !important;
+    color:           #ffffff !important;
+}
+.cs-brand-link:hover, .cs-brand-link:focus {
+    text-decoration: none !important;
+    color:           #ffffff !important;
+}
+
+.cs-brand-icon {
+    width:            36px;
+    height:           36px;
+    border-radius:    50%;
+    background:       var(--cs-accent);
+    display:          flex;
+    align-items:      center;
+    justify-content:  center;
+    font-size:        1.15rem;
+    flex-shrink:      0;
+    box-shadow:       0 2px 8px var(--cs-accent-glow);
+}
+
+.cs-brand-logo {
+    width:         36px;
+    height:        36px;
+    border-radius: 50%;
+    object-fit:    cover;
+    flex-shrink:   0;
+}
+
+.cs-brand-text {
+    display:       flex;
+    flex-direction: column;
+    min-width:     0;
+}
+
+.cs-brand-name {
+    font-size:     0.95rem;
+    font-weight:   700;
+    color:         #ffffff !important;
+    white-space:   nowrap;
+    overflow:      hidden;
+    text-overflow: ellipsis;
+    line-height:   1.2;
+}
+
+.cs-brand-sub {
+    font-size:   0.7rem;
+    color:       #94a3b8 !important;
+    font-weight: 500;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+}
+
+/* ─── Sidebar Nav ──────────────────────────────────────────────────────────── */
+.cs-sidebar-nav {
+    flex-grow:  1;
+    padding:    0.875rem 0.625rem;
+    overflow-y: auto;
+}
+
+/* Standard nav link */
+.cs-nav-link {
+    display:         flex;
+    align-items:     center;
+    gap:             0.625rem;
+    padding:         0.55rem 0.875rem;
+    color:           #94a3b8;
+    text-decoration: none;
+    border-radius:   0.5rem;
+    font-size:       0.875rem;
+    font-weight:     500;
+    transition:      background-color 0.15s ease, color 0.15s ease;
+    margin-bottom:   0.125rem;
+    border:          none;
+    width:           100%;
+    text-align:      left;
+    background:      none;
+    cursor:          pointer;
+}
+
+.cs-nav-link i {
+    font-size:  1rem;
+    flex-shrink: 0;
+    width:       1.2em;
+    text-align:  center;
+}
+
+.cs-nav-link:hover,
+.cs-nav-link:focus {
+    background-color: var(--cs-accent) !important;
+    color:            #ffffff !important;
+    outline:          none;
+    box-shadow:       0 4px 12px var(--cs-accent-glow) !important;
+}
+.cs-nav-link:hover i,
+.cs-nav-link:focus i {
+    color:            #ffffff !important;
+}
+
+/* Active state (Blazor NavLink adds "active") */
+.cs-nav-link.active {
+    background-color: var(--cs-accent) !important;
+    color:            #fff !important;
+    box-shadow:       0 2px 8px var(--cs-accent-glow);
+}
+
+/* Primary nav link (main dashboard link at top) */
+.cs-nav-primary {
+    color:       #cbd5e1;
+    font-weight: 600;
+    font-size:   0.9rem;
+    margin-bottom: 0.5rem;
+}
+
+/* ─── Section Label ─────────────────────────────────────────────────────────── */
+.cs-nav-section-label {
+    font-size:      0.68rem;
+    font-weight:    700;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color:          #475569;
+    padding:        0.75rem 0.875rem 0.35rem;
+}
+
+/* ─── Group Toggle (collapsible section header) ─────────────────────────────── */
+.cs-nav-group-toggle {
+    display:         flex;
+    align-items:     center;
+    gap:             0.625rem;
+    padding:         0.5rem 0.875rem;
+    color:           #94a3b8;
+    text-decoration: none;
+    border-radius:   0.5rem;
+    font-size:       0.875rem;
+    font-weight:     500;
+    width:           100%;
+    text-align:      left;
+    background:      none;
+    border:          none;
+    cursor:          pointer;
+    transition:      background-color 0.15s ease, color 0.15s ease;
+    margin-bottom:   0.125rem;
+}
+
+.cs-nav-group-toggle:hover {
+    background-color: rgba(255, 255, 255, 0.06);
+    color:            #f8fafc;
+}
+
+.cs-nav-group-toggle.expanded {
+    color: #e2e8f0;
+}
+
+.cs-nav-group-icon {
+    width:      1.2em;
+    text-align: center;
+    flex-shrink: 0;
+    font-size:  1rem;
+}
+
+/* Chevron rotates when expanded */
+.cs-chevron {
+    margin-left: auto;
+    font-size:   0.75rem;
+    transition:  transform 0.2s ease;
+    color:       #475569;
+}
+
+.cs-nav-group-toggle.expanded .cs-chevron {
+    transform: rotate(180deg);
+}
+
+/* ─── Sub-navigation ─────────────────────────────────────────────────────────── */
+.cs-nav-sub {
+    padding-left:  0.75rem;
+    border-left:   2px solid rgba(255, 255, 255, 0.06);
+    margin-left:   1.15rem;
+    margin-bottom: 0.375rem;
+    padding-top:   0.125rem;
+}
+
+.cs-nav-sub-link {
+    font-size:   0.825rem;
+    padding:     0.425rem 0.75rem;
+    color:       #64748b;
+    border-radius: 0.4rem;
+    margin-bottom: 0.05rem;
+}
+
+.cs-nav-sub-link:hover {
+    background-color: rgba(255, 255, 255, 0.05);
+    color:            #cbd5e1;
+}
+
+.cs-nav-sub-link.active {
+    background-color: rgba(26, 127, 232, 0.18) !important;
+    color:            #60a5fa !important;
+    box-shadow:       none;
+}
+
+.cs-nav-sub-link i {
+    font-size: 0.875rem;
+}
+
+/* ─── Sidebar Footer ─────────────────────────────────────────────────────────── */
+.cs-sidebar-footer {
+    display:        flex;
+    align-items:    center;
+    gap:            0.75rem;
+    padding:        0.875rem 1rem;
+    border-top:     1px solid var(--sidebar-border-color);
+    background:     rgba(0, 0, 0, 0.18);
+    flex-shrink:    0;
+}
+
+.cs-footer-user {
+    display:     flex;
+    align-items: center;
+    gap:         0.625rem;
+    flex-grow:   1;
+    min-width:   0;
+}
+
+.cs-avatar {
+    width:            32px;
+    height:           32px;
+    border-radius:    50%;
+    background:       rgba(255,255,255,.10);
+    display:          flex;
+    align-items:      center;
+    justify-content:  center;
+    font-size:        1rem;
+    color:            #cbd5e1;
+    flex-shrink:      0;
+}
+
+.cs-avatar-patient {
+    background: rgba(6, 182, 212, 0.2);
+    color: #06b6d4;
+}
+
+.cs-footer-info {
+    min-width:  0;
+    flex-grow:  1;
+}
+
+.cs-footer-name {
+    font-size:     0.8rem;
+    font-weight:   600;
+    color:         #e2e8f0;
+    white-space:   nowrap;
+    overflow:      hidden;
+    text-overflow: ellipsis;
+}
+
+.cs-signout-btn {
+    color:       #64748b;
+    font-size:   1.1rem;
+    text-decoration: none;
+    padding:     0.2rem;
+    border-radius: 0.375rem;
+    flex-shrink: 0;
+    transition:  color 0.15s ease;
+}
+
+.cs-signout-btn:hover {
+    color: #f87171;
+}
+
+/* ─── Role Badges (sidebar footer) ─────────────────────────────────────────── */
+.cs-role-badge {
+    display:        inline-block;
+    font-size:      0.65rem;
+    font-weight:    700;
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+    padding:        0.2em 0.55em;
+    border-radius:  99px;
+    margin-top:     0.1rem;
+    background:     rgba(255,255,255,.08);
+    color:          #94a3b8;
+}
+
+/* Role-specific badge colours */
+.cs-role-badge.platform      { background: rgba(99, 102, 241, .25); color: #a5b4fc; }
+.cs-role-badge.hospital-admin{ background: rgba(26, 127, 232, .25); color: #93c5fd; }
+.cs-role-badge.doctor        { background: rgba(20, 184, 166, .25); color: #5eead4; }
+.cs-role-badge.nurse         { background: rgba(236, 72, 153, .25); color: #f9a8d4; }
+.cs-role-badge.receptionist  { background: rgba(245, 158, 11, .25); color: #fcd34d; }
+.cs-role-badge.pharmacist    { background: rgba(139, 92, 246, .25); color: #c4b5fd; }
+.cs-role-badge.lab-tech      { background: rgba(6, 182, 212, .25);  color: #67e8f9; }
+.cs-role-badge.billing       { background: rgba(16, 185, 129, .25); color: #6ee7b7; }
+.cs-role-badge.ward-manager  { background: rgba(251, 146, 60, .25); color: #fdba74; }
+.cs-role-badge.patient       { background: rgba(6, 182, 212, .25);  color: #22d3ee; }
+
+/* ─── Main Content Area ─────────────────────────────────────────────────────── */
+.cs-main {
+    flex-grow:      1;
+    display:        flex;
+    flex-direction: column;
+    min-width:      0;
+    min-height:     100vh;
+}
+
+/* ─── Top Bar ───────────────────────────────────────────────────────────────── */
+.cs-topbar {
+    height:           64px;
+    background:       #fff;
+    border-bottom:    1px solid var(--surface-border);
+    padding:          0 1.5rem;
+    display:          flex;
+    align-items:      center;
+    justify-content:  space-between;
+    box-shadow:       0 1px 4px rgba(0,0,0,.06);
+    position:         sticky;
+    top:              0;
+    z-index:          1010;
+    flex-shrink:      0;
+}
+
+.cs-topbar-left {
+    display:     flex;
+    align-items: center;
+    gap:         0.75rem;
+    min-width:   0;
+}
+
+.cs-topbar-right {
+    display:     flex;
+    align-items: center;
+    gap:         0.75rem;
+    flex-shrink: 0;
+}
+
+.cs-page-title {
+    font-size:     1rem;
+    font-weight:   600;
+    color:         var(--text-body);
+    margin:        0;
+    white-space:   nowrap;
+    overflow:      hidden;
+    text-overflow: ellipsis;
+}
+
+.cs-topbar-role {
+    font-size:   0.8rem;
+    font-weight: 600;
+    color:       var(--text-muted);
+    white-space: nowrap;
+}
+
+.cs-role-patient {
+    color: #0e7490;
+}
+
+.cs-menu-toggle {
+    background: none;
+    border:     none;
+    color:      var(--text-body);
+    cursor:     pointer;
+    padding:    0.25rem;
+    line-height: 1;
+}
+
+/* ─── Body content area ─────────────────────────────────────────────────────── */
+.cs-body {
+    flex-grow:       1;
+    padding:         1.75rem;
+    overflow-y:      auto;
+    background:      var(--surface-bg);
+    min-height:      0;
+}
+
+/* ─── Responsive ─────────────────────────────────────────────────────────────── */
+@media (max-width: 767.98px) {
+    /* Mobile: sidebar is an offcanvas overlay */
+    .cs-sidebar {
+        position: fixed;
+        left:     0;
+        top:      0;
+        bottom:   0;
+        height:   100vh !important;
+        width:    280px !important;
+        z-index:  1050 !important;
+    }
+
+    .cs-body {
+        padding: 1rem;
+    }
+
+    .cs-topbar {
+        padding: 0 1rem;
+    }
+}
+
+@media (min-width: 768px) {
+    /* Show sidebar inline above md breakpoint */
+    .cs-sidebar.offcanvas-md {
+        position: sticky;
+        transform: none !important;
+        visibility: visible !important;
+    }
+}

@@ -1,0 +1,294 @@
+@page "/platform-admin/hospitals/{TenantIdParam:guid}"
+@attribute [Microsoft.AspNetCore.Authorization.Authorize(Policy = PolicyNames.Permission_Platform_ManageHospitals)]
+@inject IPlatformAdminService PlatformService
+@inject NavigationManager Nav
+@inject PageTitleService PageTitle
+@rendermode InteractiveServer
+
+<PageTitle>Hospital Detail — CareSphere Platform</PageTitle>
+
+@if (loading)
+{
+    <div class="d-flex justify-content-center py-5">
+        <div class="spinner-border text-primary" role="status"></div>
+    </div>
+}
+else if (tenant == null)
+{
+    <div class="alert alert-warning">Hospital not found.</div>
+}
+else
+{
+    <div class="page-header">
+        <div class="page-header-content">
+            <div class="page-title-group">
+                <div class="page-icon"><i class="bi bi-hospital-fill"></i></div>
+                <div>
+                    <h1 class="page-title">@tenant.HospitalName</h1>
+                    <p class="page-subtitle">
+                        <span class="badge @TierBadge(tenant.SubscriptionTier) me-2">@tenant.SubscriptionTier</span>
+                        @if (tenant.IsActive)
+                        { <span class="badge bg-success">Active</span> }
+                        else
+                        { <span class="badge bg-danger">Frozen</span> }
+                    </p>
+                </div>
+            </div>
+            <div class="page-actions">
+                <a href="/platform-admin/hospitals/@TenantIdParam/edit" class="btn btn-primary me-2">
+                    <i class="bi bi-pencil-square me-1"></i>Edit Settings
+                </a>
+                <a href="/platform-admin/hospitals" class="btn btn-outline-secondary">
+                    <i class="bi bi-arrow-left me-1"></i>Back
+                </a>
+            </div>
+        </div>
+    </div>
+
+    @if (!string.IsNullOrEmpty(actionMsg))
+    {
+        <div class="alert alert-@(actionSuccess ? "success" : "danger") border-0 rounded-3 mb-4">
+            <i class="bi bi-@(actionSuccess ? "check-circle" : "x-circle") me-1"></i>@actionMsg
+        </div>
+    }
+
+    <div class="row g-4">
+        <!-- Stats -->
+        <div class="col-12">
+            <div class="row g-3">
+                <div class="col-sm-6 col-lg-3">
+                    <div class="stat-card stat-card-primary">
+                        <div class="stat-icon"><i class="bi bi-people-fill"></i></div>
+                        <div>
+                            <div class="stat-value">@stats?.TotalUsers</div>
+                            <div class="stat-label">Total Users</div>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-sm-6 col-lg-3">
+                    <div class="stat-card stat-card-success">
+                        <div class="stat-icon"><i class="bi bi-person-check-fill"></i></div>
+                        <div>
+                            <div class="stat-value">@stats?.ActiveUsers</div>
+                            <div class="stat-label">Active Users</div>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-sm-6 col-lg-3">
+                    <div class="stat-card stat-card-info">
+                        <div class="stat-icon"><i class="bi bi-people"></i></div>
+                        <div>
+                            <div class="stat-value">@stats?.TotalPatients</div>
+                            <div class="stat-label">Total Patients</div>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-sm-6 col-lg-3">
+                    <div class="stat-card stat-card-warning">
+                        <div class="stat-icon"><i class="bi bi-hospital"></i></div>
+                        <div>
+                            <div class="stat-value">@stats?.TotalBeds</div>
+                            <div class="stat-label">Total Beds</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Details -->
+        <div class="col-md-6">
+            <div class="content-card h-100">
+                <div class="content-card-header d-flex justify-content-between align-items-center">
+                    <h5 class="content-card-title"><i class="bi bi-info-circle me-2"></i>Hospital Details</h5>
+                    <a href="/platform-admin/hospitals/@TenantIdParam/edit" class="btn btn-sm btn-outline-primary">
+                        <i class="bi bi-pencil-square me-1"></i>Edit
+                    </a>
+                </div>
+                <div class="content-card-body">
+                    <table class="table table-sm table-borderless mb-0">
+                        <tr><th class="text-muted w-40">Name</th><td class="fw-semibold">@tenant.HospitalName</td></tr>
+                        <tr><th class="text-muted">Address</th><td>@(tenant.AddressLine1 ?? "—")</td></tr>
+                        <tr><th class="text-muted">City</th><td>@(tenant.City ?? "—"), @(tenant.State ?? "—")</td></tr>
+                        <tr><th class="text-muted">Phone</th><td>@(tenant.Phone ?? "—")</td></tr>
+                        <tr><th class="text-muted">Email</th><td>@(tenant.Email ?? "—")</td></tr>
+                        <tr><th class="text-muted">Tier</th><td><span class="badge @TierBadge(tenant.SubscriptionTier)">@tenant.SubscriptionTier</span></td></tr>
+                        <tr><th class="text-muted">Max Users</th><td>@tenant.MaxUsersAllowed</td></tr>
+                        <tr><th class="text-muted">NABH Reg. No</th><td>@(tenant.NabhRegistrationNumber ?? "—")</td></tr>
+                        <tr><th class="text-muted">ABDM Facility ID</th><td>@(tenant.AbdmFacilityId ?? "—")</td></tr>
+                        <tr><th class="text-muted">SSO Enabled</th><td><span class="badge bg-@(tenant.SsoEnabled ? "success" : "secondary")">@(tenant.SsoEnabled ? "Yes" : "No")</span></td></tr>
+                        @if (tenant.SsoEnabled)
+                        {
+                            <tr><th class="text-muted">SSO Provider</th><td>@(tenant.SsoProvider ?? "—")</td></tr>
+                        }
+                        <tr><th class="text-muted">Created</th><td class="small">@tenant.CreatedAt.ToLocalTime().ToString("dd MMM yyyy")</td></tr>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+        <!-- Actions -->
+        <div class="col-md-6">
+            <div class="content-card h-100">
+                <div class="content-card-header">
+                    <h5 class="content-card-title"><i class="bi bi-gear me-2"></i>Vendor Actions</h5>
+                </div>
+                <div class="content-card-body d-flex flex-column gap-3">
+                    <div class="d-flex align-items-start gap-3 p-3 border rounded-3 bg-primary bg-opacity-5">
+                        <i class="bi bi-sliders text-primary fs-4 mt-1"></i>
+                        <div class="flex-grow-1">
+                            <div class="fw-semibold">Modify Settings & SSO</div>
+                            <small class="text-muted">Edit SSO configurations, ABDM/NABH IDs, Subscription properties, and Address.</small>
+                            <div class="mt-2">
+                                <a href="/platform-admin/hospitals/@TenantIdParam/edit" class="btn btn-sm btn-primary">
+                                    Edit Settings
+                                </a>
+                            </div>
+                        </div>
+                    </div>
+
+                    @if (tenant.IsActive)
+                    {
+                        <div class="d-flex align-items-start gap-3 p-3 border rounded-3 bg-warning bg-opacity-10">
+                            <i class="bi bi-lock-fill text-warning fs-4 mt-1"></i>
+                            <div class="flex-grow-1">
+                                <div class="fw-semibold">Freeze Hospital</div>
+                                <small class="text-muted">Immediately locks out all users of this hospital.</small>
+                                <div class="mt-2">
+                                    <button class="btn btn-sm btn-warning" @onclick="DoFreeze" disabled="@working">
+                                        @if (working) { <span class="spinner-border spinner-border-sm me-1"></span> }
+                                        Freeze Now
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    }
+                    else
+                    {
+                        <div class="d-flex align-items-start gap-3 p-3 border rounded-3 bg-success bg-opacity-10">
+                            <i class="bi bi-unlock-fill text-success fs-4 mt-1"></i>
+                            <div class="flex-grow-1">
+                                <div class="fw-semibold">Unfreeze Hospital</div>
+                                <small class="text-muted">Restores access for all users of this hospital.</small>
+                                <div class="mt-2">
+                                    <button class="btn btn-sm btn-success" @onclick="DoUnfreeze" disabled="@working">
+                                        @if (working) { <span class="spinner-border spinner-border-sm me-1"></span> }
+                                        Unfreeze Now
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    }
+
+                    <div class="d-flex align-items-start gap-3 p-3 border border-danger rounded-3 bg-danger bg-opacity-5">
+                        <i class="bi bi-trash-fill text-danger fs-4 mt-1"></i>
+                        <div class="flex-grow-1">
+                            <div class="fw-semibold text-danger">Delete Hospital</div>
+                            <small class="text-muted">Permanently deletes all hospital data. This action cannot be undone.</small>
+                            <div class="mt-2">
+                                @if (!confirmDelete)
+                                {
+                                    <button class="btn btn-sm btn-outline-danger" @onclick="() => confirmDelete = true">
+                                        Delete Hospital
+                                    </button>
+                                }
+                                else
+                                {
+                                    <div class="alert alert-danger p-2 mb-2 small">
+                                        <i class="bi bi-exclamation-triangle me-1"></i>
+                                        Are you absolutely sure? Type the hospital name to confirm.
+                                    </div>
+                                    <input class="form-control form-control-sm mb-2" @bind="deleteConfirmName"
+                                           placeholder="@tenant.HospitalName" />
+                                    <button class="btn btn-sm btn-danger me-2"
+                                            @onclick="DoDelete"
+                                            disabled="@(working || deleteConfirmName != tenant.HospitalName)">
+                                        @if (working) { <span class="spinner-border spinner-border-sm me-1"></span> }
+                                        Confirm Delete
+                                    </button>
+                                    <button class="btn btn-sm btn-outline-secondary" @onclick="() => confirmDelete = false">Cancel</button>
+                                }
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+}
+
+@code {
+    [Parameter] public Guid TenantIdParam { get; set; }
+
+    private bool loading = true;
+    private bool working;
+    private bool confirmDelete;
+    private string deleteConfirmName = "";
+    private string? actionMsg;
+    private bool actionSuccess;
+
+    private CareSphere.Models.TenantSettings? tenant;
+    private CareSphere.Modules.PlatformAdmin.Services.HospitalClientStats? stats;
+
+    protected override async Task OnInitializedAsync()
+    {
+        PageTitle.SetTitle("Platform / Hospital Detail");
+        await Load();
+    }
+
+    private async Task Load()
+    {
+        loading = true;
+        var hospitals = await PlatformService.GetAllHospitalsAsync();
+        tenant = hospitals.FirstOrDefault(h => h.TenantId == TenantIdParam);
+        if (tenant != null)
+            stats = await PlatformService.GetHospitalStatsAsync(TenantIdParam);
+        loading = false;
+    }
+
+    private async Task DoFreeze()
+    {
+        working = true;
+        try
+        {
+            await PlatformService.FreezeHospitalUsersAsync(TenantIdParam);
+            actionMsg = "Hospital has been frozen. All users are now locked out.";
+            actionSuccess = true;
+            await Load();
+        }
+        catch (Exception ex) { actionMsg = ex.Message; actionSuccess = false; }
+        finally { working = false; }
+    }
+
+    private async Task DoUnfreeze()
+    {
+        working = true;
+        try
+        {
+            await PlatformService.UnfreezeHospitalUsersAsync(TenantIdParam);
+            actionMsg = "Hospital has been unfrozen. Users can now log in.";
+            actionSuccess = true;
+            await Load();
+        }
+        catch (Exception ex) { actionMsg = ex.Message; actionSuccess = false; }
+        finally { working = false; }
+    }
+
+    private async Task DoDelete()
+    {
+        working = true;
+        try
+        {
+            await PlatformService.DeleteHospitalAsync(TenantIdParam);
+            Nav.NavigateTo("/platform-admin/hospitals");
+        }
+        catch (Exception ex) { actionMsg = ex.Message; actionSuccess = false; working = false; }
+    }
+
+    private static string TierBadge(string tier) => tier switch
+    {
+        "Enterprise" => "bg-primary",
+        "Pro"        => "bg-info text-dark",
+        "Basic"      => "bg-secondary",
+        _            => "bg-light text-dark border",
+    };
+}

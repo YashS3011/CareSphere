@@ -8,7 +8,18 @@ namespace CareSphere.Models
     {
         public static readonly Dictionary<string, List<string>> DefaultPermissions = new()
         {
-            [CareSphereRoles.SuperAdmin] = new List<string>
+            // ─── Platform Vendor ─────────────────────────────────────────────────────
+            [CareSphereRoles.PlatformAdmin] = new List<string>
+            {
+                CareSpherePermissions.Platform_ManageHospitals,
+            },
+            ["platform_super_admin"] = new List<string>
+            {
+                CareSpherePermissions.Platform_ManageHospitals,
+            },
+
+            // ─── Hospital Admin (same as SuperAdmin minus Platform) ───────────────────
+            [CareSphereRoles.HospitalAdmin] = new List<string>
             {
                 CareSpherePermissions.Patients_View,
                 CareSpherePermissions.Patients_Create,
@@ -23,6 +34,7 @@ namespace CareSphere.Models
                 CareSpherePermissions.Beds_Manage,
                 CareSpherePermissions.Beds_Allocate,
                 CareSpherePermissions.BedAllotment_View,
+                CareSpherePermissions.Wards_Manage,
                 CareSpherePermissions.Encounters_View,
                 CareSpherePermissions.Encounters_Create,
                 CareSpherePermissions.SoapNotes_Write,
@@ -66,37 +78,7 @@ namespace CareSphere.Models
                 CareSpherePermissions.Analytics_View,
             },
 
-            [CareSphereRoles.HospitalAdmin] = new List<string>
-            {
-                CareSpherePermissions.Patients_View,
-                CareSpherePermissions.Patients_Create,
-                CareSpherePermissions.Patients_Edit,
-                CareSpherePermissions.Patients_Delete,
-                CareSpherePermissions.Appointments_Create,
-                CareSpherePermissions.Appointments_View,
-                CareSpherePermissions.Beds_View,
-                CareSpherePermissions.Beds_Manage,
-                CareSpherePermissions.Beds_Allocate,
-                CareSpherePermissions.BedAllotment_View,
-                CareSpherePermissions.Encounters_View,
-                CareSpherePermissions.Queue_View,
-                CareSpherePermissions.Pharmacy_ViewStock,
-                CareSpherePermissions.Lab_ViewReports,
-                CareSpherePermissions.Billing_ViewInvoices,
-                CareSpherePermissions.Billing_CreateInvoices,
-                CareSpherePermissions.Billing_RecordPayments,
-                CareSpherePermissions.Billing_ManageClaims,
-                CareSpherePermissions.Billing_View,
-                CareSpherePermissions.Billing_Create,
-                CareSpherePermissions.Billing_Edit,
-                CareSpherePermissions.Payments_Manage,
-                CareSpherePermissions.InsuranceClaims_Manage,
-                CareSpherePermissions.InsuranceClaims_View,
-                CareSpherePermissions.Admin_ManageUsers,
-                CareSpherePermissions.Admin_ManageRoles,
-                CareSpherePermissions.Admin_ViewAuditLog,
-            },
-
+            // ─── Doctor ───────────────────────────────────────────────────────────────
             [CareSphereRoles.Doctor] = new List<string>
             {
                 CareSpherePermissions.Patients_View,
@@ -108,14 +90,11 @@ namespace CareSphere.Models
                 CareSpherePermissions.Prescriptions_Cancel,
                 CareSpherePermissions.TeleConsult_Start,
                 CareSpherePermissions.Queue_View,
-                CareSpherePermissions.Vitals_View,
-                CareSpherePermissions.NursingNotes_View,
-                CareSpherePermissions.MedicationAdmin_View,
                 CareSpherePermissions.Lab_OrderTests,
-                CareSpherePermissions.Lab_ViewReports,
-                CareSpherePermissions.Billing_ViewInvoices,
+                CareSpherePermissions.DoctorSchedule_Manage,
             },
 
+            // ─── Nurse ────────────────────────────────────────────────────────────────
             [CareSphereRoles.Nurse] = new List<string>
             {
                 CareSpherePermissions.Patients_View,
@@ -132,6 +111,23 @@ namespace CareSphere.Models
                 CareSpherePermissions.Lab_CollectSample,
             },
 
+            // ─── WardManager (replaces FrontDesk) ────────────────────────────────────
+            [CareSphereRoles.WardManager] = new List<string>
+            {
+                CareSpherePermissions.Patients_View,
+                CareSpherePermissions.Patients_Create,
+                CareSpherePermissions.Patients_Edit,
+                CareSpherePermissions.Beds_View,
+                CareSpherePermissions.Beds_Manage,
+                CareSpherePermissions.Beds_Allocate,
+                CareSpherePermissions.BedAllotment_View,
+                CareSpherePermissions.Wards_Manage,
+                CareSpherePermissions.Appointments_View,
+                CareSpherePermissions.Appointments_Create,
+                CareSpherePermissions.Billing_ViewInvoices,
+            },
+
+            // ─── Pharmacist ───────────────────────────────────────────────────────────
             [CareSphereRoles.Pharmacist] = new List<string>
             {
                 CareSpherePermissions.Patients_View,
@@ -143,6 +139,7 @@ namespace CareSphere.Models
                 CareSpherePermissions.Billing_ViewInvoices,
             },
 
+            // ─── Lab Technician ───────────────────────────────────────────────────────
             [CareSphereRoles.LabTechnician] = new List<string>
             {
                 CareSpherePermissions.Patients_View,
@@ -152,18 +149,7 @@ namespace CareSphere.Models
                 CareSpherePermissions.Lab_VerifyResults,
             },
 
-            [CareSphereRoles.FrontDesk] = new List<string>
-            {
-                CareSpherePermissions.Patients_View,
-                CareSpherePermissions.Patients_Create,
-                CareSpherePermissions.Patients_Edit,
-                CareSpherePermissions.Appointments_Create,
-                CareSpherePermissions.Appointments_View,
-                CareSpherePermissions.Beds_View,
-                CareSpherePermissions.BedAllotment_View,
-                CareSpherePermissions.Billing_ViewInvoices,
-            },
-
+            // ─── Receptionist ─────────────────────────────────────────────────────────
             [CareSphereRoles.Receptionist] = new List<string>
             {
                 CareSpherePermissions.Patients_View,
@@ -171,10 +157,12 @@ namespace CareSphere.Models
                 CareSpherePermissions.Appointments_Book,
                 CareSpherePermissions.Appointments_Create,
                 CareSpherePermissions.Appointments_View,
+                CareSpherePermissions.DoctorSchedule_Manage,
                 CareSpherePermissions.Beds_View,
                 CareSpherePermissions.Billing_ViewInvoices,
             },
 
+            // ─── Finance ──────────────────────────────────────────────────────────────
             [CareSphereRoles.Finance] = new List<string>
             {
                 CareSpherePermissions.Billing_ViewInvoices,
@@ -189,6 +177,7 @@ namespace CareSphere.Models
                 CareSpherePermissions.InsuranceClaims_View,
             },
 
+            // ─── Billing Staff ────────────────────────────────────────────────────────
             [CareSphereRoles.BillingStaff] = new List<string>
             {
                 CareSpherePermissions.Billing_ViewInvoices,
@@ -198,6 +187,7 @@ namespace CareSphere.Models
                 CareSpherePermissions.Billing_Create,
             },
 
+            // ─── NABH Auditor ─────────────────────────────────────────────────────────
             [CareSphereRoles.NabhAuditor] = new List<string>
             {
                 CareSpherePermissions.Patients_View,
@@ -212,6 +202,7 @@ namespace CareSphere.Models
                 CareSpherePermissions.Admin_ViewAuditLog,
             },
 
+            // ─── Patient (self-service portal) ───────────────────────────────────────
             [CareSphereRoles.Patient] = new List<string>
             {
                 CareSpherePermissions.OwnRecords_View,

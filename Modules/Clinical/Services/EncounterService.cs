@@ -142,7 +142,7 @@ namespace CareSphere.Modules.Clinical.Services
             {
                 var users = await _context.Users
                     .Where(u => u.TenantId == encounter.TenantId &&
-                                (u.Role == CareSphereRoles.FrontDesk || u.Role == CareSphereRoles.HospitalAdmin) &&
+                                (u.Role == CareSphereRoles.WardManager || u.Role == CareSphereRoles.HospitalAdmin) &&
                                 u.IsActive)
                     .ToListAsync();
 

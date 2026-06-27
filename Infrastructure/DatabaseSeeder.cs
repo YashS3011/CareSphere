@@ -201,6 +201,58 @@ namespace CareSphere.Infrastructure
                 TenantContext.BypassTenantId = defaultTenantId;
                 try
                 {
+                    // Repair 1.5: Ensure all roles exist
+                    var rolesList = new[]
+                    {
+                        CareSphereRoles.PlatformAdmin,
+                        CareSphereRoles.HospitalAdmin,
+                        CareSphereRoles.Doctor, CareSphereRoles.Nurse,
+                        CareSphereRoles.Pharmacist, CareSphereRoles.LabTechnician,
+                        CareSphereRoles.WardManager, CareSphereRoles.Finance,
+                        CareSphereRoles.NabhAuditor, CareSphereRoles.Patient,
+                        CareSphereRoles.Receptionist, CareSphereRoles.BillingStaff,
+                        "platform_super_admin"
+                    };
+                    foreach (var rName in rolesList)
+                    {
+                        if (!await _roleManager.RoleExistsAsync(rName))
+                        {
+                            _logger.LogInformation("Repair pass: creating missing role {RoleName}...", rName);
+                            await _roleManager.CreateAsync(new IdentityRole
+                            {
+                                Id = Guid.NewGuid().ToString(),
+                                Name = rName,
+                                NormalizedName = rName.ToUpperInvariant()
+                            });
+                        }
+                    }
+
+                    // Repair 1.6: Migrate legacy SuperAdmin role to HospitalAdmin
+                    if (await _roleManager.RoleExistsAsync("SuperAdmin"))
+                    {
+                        _logger.LogInformation("Repair pass: migrating SuperAdmin users to HospitalAdmin...");
+                        var superAdminUsers = await _userManager.GetUsersInRoleAsync("SuperAdmin");
+                        foreach (var user in superAdminUsers)
+                        {
+                            await _userManager.RemoveFromRoleAsync(user, "SuperAdmin");
+                            if (!await _userManager.IsInRoleAsync(user, CareSphereRoles.HospitalAdmin))
+                            {
+                                await _userManager.AddToRoleAsync(user, CareSphereRoles.HospitalAdmin);
+                            }
+                            if (user.Role == "SuperAdmin")
+                            {
+                                user.Role = CareSphereRoles.HospitalAdmin;
+                                await _userManager.UpdateAsync(user);
+                            }
+                        }
+                        
+                        var superAdminRoleObj = await _roleManager.FindByNameAsync("SuperAdmin");
+                        if (superAdminRoleObj != null)
+                        {
+                            await _roleManager.DeleteAsync(superAdminRoleObj);
+                        }
+                    }
+
                     // Repair 2: Ensure nurse2@caresphere.dev exists
                     var nurse2 = await _userManager.Users.IgnoreQueryFilters()
                         .FirstOrDefaultAsync(u => u.NormalizedEmail == "NURSE2@CARESPHERE.DEV");
@@ -247,27 +299,27 @@ namespace CareSphere.Infrastructure
                             await _userManager.AddToRoleAsync(user, CareSphereRoles.HospitalAdmin);
                     }
 
-                    // Ensure FrontDesk exists
-                    var frontDesk = await _userManager.Users.IgnoreQueryFilters()
-                        .FirstOrDefaultAsync(u => u.NormalizedEmail == "FRONTDESK@CARESPHERE.DEV");
-                    if (frontDesk == null)
+                    // Ensure WardManager exists
+                    var wardManager = await _userManager.Users.IgnoreQueryFilters()
+                        .FirstOrDefaultAsync(u => u.NormalizedEmail == "WARDMANAGER@CARESPHERE.DEV");
+                    if (wardManager == null)
                     {
-                        _logger.LogInformation("Inserting missing frontdesk@caresphere.dev account...");
+                        _logger.LogInformation("Inserting missing wardmanager@caresphere.dev account...");
                         var user = new ApplicationUser
                         {
-                            UserName = "frontdesk@caresphere.dev",
-                            Email = "frontdesk@caresphere.dev",
-                            FullName = "Test Front Desk",
+                            UserName = "wardmanager@caresphere.dev",
+                            Email = "wardmanager@caresphere.dev",
+                            FullName = "Test Ward Manager",
                             TenantId = defaultTenantId,
-                            Role = CareSphereRoles.FrontDesk,
+                            Role = CareSphereRoles.WardManager,
                             IsActive = true,
                             CreatedAt = DateTime.UtcNow,
                             PreferredLanguage = "en",
                             EmailConfirmed = true
                         };
-                        var res = await _userManager.CreateAsync(user, "FrontDesk@123");
+                        var res = await _userManager.CreateAsync(user, "WardManager@123");
                         if (res.Succeeded)
-                            await _userManager.AddToRoleAsync(user, CareSphereRoles.FrontDesk);
+                            await _userManager.AddToRoleAsync(user, CareSphereRoles.WardManager);
                     }
 
                     // Ensure Finance exists
@@ -319,6 +371,8 @@ namespace CareSphere.Infrastructure
                     // Ensure Patient exists
                     var patient = await _userManager.Users.IgnoreQueryFilters()
                         .FirstOrDefaultAsync(u => u.NormalizedEmail == "PATIENT@CARESPHERE.DEV");
+                    var johnDoePatient = await _context.Patients.IgnoreQueryFilters()
+                        .FirstOrDefaultAsync(p => p.Mrn == "MRN-000001");
                     if (patient == null)
                     {
                         _logger.LogInformation("Inserting missing patient@caresphere.dev account...");
@@ -332,11 +386,94 @@ namespace CareSphere.Infrastructure
                             IsActive = true,
                             CreatedAt = DateTime.UtcNow,
                             PreferredLanguage = "en",
-                            EmailConfirmed = true
+                            EmailConfirmed = true,
+                            PatientId = johnDoePatient?.Id
                         };
                         var res = await _userManager.CreateAsync(user, "Patient@123");
                         if (res.Succeeded)
                             await _userManager.AddToRoleAsync(user, CareSphereRoles.Patient);
+                    }
+                    else if (johnDoePatient != null && (!patient.PatientId.HasValue || patient.PatientId != johnDoePatient.Id))
+                    {
+                        patient.PatientId = johnDoePatient.Id;
+                        await _userManager.UpdateAsync(patient);
+                    }
+
+                    // Ensure Sarah Jenkins patient exists
+                    var sarahPatient = await _context.Patients.IgnoreQueryFilters()
+                        .FirstOrDefaultAsync(p => p.Email == "sarah.jenkins@example.com" || p.Mrn == "MRN-000002");
+                    if (sarahPatient == null)
+                    {
+                        _logger.LogInformation("Inserting missing Sarah Jenkins patient record...");
+                        sarahPatient = new Patient
+                        {
+                            Id = Guid.Parse("00000000-0000-0000-0000-000000000002"),
+                            TenantId = defaultTenantId,
+                            Mrn = "MRN-000002",
+                            FirstName = "Sarah",
+                            LastName = "Jenkins",
+                            DateOfBirth = new DateTime(1988, 11, 15),
+                            Gender = "Female",
+                            Phone = "9876549870",
+                            Email = "sarah.jenkins@example.com",
+                            Address = "789 Maple Drive, Sector 4",
+                            BloodGroup = "B+"
+                        };
+                        _context.Patients.Add(sarahPatient);
+                        await _context.SaveChangesAsync();
+                    }
+
+                    // Ensure Sarah Jenkins preference exists
+                    var sarahPref = await _context.PatientPreferences.IgnoreQueryFilters()
+                        .AnyAsync(p => p.PatientId == sarahPatient.Id);
+                    if (!sarahPref)
+                    {
+                        _logger.LogInformation("Inserting missing Sarah Jenkins preference record...");
+                        _context.PatientPreferences.Add(new PatientPreference
+                        {
+                            Id = Guid.NewGuid(),
+                            TenantId = defaultTenantId,
+                            PatientId = sarahPatient.Id,
+                            PreferredLanguage = "en",
+                            PreferredChannel = "SMS",
+                            OptOutSms = false,
+                            OptOutWhatsApp = false,
+                            OptOutVoice = false,
+                            AllowAppointmentReminders = true,
+                            AllowFollowUpReminders = true,
+                            AllowDischargeNotifications = true,
+                            AllowLabNotifications = true
+                        });
+                        await _context.SaveChangesAsync();
+                    }
+
+                    // Ensure Sarah Jenkins user exists
+                    var sarahUser = await _userManager.Users.IgnoreQueryFilters()
+                        .FirstOrDefaultAsync(u => u.NormalizedEmail == "SARAH.JENKINS@EXAMPLE.COM");
+                    if (sarahUser == null)
+                    {
+                        _logger.LogInformation("Inserting missing sarah.jenkins@example.com account...");
+                        sarahUser = new ApplicationUser
+                        {
+                            UserName = "sarah.jenkins@example.com",
+                            Email = "sarah.jenkins@example.com",
+                            FullName = "Sarah Jenkins",
+                            TenantId = defaultTenantId,
+                            Role = CareSphereRoles.Patient,
+                            IsActive = true,
+                            CreatedAt = DateTime.UtcNow,
+                            PreferredLanguage = "en",
+                            EmailConfirmed = true,
+                            PatientId = sarahPatient.Id
+                        };
+                        var res = await _userManager.CreateAsync(sarahUser, "Patient@123");
+                        if (res.Succeeded)
+                            await _userManager.AddToRoleAsync(sarahUser, CareSphereRoles.Patient);
+                    }
+                    else if (sarahUser.PatientId != sarahPatient.Id)
+                    {
+                        sarahUser.PatientId = sarahPatient.Id;
+                        await _userManager.UpdateAsync(sarahUser);
                     }
 
                     // Repair 2.1: Ensure platform admin role and user exist
@@ -727,10 +864,11 @@ namespace CareSphere.Infrastructure
                 // 3. Seed Roles
                 var rolesList = new[]
                 {
-                    CareSphereRoles.SuperAdmin, CareSphereRoles.HospitalAdmin,
+                    CareSphereRoles.PlatformAdmin,
+                    CareSphereRoles.HospitalAdmin,
                     CareSphereRoles.Doctor, CareSphereRoles.Nurse,
                     CareSphereRoles.Pharmacist, CareSphereRoles.LabTechnician,
-                    CareSphereRoles.FrontDesk, CareSphereRoles.Finance,
+                    CareSphereRoles.WardManager, CareSphereRoles.Finance,
                     CareSphereRoles.NabhAuditor, CareSphereRoles.Patient,
                     CareSphereRoles.Receptionist, CareSphereRoles.BillingStaff,
                     "platform_super_admin"
@@ -757,7 +895,7 @@ namespace CareSphere.Infrastructure
                 _logger.LogInformation("Roles created. Seeding user accounts for all roles...");
 
                 // Helper local function to create and link users
-                async Task<string> CreateUserAsync(string email, string fullName, string roleName, string password, Guid? linkedDoctorId = null, Guid? customTenantId = null)
+                async Task<string> CreateUserAsync(string email, string fullName, string roleName, string password, Guid? linkedDoctorId = null, Guid? customTenantId = null, Guid? linkedPatientId = null)
                 {
                     var userId = Guid.NewGuid().ToString();
                     var user = new ApplicationUser
@@ -772,7 +910,8 @@ namespace CareSphere.Infrastructure
                         CreatedAt = DateTime.UtcNow,
                         PreferredLanguage = "en",
                         EmailConfirmed = true,
-                        DoctorId = linkedDoctorId
+                        DoctorId = linkedDoctorId,
+                        PatientId = linkedPatientId
                     };
                     var uRes = await _userManager.CreateAsync(user, password);
                     if (!uRes.Succeeded)
@@ -788,7 +927,7 @@ namespace CareSphere.Infrastructure
                 };
 
                 // Seed the main login users for all roles in HMS matrix
-                var adminUserId = await CreateUserAsync("admin@caresphere.in", "System Administrator", CareSphereRoles.SuperAdmin, "Admin@123456");
+                var adminUserId = await CreateUserAsync("admin@caresphere.in", "System Administrator", CareSphereRoles.HospitalAdmin, "Admin@123456");
                 var hospitalAdminUserId = await CreateUserAsync("hospitaladmin@caresphere.dev", "Test Hospital Admin", CareSphereRoles.HospitalAdmin, "HospitalAdmin@123");
                 var receptionistUserId = await CreateUserAsync("receptionist@caresphere.dev", "Test Receptionist", CareSphereRoles.Receptionist, "Receptionist@123");
                 var nurseUserId = await CreateUserAsync("nurse@caresphere.dev", "Test Nurse", CareSphereRoles.Nurse, "Nurse@123");
@@ -796,10 +935,11 @@ namespace CareSphere.Infrastructure
                 var doctorUserId = await CreateUserAsync("doctor@caresphere.dev", "Test Doctor", CareSphereRoles.Doctor, "Doctor@123", doctorId);
                 var pharmacistUserId = await CreateUserAsync("pharmacist@caresphere.dev", "Test Pharmacist", CareSphereRoles.Pharmacist, "Pharmacist@123");
                 var labtechUserId = await CreateUserAsync("labtech@caresphere.dev", "Test Lab Technician", CareSphereRoles.LabTechnician, "LabTech@123");
-                var frontDeskUserId = await CreateUserAsync("frontdesk@caresphere.dev", "Test Front Desk", CareSphereRoles.FrontDesk, "FrontDesk@123");
+                var wardManagerUserId = await CreateUserAsync("wardmanager@caresphere.dev", "Test Ward Manager", CareSphereRoles.WardManager, "WardManager@123");
                 var financeUserId = await CreateUserAsync("finance@caresphere.dev", "Test Finance", CareSphereRoles.Finance, "Finance@123");
                 var nabhAuditorUserId = await CreateUserAsync("nabhauditor@caresphere.dev", "Test NABH Auditor", CareSphereRoles.NabhAuditor, "NabhAuditor@123");
-                var patientUserId = await CreateUserAsync("patient@caresphere.dev", "Test Patient", CareSphereRoles.Patient, "Patient@123");
+                var patientUserId = await CreateUserAsync("patient@caresphere.dev", "Test Patient", CareSphereRoles.Patient, "Patient@123", linkedPatientId: patientId);
+                var sarahUserId = await CreateUserAsync("sarah.jenkins@example.com", "Sarah Jenkins", CareSphereRoles.Patient, "Patient@123", linkedPatientId: Guid.Parse("00000000-0000-0000-0000-000000000002")); // Fixed static GUID for Sarah Jenkins patient
                 var nurse2UserId = await CreateUserAsync("nurse2@caresphere.dev", "Test Nurse (Nursing Module)", CareSphereRoles.Nurse, "Nurse@123");
                 var platformAdminUserId = await CreateUserAsync("platformadmin@caresphere.dev", "Platform Administrator", "platform_super_admin", "PlatformAdmin@123", customTenantId: Guid.Empty);
 
@@ -837,7 +977,7 @@ namespace CareSphere.Infrastructure
                 // 7. Seed RoleClaims (1 record)
                 var roleClaim = new IdentityRoleClaim<string>
                 {
-                    RoleId = roleIds[CareSphereRoles.SuperAdmin],
+                    RoleId = roleIds[CareSphereRoles.HospitalAdmin],
                     ClaimType = "permission",
                     ClaimValue = "admin.all"
                 };
@@ -901,6 +1041,22 @@ namespace CareSphere.Infrastructure
                 };
                 _context.Patients.Add(patient);
 
+                var sarahPatient = new Patient
+                {
+                    Id = Guid.Parse("00000000-0000-0000-0000-000000000002"),
+                    TenantId = defaultTenantId,
+                    Mrn = "MRN-000002",
+                    FirstName = "Sarah",
+                    LastName = "Jenkins",
+                    DateOfBirth = new DateTime(1988, 11, 15),
+                    Gender = "Female",
+                    Phone = "9876549870",
+                    Email = "sarah.jenkins@example.com",
+                    Address = "789 Maple Drive, Sector 4",
+                    BloodGroup = "B+"
+                };
+                _context.Patients.Add(sarahPatient);
+
                 // 12. PatientPreference (1 record)
                 var patientPreference = new PatientPreference
                 {
@@ -918,6 +1074,23 @@ namespace CareSphere.Infrastructure
                     AllowLabNotifications = true
                 };
                 _context.PatientPreferences.Add(patientPreference);
+
+                var sarahPreference = new PatientPreference
+                {
+                    Id = Guid.NewGuid(),
+                    TenantId = defaultTenantId,
+                    PatientId = Guid.Parse("00000000-0000-0000-0000-000000000002"),
+                    PreferredLanguage = "en",
+                    PreferredChannel = "SMS",
+                    OptOutSms = false,
+                    OptOutWhatsApp = false,
+                    OptOutVoice = false,
+                    AllowAppointmentReminders = true,
+                    AllowFollowUpReminders = true,
+                    AllowDischargeNotifications = true,
+                    AllowLabNotifications = true
+                };
+                _context.PatientPreferences.Add(sarahPreference);
 
                 // 13. Ward (1 record)
                 var ward = new Ward
@@ -1730,6 +1903,151 @@ namespace CareSphere.Infrastructure
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Failed to reset and seed database.");
+                throw;
+            }
+            finally
+            {
+                TenantContext.BypassTenantId = null;
+            }
+        }
+
+        public async Task SeedNewHospitalDefaultsAsync(Guid tenantId, string hospitalName, string emailSlug)
+        {
+            TenantContext.BypassTenantId = tenantId;
+            try
+            {
+                _logger.LogInformation("Seeding default settings and configurations for new hospital tenant: {TenantId}", tenantId);
+
+                // 1. Role Permissions
+                await _permissionService.SeedRolePermissionsAsync(tenantId);
+
+                // 2. Notification Templates
+                var templates = new List<NotificationTemplate>
+                {
+                    new() { Id = Guid.NewGuid(), TenantId = tenantId, TemplateName = "LabReportReady", NotificationType = "LabReportReady", Channel = "SMS", Language = "en", IsActive = true, TemplateBody = "Hi {{PatientName}}, your lab report (MRN: {{MRN}}) is ready. Please collect it from the lab desk." },
+                    new() { Id = Guid.NewGuid(), TenantId = tenantId, TemplateName = "AppointmentConfirmation", NotificationType = "AppointmentConfirmation", Channel = "SMS", Language = "en", IsActive = true, TemplateBody = "Hi {{PatientName}}, your appointment is confirmed for {{SlotTime}}. Please arrive 10 min early." },
+                    new() { Id = Guid.NewGuid(), TenantId = tenantId, TemplateName = "DischargeNotification", NotificationType = "DischargeNotification", Channel = "SMS", Language = "en", IsActive = true, TemplateBody = "Dear {{PatientName}}, you have been discharged. Thank you for choosing our hospital. Get well soon!" },
+                    new() { Id = Guid.NewGuid(), TenantId = tenantId, TemplateName = "AppointmentReminder", NotificationType = "AppointmentReminder", Channel = "SMS", Language = "en", IsActive = true, TemplateBody = "Reminder: Hi {{PatientName}}, you have an appointment tomorrow at {{SlotTime}}. To reschedule please contact reception. - CareSphere HMS" },
+                    new() { Id = Guid.NewGuid(), TenantId = tenantId, TemplateName = "CriticalVitalsAlert", NotificationType = "CriticalVitalsAlert", Channel = "InApp", Language = "en", IsActive = true, TemplateBody = "Patient {{PatientName}} (MRN: {{MRN}}) has critical vitals recorded at {{RecordedAt}}. Immediate review required." },
+                    new() { Id = Guid.NewGuid(), TenantId = tenantId, TemplateName = "LabReportReady", NotificationType = "LabReportReady", Channel = "WhatsApp", Language = "en", IsActive = true, TemplateBody = "Hello {{PatientName}} 👋, your lab report (MRN: {{MRN}}) is now ready for collection. Please visit the lab desk or ask your doctor at your next appointment. - CareSphere HMS" },
+                    new() { Id = Guid.NewGuid(), TenantId = tenantId, TemplateName = "AppointmentConfirmation", NotificationType = "AppointmentConfirmation", Channel = "WhatsApp", Language = "en", IsActive = true, TemplateBody = "Hello {{PatientName}} 👋, your appointment is confirmed for {{SlotTime}}. Please arrive 10 minutes early and carry a valid ID. See you soon! - CareSphere HMS" }
+                };
+                foreach (var template in templates)
+                {
+                    _context.NotificationTemplates.Add(template);
+                }
+
+                // 3. Wards & Beds
+                var generalWard = new Ward { Id = Guid.NewGuid(), TenantId = tenantId, Name = "General Ward A", WardType = "General", Floor = "1st Floor", Building = "Main Building" };
+                var semiPrivate = new Ward { Id = Guid.NewGuid(), TenantId = tenantId, Name = "Semi-Private Ward A", WardType = "Semi-Private", Floor = "2nd Floor", Building = "Main Building" };
+                var icu = new Ward { Id = Guid.NewGuid(), TenantId = tenantId, Name = "ICU A", WardType = "ICU", Floor = "3rd Floor", Building = "Main Building" };
+
+                _context.Wards.AddRange(generalWard, semiPrivate, icu);
+
+                for (int i = 1; i <= 5; i++)
+                {
+                    _context.Beds.Add(new Bed { Id = Guid.NewGuid(), TenantId = tenantId, WardId = generalWard.Id, BedNumber = $"{emailSlug.ToUpper()}-G-{i:D2}", BedType = "General", Status = "Available", IsActive = true });
+                }
+                for (int i = 1; i <= 2; i++)
+                {
+                    _context.Beds.Add(new Bed { Id = Guid.NewGuid(), TenantId = tenantId, WardId = semiPrivate.Id, BedNumber = $"{emailSlug.ToUpper()}-SP-{i:D2}", BedType = "Semi-Private", Status = "Available", IsActive = true });
+                }
+                for (int i = 1; i <= 2; i++)
+                {
+                    _context.Beds.Add(new Bed { Id = Guid.NewGuid(), TenantId = tenantId, WardId = icu.Id, BedNumber = $"{emailSlug.ToUpper()}-ICU-{i:D2}", BedType = "ICU", Status = "Available", IsActive = true });
+                }
+
+                // 4. Drug Formulary
+                var warFormulary = new DrugFormulary { Id = Guid.NewGuid(), TenantId = tenantId, DrugCode = "WAR-5", GenericName = "Warfarin", BrandName = "Coumadin", Form = "Tablet", Strength = "5mg", Unit = "Tablet", IsControlled = false, IsActive = true };
+                var parFormulary = new DrugFormulary { Id = Guid.NewGuid(), TenantId = tenantId, DrugCode = "PAR-500", GenericName = "Paracetamol", BrandName = "Crocin", Form = "Tablet", Strength = "500mg", Unit = "Tablet", IsControlled = false, IsActive = true };
+                var aspFormulary = new DrugFormulary { Id = Guid.NewGuid(), TenantId = tenantId, DrugCode = "ASP-75", GenericName = "Aspirin", BrandName = "Ecotrin", Form = "Tablet", Strength = "75mg", Unit = "Tablet", IsControlled = false, IsActive = true };
+
+                _context.DrugFormulary.AddRange(warFormulary, parFormulary, aspFormulary);
+
+                // 5. Suppliers
+                var supplier = new Supplier
+                {
+                    Id = Guid.NewGuid(),
+                    TenantId = tenantId,
+                    SupplierName = "MedLife Pharmaceuticals",
+                    ContactPerson = "Amit Sharma",
+                    Phone = "9876500001",
+                    Email = $"suppliers@{emailSlug}.caresphere.local",
+                    Address = "78 Pharma Zone, Andheri, Mumbai",
+                    GstNumber = "27AAAAA0000A1Z1",
+                    LicenseNumber = "DL-12345/2026",
+                    IsActive = true
+                };
+                _context.Suppliers.Add(supplier);
+
+                // 6. Pharmacy Items & Batches
+                var parItem = new PharmacyItem { Id = Guid.NewGuid(), TenantId = tenantId, ItemCode = "PAR-500", ItemName = "Paracetamol 500mg", GenericName = "Paracetamol", Category = "Medicine", Form = "Tablet", Strength = "500mg", Unit = "Strip", Barcode = $"BAR-PAR-{tenantId.ToString().Substring(0,8)}", IsControlled = false, RequiresPrescription = false, ReorderLevel = 100, IsActive = true };
+                var aspItem = new PharmacyItem { Id = Guid.NewGuid(), TenantId = tenantId, ItemCode = "ASP-75", ItemName = "Aspirin 75mg", GenericName = "Aspirin", Category = "Medicine", Form = "Tablet", Strength = "75mg", Unit = "Strip", Barcode = $"BAR-ASP-{tenantId.ToString().Substring(0,8)}", IsControlled = false, RequiresPrescription = true, ReorderLevel = 50, IsActive = true };
+                var warItem = new PharmacyItem { Id = Guid.NewGuid(), TenantId = tenantId, ItemCode = "WAR-5", ItemName = "Warfarin 5mg", GenericName = "Warfarin", Category = "Medicine", Form = "Tablet", Strength = "5mg", Unit = "Strip", Barcode = $"BAR-WAR-{tenantId.ToString().Substring(0,8)}", IsControlled = false, RequiresPrescription = true, ReorderLevel = 50, IsActive = true };
+
+                _context.PharmacyItems.AddRange(parItem, aspItem, warItem);
+
+                _context.PharmacyBatches.Add(new PharmacyBatch { Id = Guid.NewGuid(), TenantId = tenantId, ItemId = parItem.Id, BatchNumber = "BAT-PAR-99", SupplierId = supplier.Id, ManufactureDate = DateTime.UtcNow.AddMonths(-3), ExpiryDate = DateTime.UtcNow.AddYears(2), PurchasePrice = 10.00m, SellingPrice = 15.00m, CurrentStock = 500, ReservedStock = 0, IsActive = true });
+                _context.PharmacyBatches.Add(new PharmacyBatch { Id = Guid.NewGuid(), TenantId = tenantId, ItemId = aspItem.Id, BatchNumber = "BAT-ASP-75", SupplierId = supplier.Id, ManufactureDate = DateTime.UtcNow.AddMonths(-3), ExpiryDate = DateTime.UtcNow.AddYears(2), PurchasePrice = 8.00m, SellingPrice = 10.00m, CurrentStock = 300, ReservedStock = 0, IsActive = true });
+                _context.PharmacyBatches.Add(new PharmacyBatch { Id = Guid.NewGuid(), TenantId = tenantId, ItemId = warItem.Id, BatchNumber = "BAT-WAR-01", SupplierId = supplier.Id, ManufactureDate = DateTime.UtcNow.AddMonths(-3), ExpiryDate = DateTime.UtcNow.AddYears(2), PurchasePrice = 25.00m, SellingPrice = 35.00m, CurrentStock = 200, ReservedStock = 0, IsActive = true });
+
+                // 7. Drug Interaction
+                _context.DrugInteractions.Add(new DrugInteraction { Id = Guid.NewGuid(), TenantId = tenantId, DrugCodeA = "ASP-75", DrugCodeB = "WAR-5", Severity = "Warning", Description = "Increased risk of bleeding when Aspirin is co-administered with Warfarin." });
+
+                // 8. Lab Test Catalog
+                var cbcCatalog = new LabTestCatalog { Id = Guid.NewGuid(), TenantId = tenantId, TestCode = "CBC", TestName = "Complete Blood Count", Category = "Hematology", SampleType = "Blood", TurnaroundHours = 12, Price = 350.00m, IsActive = true };
+                _context.LabTestCatalogs.Add(cbcCatalog);
+                _context.LabTestParameters.Add(new LabTestParameter { Id = Guid.NewGuid(), TenantId = tenantId, TestId = cbcCatalog.Id, ParameterName = "Hemoglobin", ParameterCode = "HB", Unit = "g/dL", ReferenceRangeLow = 12.0m, ReferenceRangeHigh = 16.0m, DataType = "Numeric" });
+
+                // 9. Default users for roles so the hospital has a complete set of accounts pre-configured
+                var doctorId = Guid.NewGuid();
+                _context.Doctors.Add(new Doctor { Id = doctorId, TenantId = tenantId, RegistrationNumber = $"REG-{emailSlug.ToUpper()}-01", FirstName = "Default Test", LastName = "Doctor", Specialization = "General Medicine", Phone = "8888000011", Email = $"doctor@{emailSlug}.caresphere.local", IsActive = true });
+
+                var patientId = Guid.NewGuid();
+                var defaultPatient = new Patient { Id = patientId, TenantId = tenantId, Mrn = $"MRN-{emailSlug.ToUpper()}-01", FirstName = "Default", LastName = "Patient", DateOfBirth = new DateTime(1995, 5, 5), Gender = "Male", Phone = "9999000011", Email = $"patient@{emailSlug}.caresphere.local", Address = "Default Patient Address", BloodGroup = "B+" };
+                _context.Patients.Add(defaultPatient);
+
+                _context.PatientPreferences.Add(new PatientPreference { Id = Guid.NewGuid(), TenantId = tenantId, PatientId = patientId, PreferredLanguage = "en", PreferredChannel = "SMS", OptOutSms = false, OptOutWhatsApp = false, OptOutVoice = false, AllowAppointmentReminders = true, AllowFollowUpReminders = true, AllowDischargeNotifications = true, AllowLabNotifications = true });
+
+                await _context.SaveChangesAsync();
+
+                // Helper to create secondary users
+                async Task CreateSecondaryUserAsync(string roleName, string email, string fullName, Guid? linkedDocId = null, Guid? linkedPatientId = null)
+                {
+                    var user = new ApplicationUser
+                    {
+                        UserName = email,
+                        Email = email,
+                        FullName = fullName,
+                        TenantId = tenantId,
+                        Role = roleName,
+                        IsActive = true,
+                        EmailConfirmed = true,
+                        CreatedAt = DateTime.UtcNow,
+                        DoctorId = linkedDocId,
+                        PatientId = linkedPatientId
+                    };
+                    var res = await _userManager.CreateAsync(user, $"{roleName}@123");
+                    if (res.Succeeded)
+                        await _userManager.AddToRoleAsync(user, roleName);
+                }
+
+                await CreateSecondaryUserAsync(CareSphereRoles.Doctor, $"doctor@{emailSlug}.caresphere.local", "Test Doctor Account", linkedDocId: doctorId);
+                await CreateSecondaryUserAsync(CareSphereRoles.Nurse, $"nurse@{emailSlug}.caresphere.local", "Test Nurse Account");
+                await CreateSecondaryUserAsync(CareSphereRoles.Receptionist, $"receptionist@{emailSlug}.caresphere.local", "Test Receptionist Account");
+                await CreateSecondaryUserAsync(CareSphereRoles.Pharmacist, $"pharmacist@{emailSlug}.caresphere.local", "Test Pharmacist Account");
+                await CreateSecondaryUserAsync(CareSphereRoles.LabTechnician, $"labtech@{emailSlug}.caresphere.local", "Test LabTech Account");
+                await CreateSecondaryUserAsync(CareSphereRoles.BillingStaff,  $"billingstaff@{emailSlug}.caresphere.local", "Test BillingStaff Account");
+                await CreateSecondaryUserAsync(CareSphereRoles.WardManager,  $"wardmanager@{emailSlug}.caresphere.local", "Test WardManager Account");
+                await CreateSecondaryUserAsync(CareSphereRoles.Finance,      $"finance@{emailSlug}.caresphere.local", "Test Finance Account");
+                await CreateSecondaryUserAsync(CareSphereRoles.NabhAuditor,  $"nabhauditor@{emailSlug}.caresphere.local", "Test NabhAuditor Account");
+                await CreateSecondaryUserAsync(CareSphereRoles.Patient,      $"patient@{emailSlug}.caresphere.local", "Test Patient Account", linkedPatientId: patientId);
+
+                _logger.LogInformation("Successfully completed seeding defaults for hospital tenant: {TenantId}", tenantId);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Failed to seed default settings and configurations for new hospital tenant: {TenantId}", tenantId);
                 throw;
             }
             finally

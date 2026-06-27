@@ -31,12 +31,13 @@ namespace CareSphere.Modules.Admin.Services
         public bool IsActive { get; set; }
         public DateTime? LastLoginAt { get; set; }
         public Guid? DoctorId { get; set; }
+        public Guid? PatientId { get; set; }
     }
 
     public interface IUserService
     {
-        Task<UserCreateResult> CreateUserAsync(Guid tenantId, string fullName, string email, string password, string role, string? department = null, Guid? doctorId = null);
-        Task<UserCreateResult> UpdateUserAsync(string userId, string fullName, string? department, bool isActive, string preferredLanguage, Guid? doctorId);
+        Task<UserCreateResult> CreateUserAsync(Guid tenantId, string fullName, string email, string password, string role, string? department = null, Guid? doctorId = null, Guid? patientId = null);
+        Task<UserCreateResult> UpdateUserAsync(string userId, string fullName, string? department, bool isActive, string preferredLanguage, Guid? doctorId, Guid? patientId = null);
         Task<UserCreateResult> ResetPasswordAsync(string userId, string newPassword);
         Task<UserCreateResult> ToggleUserActiveAsync(string userId, string performedByUserId);
         Task<ApplicationUser?> GetUserByIdAsync(string userId);

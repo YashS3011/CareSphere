@@ -64,5 +64,12 @@ namespace CareSphere.Models
         /// </summary>
         [Column("doctor_id")]
         public Guid? DoctorId { get; set; }
+
+        /// <summary>
+        /// Optional link to a Patient record — set when Role is Patient so that
+        /// the self-service portal can filter all data to this specific patient.
+        /// </summary>
+        [Column("patient_id")]
+        public Guid? PatientId { get; set; }
     }
 }

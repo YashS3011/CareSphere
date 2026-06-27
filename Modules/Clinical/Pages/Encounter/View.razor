@@ -43,7 +43,7 @@ else if (encounter != null)
                 }
                 @if (encounter.Status == "InProgress")
                 {
-                    <a href="/laboratory/requisitions/create?patientId=@encounter.PatientId&encounterId=@encounter.Id" class="btn btn-outline-primary me-2"><i class="bi bi-flask me-1"></i> Order Lab</a>
+                    <a href="/laboratory/requisitions/create?patientId=@encounter.PatientId&encounterId=@encounter.Id" class="btn btn-outline-primary me-2"><i class="bi bi-droplet me-1"></i> Order Lab</a>
                     <div class="d-inline-block me-2">
                         <select class="form-select w-auto d-inline-block" @bind="selectedDisposition">
                             <option value="">Select Disposition...</option>

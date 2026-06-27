@@ -1,40 +1,484 @@
 @inherits LayoutComponentBase
 @using Microsoft.AspNetCore.Components.Routing
 @using Microsoft.AspNetCore.Components.Authorization
+@using CareSphere
 @using CareSphere.Infrastructure
 @using CareSphere.Components
-@using CareSphere.Components.Layout
+@inject AuthenticationStateProvider AuthStateProvider
+@inject NavigationManager Nav
 @inject PageTitleService PageTitle
+@inject CareSphere.Modules.Admin.Services.ITenantService TenantSvc
+@inject ITenantContext TenantContext
 @implements IDisposable
 
-<div class="layout-container">
-    <NavMenu />
+<style>
+    /* Prevent default link color inheriting on brand links */
+    .cs-brand-link, .cs-brand-link:hover, .cs-brand-link:focus {
+        color: #ffffff !important;
+        text-decoration: none !important;
+    }
+    .cs-brand-name {
+        color: #ffffff !important;
+    }
+    
+    /* Sleek sidebar transitions */
+    .cs-sidebar.collapsed {
+        width: 70px !important;
+        transition: width 0.2s ease;
+    }
+    .cs-sidebar.collapsed .cs-brand-text,
+    .cs-sidebar.collapsed .cs-nav-link span,
+    .cs-sidebar.collapsed .cs-nav-group-toggle > span:not(.cs-nav-group-icon),
+    .cs-sidebar.collapsed .cs-nav-group-toggle .cs-chevron,
+    .cs-sidebar.collapsed .cs-nav-sub,
+    .cs-sidebar.collapsed .cs-nav-section-label,
+    .cs-sidebar.collapsed .cs-footer-info {
+        display: none !important;
+    }
+    .cs-sidebar.collapsed .cs-nav-link,
+    .cs-sidebar.collapsed .cs-nav-group-toggle {
+        justify-content: center;
+        padding: 0.65rem;
+    }
+    .cs-sidebar.collapsed .cs-nav-link i,
+    .cs-sidebar.collapsed .cs-nav-group-toggle .cs-nav-group-icon i {
+        margin: 0 !important;
+        font-size: 1.25rem;
+    }
+    .cs-sidebar.collapsed .cs-brand-link {
+        justify-content: center;
+        gap: 0 !important;
+    }
+    .cs-sidebar.collapsed .cs-sidebar-brand {
+        padding: 0.875rem 0 !important;
+    }
+    .cs-sidebar.collapsed .cs-sidebar-footer {
+        justify-content: center;
+        padding: 0.75rem 0;
+    }
+    .cs-sidebar.collapsed .cs-signout-btn {
+        display: none;
+    }
+    .cs-sidebar {
+        transition: width 0.2s ease;
+    }
+    
+    /* Nav link hover contrast improvements */
+    .cs-nav-link:hover, .cs-nav-link:focus,
+    .cs-nav-group-toggle:hover, .cs-nav-group-toggle:focus {
+        background-color: var(--cs-accent) !important;
+        color: #ffffff !important;
+        box-shadow: 0 4px 12px var(--cs-accent-glow) !important;
+        transition: all 0.2s ease;
+    }
+    .cs-nav-link:hover i,
+    .cs-nav-group-toggle:hover i,
+    .cs-nav-group-toggle:hover .cs-nav-group-icon i {
+        color: #ffffff !important;
+    }
+    
+    .hover-opacity:hover {
+        opacity: 0.9;
+        transform: translateY(-1px);
+    }
+</style>
 
-    <div class="flex-grow-1 d-flex flex-column min-width-0">
-        <header class="navbar-top">
-            <div class="d-flex align-items-center">
-                <button class="btn d-md-none border-0 p-1 me-2 text-dark" type="button" data-bs-toggle="offcanvas" data-bs-target="#sidebar" aria-controls="sidebar">
-                    <i class="bi bi-list fs-3"></i>
+<div class="cs-layout">
+    <!-- ── Hospital Admin Sidebar ─────────────────────────────── -->
+    <aside class="cs-sidebar offcanvas-md offcanvas-start @(isCollapsed ? "collapsed" : "")" id="cs-sidebar" tabindex="-1">
+
+        <!-- Brand: Hospital Logo + Name -->
+        <div class="cs-sidebar-brand">
+            <a href="/dashboard" class="cs-brand-link">
+                @if (!string.IsNullOrEmpty(logoPath))
+                {
+                    <img src="@logoPath" class="cs-brand-logo" alt="Hospital Logo" />
+                }
+                else
+                {
+                    <div class="cs-brand-icon">
+                        <i class="bi bi-hospital-fill text-white"></i>
+                    </div>
+                }
+                <div class="cs-brand-text">
+                    <span class="cs-brand-name">@hospitalName</span>
+                    <span class="cs-brand-sub">CareSphere</span>
+                </div>
+            </a>
+        </div>
+
+        <!-- Navigation -->
+        <nav class="cs-sidebar-nav">
+
+            <!-- Dashboard -->
+            <NavLink class="cs-nav-link cs-nav-primary" href="/dashboard" Match="NavLinkMatch.All" title="Dashboard">
+                <i class="bi bi-speedometer2"></i><span>Dashboard</span>
+            </NavLink>
+
+            @if (CurrentUser != null && HasAdminAccess(CurrentUser))
+            {
+            <!-- ── Administration ───────────────────────────────── -->
+            <button class="cs-nav-group-toggle @(IsExpanded("admin") ? "expanded" : "")"
+                    @onclick='() => Toggle("admin")' title="Administration">
+                <span class="cs-nav-group-icon"><i class="bi bi-shield-lock-fill"></i></span>
+                <span>Administration</span>
+                <i class="bi bi-chevron-down cs-chevron"></i>
+            </button>
+            @if (IsExpanded("admin"))
+            {
+                <div class="cs-nav-sub">
+                    <AuthorizeView Policy="@PolicyNames.Permission_Admin_ManageUsers"><Authorized><NavLink class="cs-nav-link cs-nav-sub-link" href="/admin/users" Match="NavLinkMatch.All"><i class="bi bi-people"></i><span>Users</span></NavLink></Authorized></AuthorizeView>
+                    <AuthorizeView Policy="@PolicyNames.Permission_Admin_ManageRoles"><Authorized><NavLink class="cs-nav-link cs-nav-sub-link" href="/admin/roles"><i class="bi bi-shield-lock"></i><span>Roles &amp; Perms</span></NavLink></Authorized></AuthorizeView>
+                    <AuthorizeView Policy="@PolicyNames.Permission_Admin_ViewAuditLog"><Authorized><NavLink class="cs-nav-link cs-nav-sub-link" href="/admin/sessions"><i class="bi bi-person-lines-fill"></i><span>Sessions</span></NavLink></Authorized></AuthorizeView>
+                    <AuthorizeView Policy="@PolicyNames.Permission_Admin_ViewAuditLog"><Authorized><NavLink class="cs-nav-link cs-nav-sub-link" href="/admin/audit-log"><i class="bi bi-journal-text"></i><span>Audit Logs</span></NavLink></Authorized></AuthorizeView>
+                    <AuthorizeView Policy="@PolicyNames.Permission_Admin_ManageTenant"><Authorized><NavLink class="cs-nav-link cs-nav-sub-link" href="/admin/tenant-settings"><i class="bi bi-gear"></i><span>Hospital Settings</span></NavLink></Authorized></AuthorizeView>
+                    <AuthorizeView Policy="@PolicyNames.Permission_Analytics_View"><Authorized><NavLink class="cs-nav-link cs-nav-sub-link" href="/admin/analytics"><i class="bi bi-graph-up-arrow"></i><span>Analytics</span></NavLink></Authorized></AuthorizeView>
+                </div>
+            }
+
+                        }
+
+            @if (CurrentUser != null && HasPatientAccess(CurrentUser))
+            {
+            <!-- ── Patients ─────────────────────────────────────── -->
+            <button class="cs-nav-group-toggle @(IsExpanded("patients") ? "expanded" : "")"
+                    @onclick='() => Toggle("patients")' title="Patients">
+                <span class="cs-nav-group-icon"><i class="bi bi-people-fill"></i></span>
+                <span>Patients</span>
+                <i class="bi bi-chevron-down cs-chevron"></i>
+            </button>
+            @if (IsExpanded("patients"))
+            {
+                <div class="cs-nav-sub">
+                    <NavLink class="cs-nav-link cs-nav-sub-link" href="/patients" Match="NavLinkMatch.All"><i class="bi bi-list-ul"></i><span>Patient List</span></NavLink>
+                    <AuthorizeView Policy="@PolicyNames.Permission_Patients_Create"><Authorized><NavLink class="cs-nav-link cs-nav-sub-link" href="/patients/create"><i class="bi bi-person-plus-fill"></i><span>Register Patient</span></NavLink></Authorized></AuthorizeView>
+                    <AuthorizeView Policy="@PolicyNames.Permission_Appointments_View"><Authorized><NavLink class="cs-nav-link cs-nav-sub-link" href="/appointments" Match="NavLinkMatch.All"><i class="bi bi-calendar-event"></i><span>Appointments</span></NavLink></Authorized></AuthorizeView>
+                    <AuthorizeView Policy="@PolicyNames.Permission_Appointments_Book"><Authorized><NavLink class="cs-nav-link cs-nav-sub-link" href="/appointments/book"><i class="bi bi-plus-circle"></i><span>Book Appointment</span></NavLink></Authorized></AuthorizeView>
+                    <AuthorizeView Policy="@PolicyNames.Permission_DoctorSchedule_Manage"><Authorized><NavLink class="cs-nav-link cs-nav-sub-link" href="/appointments/schedules"><i class="bi bi-calendar-week"></i><span>Doctor Schedules</span></NavLink></Authorized></AuthorizeView>
+                </div>
+            }
+
+                        }
+
+            @if (CurrentUser != null && HasWardAccess(CurrentUser))
+            {
+            <!-- ── Ward & Beds ──────────────────────────────────── -->
+            <button class="cs-nav-group-toggle @(IsExpanded("ward") ? "expanded" : "")"
+                    @onclick='() => Toggle("ward")' title="Ward & Beds">
+                <span class="cs-nav-group-icon"><i class="bi bi-hospital"></i></span>
+                <span>Ward &amp; Beds</span>
+                <i class="bi bi-chevron-down cs-chevron"></i>
+            </button>
+            @if (IsExpanded("ward"))
+            {
+                <div class="cs-nav-sub">
+                    <AuthorizeView Policy="@PolicyNames.Permission_Beds_Manage"><Authorized><NavLink class="cs-nav-link cs-nav-sub-link" href="/wards/dashboard"><i class="bi bi-hospital"></i><span>Ward Dashboard</span></NavLink></Authorized></AuthorizeView>
+                    <AuthorizeView Policy="@PolicyNames.Permission_Beds_Manage"><Authorized><NavLink class="cs-nav-link cs-nav-sub-link" href="/beds/dashboard"><i class="bi bi-grid-3x3-gap"></i><span>Bed Dashboard</span></NavLink></Authorized></AuthorizeView>
+                    <NavLink class="cs-nav-link cs-nav-sub-link" href="/wards" Match="NavLinkMatch.All"><i class="bi bi-building"></i><span>Ward List</span></NavLink>
+                    <AuthorizeView Policy="@PolicyNames.Permission_Beds_Manage"><Authorized><NavLink class="cs-nav-link cs-nav-sub-link" href="/wards/create"><i class="bi bi-plus-circle"></i><span>Add Ward</span></NavLink></Authorized></AuthorizeView>
+                    <NavLink class="cs-nav-link cs-nav-sub-link" href="/beds" Match="NavLinkMatch.All"><i class="bi bi-hospital"></i><span>Bed List</span></NavLink>
+                    <AuthorizeView Policy="@PolicyNames.Permission_Beds_Manage"><Authorized><NavLink class="cs-nav-link cs-nav-sub-link" href="/beds/create"><i class="bi bi-plus-circle-fill"></i><span>Add Bed</span></NavLink></Authorized></AuthorizeView>
+                    <NavLink class="cs-nav-link cs-nav-sub-link" href="/allotments" Match="NavLinkMatch.All"><i class="bi bi-journal-medical"></i><span>Allotments</span></NavLink>
+                    <AuthorizeView Policy="@PolicyNames.Permission_Beds_Allocate"><Authorized><NavLink class="cs-nav-link cs-nav-sub-link" href="/allotments/create"><i class="bi bi-person-plus"></i><span>New Admission</span></NavLink></Authorized></AuthorizeView>
+                    <AuthorizeView Policy="@PolicyNames.Permission_Beds_Allocate"><Authorized><NavLink class="cs-nav-link cs-nav-sub-link" href="/allotments/transfer"><i class="bi bi-arrow-left-right"></i><span>Transfer Patient</span></NavLink></Authorized></AuthorizeView>
+                </div>
+            }
+
+                        }
+
+            @if (CurrentUser != null && HasClinicalAccess(CurrentUser))
+            {
+            <!-- ── Clinical ────────────────────────────────────── -->
+            <button class="cs-nav-group-toggle @(IsExpanded("clinical") ? "expanded" : "")"
+                    @onclick='() => Toggle("clinical")' title="Clinical / EMR">
+                <span class="cs-nav-group-icon"><i class="bi bi-clipboard2-pulse-fill"></i></span>
+                <span>Clinical / EMR</span>
+                <i class="bi bi-chevron-down cs-chevron"></i>
+            </button>
+            @if (IsExpanded("clinical"))
+            {
+                <div class="cs-nav-sub">
+                    <AuthorizeView Policy="@PolicyNames.Permission_Encounters_View"><Authorized><NavLink class="cs-nav-link cs-nav-sub-link" href="/encounters" Match="NavLinkMatch.All"><i class="bi bi-clipboard2-pulse"></i><span>Encounters</span></NavLink></Authorized></AuthorizeView>
+                    <AuthorizeView Policy="@PolicyNames.Permission_Encounters_Create"><Authorized><NavLink class="cs-nav-link cs-nav-sub-link" href="/encounter/new"><i class="bi bi-clipboard-plus"></i><span>New Encounter</span></NavLink></Authorized></AuthorizeView>
+                    <AuthorizeView Policy="@PolicyNames.Permission_Encounters_View"><Authorized><NavLink class="cs-nav-link cs-nav-sub-link" href="/prescriptions" Match="NavLinkMatch.All"><i class="bi bi-prescription2"></i><span>Prescriptions</span></NavLink></Authorized></AuthorizeView>
+                    <AuthorizeView Policy="@PolicyNames.Permission_Queue_View"><Authorized><NavLink class="cs-nav-link cs-nav-sub-link" href="/doctor/queue"><i class="bi bi-clock"></i><span>Doctor Queue</span></NavLink></Authorized></AuthorizeView>
+                    <AuthorizeView Policy="@PolicyNames.Permission_TeleConsult_Start"><Authorized><NavLink class="cs-nav-link cs-nav-sub-link" href="/teleconsult" Match="NavLinkMatch.All"><i class="bi bi-camera-video"></i><span>Teleconsult</span></NavLink></Authorized></AuthorizeView>
+                </div>
+            }
+
+                        }
+
+            @if (CurrentUser != null && HasNursingAccess(CurrentUser))
+            {
+            <!-- ── Nursing ──────────────────────────────────────── -->
+            <button class="cs-nav-group-toggle @(IsExpanded("nursing") ? "expanded" : "")"
+                    @onclick='() => Toggle("nursing")' title="Nursing">
+                <span class="cs-nav-group-icon"><i class="bi bi-heart-pulse-fill"></i></span>
+                <span>Nursing</span>
+                <i class="bi bi-chevron-down cs-chevron"></i>
+            </button>
+            @if (IsExpanded("nursing"))
+            {
+                <div class="cs-nav-sub">
+                    <NavLink class="cs-nav-link cs-nav-sub-link" href="/nursing" Match="NavLinkMatch.All"><i class="bi bi-heart-pulse"></i><span>Nursing Dashboard</span></NavLink>
+                    <AuthorizeView Policy="@PolicyNames.Permission_Vitals_View"><Authorized><NavLink class="cs-nav-link cs-nav-sub-link" href="/nursing/vitals"><i class="bi bi-activity"></i><span>Vitals</span></NavLink></Authorized></AuthorizeView>
+                    <AuthorizeView Policy="@PolicyNames.Permission_NursingNotes_View"><Authorized><NavLink class="cs-nav-link cs-nav-sub-link" href="/nursing/notes"><i class="bi bi-clipboard-pulse"></i><span>Nursing Notes</span></NavLink></Authorized></AuthorizeView>
+                    <AuthorizeView Policy="@PolicyNames.Permission_MedicationAdmin_View"><Authorized><NavLink class="cs-nav-link cs-nav-sub-link" href="/nursing/mar"><i class="bi bi-capsule"></i><span>MAR</span></NavLink></Authorized></AuthorizeView>
+                </div>
+            }
+
+                        }
+
+            @if (CurrentUser != null && HasLabAccess(CurrentUser))
+            {
+            <!-- ── Laboratory ──────────────────────────────────── -->
+            <button class="cs-nav-group-toggle @(IsExpanded("lab") ? "expanded" : "")"
+                    @onclick='() => Toggle("lab")' title="Laboratory">
+                <span class="cs-nav-group-icon"><i class="bi bi-droplet-fill"></i></span>
+                <span>Laboratory</span>
+                <i class="bi bi-chevron-down cs-chevron"></i>
+            </button>
+            @if (IsExpanded("lab"))
+            {
+                <div class="cs-nav-sub">
+                    <AuthorizeView Policy="@PolicyNames.Permission_Lab_ViewReports"><Authorized><NavLink class="cs-nav-link cs-nav-sub-link" href="/lab/dashboard" Match="NavLinkMatch.All"><i class="bi bi-droplet"></i><span>Lab Dashboard</span></NavLink></Authorized></AuthorizeView>
+                    <AuthorizeView Policy="@PolicyNames.Permission_Lab_ViewReports"><Authorized><NavLink class="cs-nav-link cs-nav-sub-link" href="/laboratory/catalog"><i class="bi bi-list-task"></i><span>Test Catalog</span></NavLink></Authorized></AuthorizeView>
+                    <AuthorizeView Policy="@PolicyNames.Permission_Lab_OrderTests"><Authorized><NavLink class="cs-nav-link cs-nav-sub-link" href="/laboratory/requisitions"><i class="bi bi-journal-text"></i><span>Requisitions</span></NavLink></Authorized></AuthorizeView>
+                    <AuthorizeView Policy="@PolicyNames.Permission_Lab_CollectSample"><Authorized><NavLink class="cs-nav-link cs-nav-sub-link" href="/laboratory/samples"><i class="bi bi-droplet"></i><span>Sample Collection</span></NavLink></Authorized></AuthorizeView>
+                    <AuthorizeView Policy="@PolicyNames.Permission_Lab_EnterResults"><Authorized><NavLink class="cs-nav-link cs-nav-sub-link" href="/laboratory/results"><i class="bi bi-clipboard-data"></i><span>Result Entry</span></NavLink></Authorized></AuthorizeView>
+                </div>
+            }
+
+                        }
+
+            @if (CurrentUser != null && HasPharmacyAccess(CurrentUser))
+            {
+            <!-- ── Pharmacy ─────────────────────────────────────── -->
+            <button class="cs-nav-group-toggle @(IsExpanded("pharmacy") ? "expanded" : "")"
+                    @onclick='() => Toggle("pharmacy")' title="Pharmacy">
+                <span class="cs-nav-group-icon"><i class="bi bi-capsule-pill"></i></span>
+                <span>Pharmacy</span>
+                <i class="bi bi-chevron-down cs-chevron"></i>
+            </button>
+            @if (IsExpanded("pharmacy"))
+            {
+                <div class="cs-nav-sub">
+                    <AuthorizeView Policy="@PolicyNames.Permission_Pharmacy_ViewStock"><Authorized><NavLink class="cs-nav-link cs-nav-sub-link" href="/pharmacy/dashboard" Match="NavLinkMatch.All"><i class="bi bi-capsule-pill"></i><span>Pharmacy Dashboard</span></NavLink></Authorized></AuthorizeView>
+                    <AuthorizeView Policy="@PolicyNames.Permission_Pharmacy_ViewStock"><Authorized><NavLink class="cs-nav-link cs-nav-sub-link" href="/pharmacy/items"><i class="bi bi-box-seam"></i><span>Drug Catalog</span></NavLink></Authorized></AuthorizeView>
+                    <AuthorizeView Policy="@PolicyNames.Permission_Pharmacy_Dispense"><Authorized><NavLink class="cs-nav-link cs-nav-sub-link" href="/pharmacy/dispense"><i class="bi bi-prescription2"></i><span>Dispense Rx</span></NavLink></Authorized></AuthorizeView>
+                    <AuthorizeView Policy="@PolicyNames.Permission_Pharmacy_OtcSale"><Authorized><NavLink class="cs-nav-link cs-nav-sub-link" href="/pharmacy/otc-sale"><i class="bi bi-shop"></i><span>OTC POS</span></NavLink></Authorized></AuthorizeView>
+                    <AuthorizeView Policy="@PolicyNames.Permission_Pharmacy_ManagePO"><Authorized><NavLink class="cs-nav-link cs-nav-sub-link" href="/pharmacy/po"><i class="bi bi-file-earmark-text"></i><span>Purchase Orders</span></NavLink></Authorized></AuthorizeView>
+                    <AuthorizeView Policy="@PolicyNames.Permission_Pharmacy_ManagePO"><Authorized><NavLink class="cs-nav-link cs-nav-sub-link" href="/pharmacy/grn"><i class="bi bi-truck"></i><span>Goods Received</span></NavLink></Authorized></AuthorizeView>
+                    <AuthorizeView Policy="@PolicyNames.Permission_Pharmacy_ManagePO"><Authorized><NavLink class="cs-nav-link cs-nav-sub-link" href="/pharmacy/suppliers"><i class="bi bi-people"></i><span>Suppliers</span></NavLink></Authorized></AuthorizeView>
+                    <AuthorizeView Policy="@PolicyNames.Permission_Pharmacy_ViewStock"><Authorized><NavLink class="cs-nav-link cs-nav-sub-link" href="/pharmacy/stock-ledger"><i class="bi bi-journal-bookmark"></i><span>Stock Ledger</span></NavLink></Authorized></AuthorizeView>
+                    <AuthorizeView Policy="@PolicyNames.Permission_Pharmacy_ViewStock"><Authorized><NavLink class="cs-nav-link cs-nav-sub-link" href="/pharmacy/expiry-alerts"><i class="bi bi-exclamation-triangle"></i><span>Expiry Alerts</span></NavLink></Authorized></AuthorizeView>
+                    <AuthorizeView Policy="@PolicyNames.Permission_Pharmacy_ManageInventory"><Authorized><NavLink class="cs-nav-link cs-nav-sub-link" href="/pharmacy/controlled-register"><i class="bi bi-shield-lock"></i><span>CS Register</span></NavLink></Authorized></AuthorizeView>
+                </div>
+            }
+
+                        }
+
+            @if (CurrentUser != null && HasBillingAccess(CurrentUser))
+            {
+            <!-- ── Billing ──────────────────────────────────────── -->
+            <button class="cs-nav-group-toggle @(IsExpanded("billing") ? "expanded" : "")"
+                    @onclick='() => Toggle("billing")' title="Billing & Finance">
+                <span class="cs-nav-group-icon"><i class="bi bi-wallet2"></i></span>
+                <span>Billing &amp; Finance</span>
+                <i class="bi bi-chevron-down cs-chevron"></i>
+            </button>
+            @if (IsExpanded("billing"))
+            {
+                <div class="cs-nav-sub">
+                    <AuthorizeView Policy="@PolicyNames.Permission_Billing_View"><Authorized><NavLink class="cs-nav-link cs-nav-sub-link" href="/billing/dashboard" Match="NavLinkMatch.All"><i class="bi bi-wallet2"></i><span>Billing Dashboard</span></NavLink></Authorized></AuthorizeView>
+                    <AuthorizeView Policy="@PolicyNames.Permission_Billing_ViewInvoices"><Authorized><NavLink class="cs-nav-link cs-nav-sub-link" href="/billing/invoices"><i class="bi bi-file-earmark-spreadsheet"></i><span>Invoices</span></NavLink></Authorized></AuthorizeView>
+                    <AuthorizeView Policy="@PolicyNames.Permission_Payments_Manage"><Authorized><NavLink class="cs-nav-link cs-nav-sub-link" href="/billing/payments"><i class="bi bi-credit-card"></i><span>Payments</span></NavLink></Authorized></AuthorizeView>
+                    <AuthorizeView Policy="@PolicyNames.Permission_InsuranceClaims_View"><Authorized><NavLink class="cs-nav-link cs-nav-sub-link" href="/billing/claims"><i class="bi bi-shield-check"></i><span>Insurance Claims</span></NavLink></Authorized></AuthorizeView>
+                </div>
+            }
+
+                        }
+
+            @if (CurrentUser != null && HasNotificationAccess(CurrentUser))
+            {
+            <!-- ── Notifications ────────────────────────────────── -->
+            <button class="cs-nav-group-toggle @(IsExpanded("notifications") ? "expanded" : "")"
+                    @onclick='() => Toggle("notifications")' title="Notifications">
+                <span class="cs-nav-group-icon"><i class="bi bi-bell-fill"></i></span>
+                <span>Notifications</span>
+                <i class="bi bi-chevron-down cs-chevron"></i>
+            </button>
+            @if (IsExpanded("notifications"))
+            {
+                <div class="cs-nav-sub">
+                    <AuthorizeView Policy="@PolicyNames.Permission_Admin_ManageTenant"><Authorized><NavLink class="cs-nav-link cs-nav-sub-link" href="/notifications/dashboard" Match="NavLinkMatch.All"><i class="bi bi-bell-fill"></i><span>Notif Dashboard</span></NavLink></Authorized></AuthorizeView>
+                    <AuthorizeView Policy="@PolicyNames.Permission_Admin_ManageTenant"><Authorized><NavLink class="cs-nav-link cs-nav-sub-link" href="/notifications/templates"><i class="bi bi-file-earmark-text-fill"></i><span>Alert Templates</span></NavLink></Authorized></AuthorizeView>
+                    <AuthorizeView Policy="@PolicyNames.Permission_Admin_ManageTenant"><Authorized><NavLink class="cs-nav-link cs-nav-sub-link" href="/notifications/logs"><i class="bi bi-clock-history"></i><span>Notification Logs</span></NavLink></Authorized></AuthorizeView>
+                    <AuthorizeView Policy="@PolicyNames.Permission_Admin_ManageTenant"><Authorized><NavLink class="cs-nav-link cs-nav-sub-link" href="/notifications/reminders"><i class="bi bi-calendar-event"></i><span>Scheduled Reminders</span></NavLink></Authorized></AuthorizeView>
+                </div>
+            }
+
+                        }
+
+            <!-- Collapse Button -->
+            <button class="cs-nav-link mt-4 d-none d-md-flex align-items-center" @onclick="ToggleSidebar" style="border: none; background: none; width: 100%;" title='@(isCollapsed ? "Expand Sidebar" : "Collapse Sidebar")'>
+                <i class="bi @(isCollapsed ? "bi-chevron-right" : "bi-chevron-left")"></i>
+                <span>Collapse Sidebar</span>
+            </button>
+
+        </nav>
+    </aside>
+
+    <!-- ── Main Content ────────────────────────────────────────── -->
+    <div class="cs-main">
+        <header class="cs-topbar">
+            <div class="cs-topbar-left d-flex align-items-center">
+                <button class="cs-menu-toggle d-md-none me-2" type="button"
+                        data-bs-toggle="offcanvas" data-bs-target="#cs-sidebar">
+                    <i class="bi bi-list fs-4"></i>
                 </button>
-                <h4 class="navbar-top-title">@PageTitle.Title</h4>
+                <!-- Dynamic Page Info in Topbar Left -->
+                <h4 class="cs-page-title m-0 fw-bold" style="color: var(--text-heading); font-size: 1.15rem; letter-spacing: -0.01em;">
+                    Hospital Dashboard@(!string.IsNullOrEmpty(PageTitle.Title) && PageTitle.Title != "Hospital Dashboard" && PageTitle.Title != "Dashboard" ? $" | {PageTitle.Title.Replace("Admin / ", "")}" : "")
+                </h4>
             </div>
-            <div class="d-flex align-items-center gap-3">
+            <div class="cs-topbar-right">
                 <AuthorizeView>
                     <Authorized>
-                        <a href="/" class="btn btn-outline-secondary btn-sm rounded-pill px-3"><i class="bi bi-house-door-fill me-1"></i> Home</a>
-                        <a class="btn btn-outline-danger btn-sm rounded-pill px-3" href="/auth/logout"><i class="bi bi-box-arrow-right me-1"></i> Sign Out</a>
+                        <!-- Top-down name and signout layout in right corner -->
+                        <div class="d-flex align-items-center gap-3">
+                            <div class="d-flex align-items-center gap-2 p-2 rounded-3" style="background-color: var(--surface-bg); border: 1px solid var(--surface-border);">
+                                <!-- User Initials Avatar -->
+                                <div class="d-flex align-items-center justify-content-center text-white" style="width: 32px; height: 32px; border-radius: 50%; background: linear-gradient(135deg, var(--cs-accent) 0%, var(--cs-accent-dark) 100%); font-weight: 700; font-size: 0.8rem; box-shadow: 0 2px 6px rgba(26, 127, 232, 0.25);">
+                                    @GetInitials(CurrentUserHelper.GetFullName(context.User) ?? "hospital-admin")
+                                </div>
+                                <div class="d-flex flex-column align-items-start" style="line-height: 1.25; padding-right: 0.5rem;">
+                                    <span style="font-weight: 700; font-size: 0.88rem; color: var(--text-heading);">@(CurrentUserHelper.GetFullName(context.User) ?? "hospital-admin")</span>
+                                    <span class="text-muted" style="font-size: 0.7rem; font-weight: 500; text-transform: uppercase; letter-spacing: 0.03em;">@(CurrentUserHelper.GetUserRole(context.User) ?? "")</span>
+                                </div>
+                            </div>
+                            
+                            <a href="/auth/logout" class="btn btn-sm btn-outline-danger d-flex align-items-center gap-1 px-3 py-2 rounded-pill fw-semibold hover-opacity" style="font-size: 0.8rem; border-width: 1.5px; transition: all 0.2s ease;">
+                                <i class="bi bi-box-arrow-right"></i>
+                                <span>Sign Out</span>
+                            </a>
+                        </div>
                     </Authorized>
                 </AuthorizeView>
             </div>
         </header>
-        <main class="flex-grow-1 p-4 overflow-auto" style="height: calc(100vh - 64px); background-color: var(--surface-bg);">
+
+        <main class="cs-body">
             <ImpersonationBanner />
-            @Body
+            @if (ChildContent != null)
+            {
+                @ChildContent
+            }
+            else
+            {
+                @Body
+            }
         </main>
     </div>
 </div>
 
 @code {
-    protected override void OnInitialized() => PageTitle.OnTitleChanged += StateHasChanged;
+    [Parameter]
+    public RenderFragment? ChildContent { get; set; }
+
+    
+    [CascadingParameter]
+    private Task<AuthenticationState>? AuthState { get; set; }
+    private System.Security.Claims.ClaimsPrincipal? CurrentUser => AuthState?.Result.User;
+
+    private bool HasAdminAccess(System.Security.Claims.ClaimsPrincipal user) => user.HasClaim(c => c.Type == CareSphereClaimTypes.Permission && (c.Value == CareSpherePermissions.Admin_ManageUsers || c.Value == CareSpherePermissions.Admin_ManageRoles || c.Value == CareSpherePermissions.Admin_ViewAuditLog || c.Value == CareSpherePermissions.Admin_ManageTenant || c.Value == CareSpherePermissions.Analytics_View));
+    private bool HasPatientAccess(System.Security.Claims.ClaimsPrincipal user) => user.HasClaim(c => c.Type == CareSphereClaimTypes.Permission && (c.Value == CareSpherePermissions.Patients_View || c.Value == CareSpherePermissions.Patients_Create || c.Value == CareSpherePermissions.Patients_Edit || c.Value == CareSpherePermissions.Appointments_View || c.Value == CareSpherePermissions.Appointments_Book || c.Value == CareSpherePermissions.DoctorSchedule_Manage));
+    private bool HasWardAccess(System.Security.Claims.ClaimsPrincipal user) => user.HasClaim(c => c.Type == CareSphereClaimTypes.Permission && (c.Value == CareSpherePermissions.Beds_View || c.Value == CareSpherePermissions.Beds_Manage || c.Value == CareSpherePermissions.Beds_Allocate || c.Value == CareSpherePermissions.BedAllotment_View));
+    private bool HasClinicalAccess(System.Security.Claims.ClaimsPrincipal user) => user.HasClaim(c => c.Type == CareSphereClaimTypes.Permission && (c.Value == CareSpherePermissions.Queue_View || c.Value == CareSpherePermissions.Encounters_Create || c.Value == CareSpherePermissions.Encounters_View || c.Value == CareSpherePermissions.TeleConsult_Start));
+    private bool HasNursingAccess(System.Security.Claims.ClaimsPrincipal user) => user.HasClaim(c => c.Type == CareSphereClaimTypes.Permission && (c.Value == CareSpherePermissions.Vitals_View || c.Value == CareSpherePermissions.NursingNotes_View || c.Value == CareSpherePermissions.MedicationAdmin_View));
+    private bool HasLabAccess(System.Security.Claims.ClaimsPrincipal user) => user.HasClaim(c => c.Type == CareSphereClaimTypes.Permission && (c.Value == CareSpherePermissions.Lab_ViewReports || c.Value == CareSpherePermissions.Lab_CollectSample || c.Value == CareSpherePermissions.Lab_EnterResults));
+    private bool HasPharmacyAccess(System.Security.Claims.ClaimsPrincipal user) => user.HasClaim(c => c.Type == CareSphereClaimTypes.Permission && (c.Value == CareSpherePermissions.Pharmacy_ViewStock || c.Value == CareSpherePermissions.Pharmacy_ManagePO || c.Value == CareSpherePermissions.Pharmacy_Dispense || c.Value == CareSpherePermissions.Pharmacy_OtcSale || c.Value == CareSpherePermissions.Pharmacy_ManageInventory));
+    private bool HasBillingAccess(System.Security.Claims.ClaimsPrincipal user) => user.HasClaim(c => c.Type == CareSphereClaimTypes.Permission && (c.Value == CareSpherePermissions.Billing_ViewInvoices || c.Value == CareSpherePermissions.Payments_Manage || c.Value == CareSpherePermissions.InsuranceClaims_View || c.Value == CareSpherePermissions.Billing_View));
+    private bool HasNotificationAccess(System.Security.Claims.ClaimsPrincipal user) => user.HasClaim(c => c.Type == CareSphereClaimTypes.Permission && (c.Value == CareSpherePermissions.Admin_ManageTenant));
+
+    private string hospitalName = "Hospital";
+    private string? logoPath;
+    private HashSet<string> expandedGroups = new();
+    private bool isCollapsed = false;
+
+    protected override async Task OnInitializedAsync()
+    {
+        PageTitle.OnTitleChanged += StateHasChanged;
+        var authState = await AuthStateProvider.GetAuthenticationStateAsync();
+        hospitalName = authState.User.FindFirst("target_hospital_name")?.Value ?? "Hospital";
+        try
+        {
+            var settings = await TenantSvc.GetTenantSettingsAsync(TenantContext.TenantId);
+            logoPath = settings?.HospitalLogoPath;
+        }
+        catch
+        {
+            // fallback to default icon
+        }
+        // Expand the most relevant group based on current URL
+        var uri = Nav.ToBaseRelativePath(Nav.Uri);
+        if (uri.StartsWith("admin")) ExpandGroup("admin");
+        else if (uri.StartsWith("billing")) ExpandGroup("billing");
+        else if (uri.StartsWith("patients") || uri.StartsWith("appointments")) ExpandGroup("patients");
+        else if (uri.StartsWith("beds") || uri.StartsWith("wards") || uri.StartsWith("allotments") || uri.StartsWith("ward")) ExpandGroup("ward");
+        else if (uri.StartsWith("clinical") || uri.StartsWith("encounter") || uri.StartsWith("prescription") || uri.StartsWith("doctor") || uri.StartsWith("teleconsult")) ExpandGroup("clinical");
+        else if (uri.StartsWith("nursing")) ExpandGroup("nursing");
+        else if (uri.StartsWith("lab") || uri.StartsWith("laboratory")) ExpandGroup("lab");
+        else if (uri.StartsWith("pharmacy")) ExpandGroup("pharmacy");
+        else if (uri.StartsWith("notifications")) ExpandGroup("notifications");
+    }
+
+    private bool IsExpanded(string group) => expandedGroups.Contains(group);
+
+    private void ExpandGroup(string group)
+    {
+        expandedGroups.Add(group);
+    }
+
+    private void Toggle(string group)
+    {
+        if (isCollapsed)
+        {
+            // When collapsed, clicking a group icon should navigate to its default page
+            string targetUrl = group switch
+            {
+                "admin" => "/admin/users",
+                "patients" => "/patients",
+                "ward" => "/wards/dashboard",
+                "clinical" => "/encounters",
+                "nursing" => "/nursing",
+                "lab" => "/lab/dashboard",
+                "pharmacy" => "/pharmacy/dashboard",
+                "billing" => "/billing/dashboard",
+                "notifications" => "/notifications/dashboard",
+                _ => "/dashboard"
+            };
+            Nav.NavigateTo(targetUrl);
+        }
+        else
+        {
+            if (!expandedGroups.Add(group))
+                expandedGroups.Remove(group);
+        }
+    }
+
+    private void ToggleSidebar()
+    {
+        isCollapsed = !isCollapsed;
+    }
+
+    private string GetInitials(string fullName)
+    {
+        if (string.IsNullOrWhiteSpace(fullName)) return "HA";
+        var parts = fullName.Split(' ', StringSplitOptions.RemoveEmptyEntries);
+        if (parts.Length == 1) return parts[0][0].ToString().ToUpper();
+        return (parts[0][0].ToString() + parts[parts.Length - 1][0].ToString()).ToUpper();
+    }
+
     public void Dispose() => PageTitle.OnTitleChanged -= StateHasChanged;
 }

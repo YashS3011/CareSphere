@@ -790,6 +790,67 @@ namespace CareSphere.Modules.Notifications.Services
                 _logger.LogError(ex, $"Failed to send discharge SMS for patient {evt.PatientId}.");
             }
         }
+
+        public async Task SendQueuePositionUpdateAsync(DoctorQueueEntry queueEntry)
+        {
+            try
+            {
+                var patient = await _patientReadModel.GetSummaryAsync(queueEntry.PatientId, queueEntry.TenantId);
+                if (patient == null || string.IsNullOrWhiteSpace(patient.Phone)) return;
+
+                var doctor = await _context.Doctors.FindAsync(queueEntry.DoctorId);
+                var docName = doctor != null ? $"Dr. {doctor.LastName}" : "your doctor";
+
+                var body = $"Dear {patient.FullName}, you have been added to the queue for {docName}. " +
+                           $"Your position is #{queueEntry.QueuePosition}. " +
+                           $"Estimated wait: {queueEntry.EstimatedWaitMinutes} mins. CareSphere.";
+
+                await SendSmsAsync(queueEntry.TenantId, patient.Phone, body, "QueueUpdate", queueEntry.PatientId);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, $"Failed to send queue SMS for patient {queueEntry.PatientId}.");
+            }
+        }
+
+        public async Task SendPrescriptionIssuedAsync(Prescription rx)
+        {
+            try
+            {
+                var patient = await _patientReadModel.GetSummaryAsync(rx.PatientId, rx.TenantId);
+                if (patient == null || string.IsNullOrWhiteSpace(patient.Phone)) return;
+
+                var doctor = await _context.Doctors.FindAsync(rx.DoctorId);
+                var docName = doctor != null ? $"Dr. {doctor.LastName}" : "your doctor";
+
+                var body = $"Dear {patient.FullName}, a new prescription for {rx.DrugName} has been issued by {docName}. " +
+                           $"Please visit the pharmacy to collect your medication. CareSphere.";
+
+                await SendSmsAsync(rx.TenantId, patient.Phone, body, "PrescriptionIssued", rx.PatientId);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, $"Failed to send prescription SMS for patient {rx.PatientId}.");
+            }
+        }
+
+        public async Task SendPatientAdmittedAsync(PatientAdmitted evt)
+        {
+            try
+            {
+                var patient = await _patientReadModel.GetSummaryAsync(evt.PatientId, evt.TenantId);
+                if (patient == null || string.IsNullOrWhiteSpace(patient.Phone)) return;
+
+                var body = $"Dear {patient.FullName}, you have been admitted to ward '{evt.WardName}', Bed {evt.BedNumber} " +
+                           $"on {evt.AdmissionDate:dd MMM yyyy HH:mm}. CareSphere.";
+
+                await SendSmsAsync(evt.TenantId, patient.Phone, body, "AdmissionRequest", evt.PatientId);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, $"Failed to send admission SMS for patient {evt.PatientId}.");
+            }
+        }
     }
 }
 

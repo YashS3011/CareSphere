@@ -1,13 +1,20 @@
 @inject AuthenticationStateProvider AuthStateProvider
 @inject NavigationManager NavigationManager
 
-<aside class="sidebar-system offcanvas-md offcanvas-start" id="sidebar" tabindex="-1">
+<aside class="sidebar-system offcanvas-md offcanvas-start @(isSidebarCollapsed ? "sidebar-collapsed" : "")" id="sidebar" tabindex="-1">
     <!-- Brand / Header -->
     <div class="sidebar-header">
         <div class="module-icon-badge">
             <i class="bi bi-heart-pulse-fill text-white"></i>
         </div>
-        <span class="sidebar-header-text">CareSphere</span>
+        <AuthorizeView Context="userContext">
+            <Authorized>
+                <span class="sidebar-header-text">@(userContext.User.FindFirst("target_hospital_name")?.Value ?? "CareSphere")</span>
+            </Authorized>
+        </AuthorizeView>
+        <button class="btn btn-sm text-white ms-auto d-none d-md-block" type="button" @onclick="ToggleSidebar">
+            <i class="bi bi-list fs-5"></i>
+        </button>
     </div>
 
     <!-- Navigation List -->
@@ -226,7 +233,7 @@
         <AuthorizeView Policy="@PolicyNames.Permission_Lab_ViewReports">
             <Authorized>
                 <NavLink class="sidebar-link" href="/lab/dashboard" Match="NavLinkMatch.All" ActiveClass="sidebar-link-active">
-                    <i class="bi bi-flask"></i>
+                    <i class="bi bi-droplet"></i>
                     <span class="sidebar-text">Lab Dashboard</span>
                 </NavLink>
                 <NavLink class="sidebar-link" href="/laboratory/catalog" ActiveClass="sidebar-link-active">
@@ -333,12 +340,16 @@
         </AuthorizeView>
 
         <!-- Billing -->
-        <AuthorizeView Policy="@PolicyNames.Permission_Billing_ViewInvoices">
+        <AuthorizeView Policy="@PolicyNames.Permission_Billing_View">
             <Authorized>
                 <NavLink class="sidebar-link" href="/billing/dashboard" Match="NavLinkMatch.All" ActiveClass="sidebar-link-active">
                     <i class="bi bi-wallet2"></i>
                     <span class="sidebar-text">Billing Dashboard</span>
                 </NavLink>
+            </Authorized>
+        </AuthorizeView>
+        <AuthorizeView Policy="@PolicyNames.Permission_Billing_ViewInvoices">
+            <Authorized>
                 <NavLink class="sidebar-link" href="/billing/invoices" ActiveClass="sidebar-link-active">
                     <i class="bi bi-file-earmark-spreadsheet"></i>
                     <span class="sidebar-text">Invoices</span>
@@ -443,36 +454,17 @@
         </AuthorizeView>
     </nav>
 
-    <!-- User profile footer -->
-    <AuthorizeView>
-        <Authorized>
-            <div class="sidebar-footer">
-                <div class="d-flex align-items-center">
-                    <div class="bg-light bg-opacity-25 rounded-circle d-flex align-items-center justify-content-center me-2 flex-shrink-0" style="width: 32px; height: 32px;">
-                        <i class="bi bi-person-fill text-white"></i>
-                    </div>
-                    <div style="min-width: 0;" class="user-footer-text text-white">
-                        <div class="fw-semibold small text-truncate">
-                            @(CurrentUserHelper.GetFullName(context.User) ?? context.User.Identity?.Name ?? "User")
-                        </div>
-                        <span class="badge bg-light text-dark fw-bold" style="font-size: 0.65rem;">
-                            @(CurrentUserHelper.GetUserRole(context.User) ?? "")
-                        </span>
-                        <div class="text-white-50 text-truncate" style="font-size: 0.7rem; margin-top: 1px;">
-                            @(context.User.FindFirst("target_hospital_name")?.Value ?? "CareSphere")
-                        </div>
-                    </div>
-                </div>
-                <div class="sidebar-footer-tablet-avatar" title="@(CurrentUserHelper.GetFullName(context.User) ?? "User")">
-                    @((CurrentUserHelper.GetFullName(context.User) ?? "U").Substring(0, 1).ToUpper())
-                </div>
-            </div>
-        </Authorized>
-    </AuthorizeView>
+    <!-- User profile footer moved to MainLayout top nav -->
 </aside>
 
 @code {
     private Guid doctorId = Guid.Empty;
+    private bool isSidebarCollapsed = false;
+
+    private void ToggleSidebar()
+    {
+        isSidebarCollapsed = !isSidebarCollapsed;
+    }
 
     protected override async Task OnInitializedAsync()
     {

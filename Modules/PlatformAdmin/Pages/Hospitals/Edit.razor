@@ -1,0 +1,276 @@
+@page "/platform-admin/hospitals/{TenantIdParam:guid}/edit"
+@attribute [Microsoft.AspNetCore.Authorization.Authorize(Policy = PolicyNames.Permission_Platform_ManageHospitals)]
+@inject IPlatformAdminService PlatformService
+@inject NavigationManager Nav
+@inject PageTitleService PageTitle
+@rendermode InteractiveServer
+
+<PageTitle>Edit Hospital Settings — CareSphere Platform</PageTitle>
+
+<div class="page-header">
+    <div class="page-header-content">
+        <div class="page-title-group">
+            <div class="page-icon"><i class="bi bi-pencil-square"></i></div>
+            <div>
+                <h1 class="page-title">Edit Settings: @(tenant?.HospitalName ?? "Hospital")</h1>
+                <p class="page-subtitle">Configure system parameters, subscription plans, integrations, and Single Sign-On (SSO) settings.</p>
+            </div>
+        </div>
+        <div class="page-actions">
+            <a href="/platform-admin/hospitals/@TenantIdParam" class="btn btn-outline-secondary">
+                <i class="bi bi-arrow-left me-1"></i>Cancel
+            </a>
+        </div>
+    </div>
+</div>
+
+@if (loading)
+{
+    <div class="d-flex justify-content-center py-5">
+        <div class="spinner-border text-primary" role="status"></div>
+    </div>
+}
+else if (tenant == null)
+{
+    <div class="alert alert-warning">Hospital not found.</div>
+}
+else
+{
+    @if (!string.IsNullOrEmpty(errorMsg))
+    {
+        <div class="alert alert-danger mb-4"><i class="bi bi-x-circle me-1"></i>@errorMsg</div>
+    }
+    @if (success)
+    {
+        <div class="alert alert-success mb-4"><i class="bi bi-check-circle me-1"></i>Settings saved successfully! Redirecting...</div>
+    }
+
+    <div class="row g-4">
+        <!-- Main Form Column -->
+        <div class="col-lg-8">
+            <div class="content-card mb-4">
+                <div class="content-card-header">
+                    <h5 class="content-card-title"><i class="bi bi-hospital me-2"></i>General Information</h5>
+                </div>
+                <div class="content-card-body">
+                    <div class="row g-3">
+                        <div class="col-md-6">
+                            <label class="form-label fw-semibold">Hospital Name <span class="text-danger">*</span></label>
+                            <input class="form-control" @bind="tenant.HospitalName" placeholder="e.g. City General Hospital" />
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label fw-semibold">Contact Email</label>
+                            <input class="form-control" type="email" @bind="tenant.Email" placeholder="e.g. contact@hospital.com" />
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label fw-semibold">Phone Number</label>
+                            <input class="form-control" @bind="tenant.Phone" placeholder="e.g. +91 99999 99999" />
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label fw-semibold">Logo Path / URL</label>
+                            <input class="form-control" @bind="tenant.HospitalLogoPath" placeholder="/images/logos/hospital.png" />
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="content-card mb-4">
+                <div class="content-card-header">
+                    <h5 class="content-card-title"><i class="bi bi-geo-alt me-2"></i>Address</h5>
+                </div>
+                <div class="content-card-body">
+                    <div class="row g-3">
+                        <div class="col-md-6">
+                            <label class="form-label fw-semibold">Address Line 1</label>
+                            <input class="form-control" @bind="tenant.AddressLine1" placeholder="Street Name, Building" />
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label fw-semibold">Address Line 2</label>
+                            <input class="form-control" @bind="tenant.AddressLine2" placeholder="Suite, floor, etc." />
+                        </div>
+                        <div class="col-md-4">
+                            <label class="form-label fw-semibold">City</label>
+                            <input class="form-control" @bind="tenant.City" placeholder="City" />
+                        </div>
+                        <div class="col-md-4">
+                            <label class="form-label fw-semibold">State</label>
+                            <input class="form-control" @bind="tenant.State" placeholder="State" />
+                        </div>
+                        <div class="col-md-4">
+                            <label class="form-label fw-semibold">Pin Code</label>
+                            <input class="form-control" @bind="tenant.PinCode" placeholder="Postal Code" />
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="content-card mb-4">
+                <div class="content-card-header">
+                    <h5 class="content-card-title"><i class="bi bi-shield-lock me-2"></i>Single Sign-On (SSO) Configuration</h5>
+                </div>
+                <div class="content-card-body">
+                    <div class="form-check form-switch mb-3">
+                        <input class="form-check-input" type="checkbox" id="ssoEnabled" @bind="tenant.SsoEnabled">
+                        <label class="form-check-label fw-semibold" for="ssoEnabled">Enable SSO for this hospital</label>
+                    </div>
+
+                    @if (tenant.SsoEnabled)
+                    {
+                        <div class="row g-3 p-3 border rounded-3 bg-light">
+                            <div class="col-md-6">
+                                <label class="form-label fw-semibold">SSO Provider</label>
+                                <select class="form-select" @bind="tenant.SsoProvider">
+                                    <option value="">-- Select Provider --</option>
+                                    <option value="Google">Google</option>
+                                    <option value="Microsoft">Microsoft</option>
+                                    <option value="OIDC">OpenID Connect (OIDC)</option>
+                                    <option value="SAML">SAML 2.0</option>
+                                </select>
+                            </div>
+
+                            @if (tenant.SsoProvider == "OIDC" || tenant.SsoProvider == "Google" || tenant.SsoProvider == "Microsoft")
+                            {
+                                <div class="col-12">
+                                    <label class="form-label fw-semibold">OAuth/OIDC Authority Endpoint</label>
+                                    <input class="form-control" @bind="tenant.OidcAuthority" placeholder="https://accounts.google.com or authorization server endpoint" />
+                                </div>
+                                <div class="col-md-6">
+                                    <label class="form-label fw-semibold">Client ID</label>
+                                    <input class="form-control" @bind="tenant.OidcClientId" placeholder="OIDC Client ID" />
+                                </div>
+                                <div class="col-md-6">
+                                    <label class="form-label fw-semibold">Client Secret</label>
+                                    <input class="form-control" type="password" @bind="tenant.OidcClientSecret" placeholder="OIDC Client Secret" />
+                                </div>
+                            }
+                            else if (tenant.SsoProvider == "SAML")
+                            {
+                                <div class="col-12">
+                                    <label class="form-label fw-semibold">SAML Identity Provider Metadata URL</label>
+                                    <input class="form-control" @bind="tenant.SamlMetadataUrl" placeholder="https://identityprovider.com/metadata" />
+                                </div>
+                            }
+                        </div>
+                    }
+                </div>
+            </div>
+        </div>
+
+        <!-- Sidebar Config Column -->
+        <div class="col-lg-4">
+            <div class="content-card mb-4 border-primary">
+                <div class="content-card-header bg-primary bg-opacity-10">
+                    <h5 class="content-card-title text-primary"><i class="bi bi-star-fill me-2"></i>Plan & Subscription</h5>
+                </div>
+                <div class="content-card-body">
+                    <div class="mb-3">
+                        <label class="form-label fw-semibold">Subscription Tier</label>
+                        <select class="form-select" @bind="tenant.SubscriptionTier">
+                            <option value="Free">Free</option>
+                            <option value="Basic">Basic</option>
+                            <option value="Pro">Pro</option>
+                            <option value="Enterprise">Enterprise</option>
+                        </select>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label fw-semibold">Max Users Allowed</label>
+                        <input class="form-control" type="number" min="1" max="100000" @bind="tenant.MaxUsersAllowed" />
+                        <small class="text-muted">Maximum user seats that can be registered.</small>
+                    </div>
+                    <hr />
+                    <div class="d-flex align-items-center justify-content-between text-muted small">
+                        <span>Tenant ID</span>
+                        <span class="font-monospace">@tenant.TenantId</span>
+                    </div>
+                </div>
+            </div>
+
+            <div class="content-card mb-4">
+                <div class="content-card-header">
+                    <h5 class="content-card-title"><i class="bi bi-globe-central-south-asia me-2"></i>Regulatory Registrations</h5>
+                </div>
+                <div class="content-card-body">
+                    <div class="mb-3">
+                        <label class="form-label fw-semibold">NABH Registration Number</label>
+                        <input class="form-control" @bind="tenant.NabhRegistrationNumber" placeholder="e.g. NABH-2026-XXXX" />
+                        <small class="text-muted">National Accreditation Board for Hospitals registration.</small>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label fw-semibold">ABDM Facility ID</label>
+                        <input class="form-control" @bind="tenant.AbdmFacilityId" placeholder="e.g. IN00000XXXX" />
+                        <small class="text-muted">Ayushman Bharat Digital Mission Facility ID.</small>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Submit Buttons Card -->
+            <div class="card border-0 shadow-sm p-4 bg-light rounded-4">
+                <button class="btn btn-primary w-100 mb-3 py-2.5 rounded-3 fw-semibold" @onclick="DoSave" disabled="@saving">
+                    @if (saving)
+                    {
+                        <span class="spinner-border spinner-border-sm me-2"></span>
+                    }
+                    <i class="bi bi-check-circle-fill me-2"></i>Save Configuration
+                </button>
+                <a href="/platform-admin/hospitals/@TenantIdParam" class="btn btn-outline-secondary w-100 py-2.5 rounded-3 fw-semibold">
+                    Cancel Edits
+                </a>
+            </div>
+        </div>
+    </div>
+}
+
+@code {
+    [Parameter] public Guid TenantIdParam { get; set; }
+
+    private bool loading = true;
+    private bool saving = false;
+    private bool success = false;
+    private string? errorMsg;
+
+    private CareSphere.Models.TenantSettings? tenant;
+
+    protected override async Task OnInitializedAsync()
+    {
+        PageTitle.SetTitle("Platform / Edit Hospital");
+        await Load();
+    }
+
+    private async Task Load()
+    {
+        loading = true;
+        var hospitals = await PlatformService.GetAllHospitalsAsync();
+        tenant = hospitals.FirstOrDefault(h => h.TenantId == TenantIdParam);
+        loading = false;
+    }
+
+    private async Task DoSave()
+    {
+        if (tenant == null) return;
+
+        if (string.IsNullOrWhiteSpace(tenant.HospitalName))
+        {
+            errorMsg = "Hospital Name is required.";
+            return;
+        }
+
+        saving = true;
+        errorMsg = null;
+        try
+        {
+            await PlatformService.UpdateHospitalSettingsAsync(tenant);
+            success = true;
+            StateHasChanged();
+            await Task.Delay(1500);
+            Nav.NavigateTo($"/platform-admin/hospitals/{TenantIdParam}");
+        }
+        catch (Exception ex)
+        {
+            errorMsg = ex.Message;
+        }
+        finally
+        {
+            saving = false;
+        }
+    }
+}

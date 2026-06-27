@@ -1,0 +1,137 @@
+@page "/patient/dashboard"
+@attribute [Microsoft.AspNetCore.Authorization.Authorize(Policy = PolicyNames.Permission_OwnRecords_View)]
+@inject IPatientPortalService PortalService
+@inject AuthenticationStateProvider AuthStateProvider
+@inject PageTitleService PageTitle
+@rendermode InteractiveServer
+
+<PageTitle>My Dashboard — Patient Portal</PageTitle>
+
+<div class="container-fluid py-4">
+    <!-- Welcome Banner -->
+    <div class="card border-0 rounded-4 shadow-sm text-white mb-4"
+         style="background: linear-gradient(135deg, #0f766e 0%, #06b6d4 100%);">
+        <div class="card-body p-4 p-md-5">
+            <div class="row align-items-center">
+                <div class="col-md-8">
+                    <span class="badge bg-white bg-opacity-20 text-white rounded-pill px-3 py-2 mb-3 fw-bold">
+                        <i class="bi bi-person-heart me-1"></i> Patient Portal
+                    </span>
+                    <h1 class="display-6 fw-bold mb-2">Hello, @fullName!</h1>
+                    <p class="lead mb-0 text-white-50">View your health records, bills, and reports all in one place.</p>
+                </div>
+                <div class="col-md-4 text-md-end mt-4 mt-md-0">
+                    <div class="text-white-50 small mb-1"><i class="bi bi-clock-fill me-1"></i>Today</div>
+                    <div class="fs-5 fw-bold">@DateTime.Now.ToString("dd MMM yyyy")</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    @if (loading)
+    {
+        <div class="d-flex justify-content-center py-5">
+            <div class="spinner-border text-primary" role="status"></div>
+        </div>
+    }
+    else
+    {
+        <div class="row g-4 mb-4">
+            <div class="col-sm-6 col-xl-3">
+                <div class="stat-card stat-card-primary">
+                    <div class="stat-icon"><i class="bi bi-prescription2"></i></div>
+                    <div>
+                        <div class="stat-value">@prescriptionCount</div>
+                        <div class="stat-label">Active Prescriptions</div>
+                    </div>
+                    <a href="/patient/records/prescriptions" class="stretched-link"></a>
+                </div>
+            </div>
+            <div class="col-sm-6 col-xl-3">
+                <div class="stat-card stat-card-info">
+                    <div class="stat-icon"><i class="bi bi-droplet"></i></div>
+                    <div>
+                        <div class="stat-value">@labCount</div>
+                        <div class="stat-label">Lab Reports</div>
+                    </div>
+                    <a href="/patient/reports/lab" class="stretched-link"></a>
+                </div>
+            </div>
+            <div class="col-sm-6 col-xl-3">
+                <div class="stat-card stat-card-warning">
+                    <div class="stat-icon"><i class="bi bi-receipt-cutoff"></i></div>
+                    <div>
+                        <div class="stat-value">@pendingInvoices</div>
+                        <div class="stat-label">Unpaid Invoices</div>
+                    </div>
+                    <a href="/patient/billing/invoices" class="stretched-link"></a>
+                </div>
+            </div>
+            <div class="col-sm-6 col-xl-3">
+                <div class="stat-card stat-card-success">
+                    <div class="stat-icon"><i class="bi bi-calendar-event"></i></div>
+                    <div>
+                        <div class="stat-value">@upcomingAppts</div>
+                        <div class="stat-label">Upcoming Appointments</div>
+                    </div>
+                    <a href="/patient/appointments" class="stretched-link"></a>
+                </div>
+            </div>
+        </div>
+
+        <!-- Quick Links -->
+        <div class="content-card">
+            <div class="content-card-header">
+                <h5 class="content-card-title"><i class="bi bi-lightning-fill text-warning me-2"></i>Quick Access</h5>
+            </div>
+            <div class="content-card-body">
+                <div class="d-flex flex-wrap gap-3">
+                    <a href="/patient/records/prescriptions" class="btn btn-outline-primary px-4 rounded-3">
+                        <i class="bi bi-prescription2 me-2"></i>My Prescriptions
+                    </a>
+                    <a href="/patient/records/lab-results" class="btn btn-outline-info px-4 rounded-3">
+                        <i class="bi bi-droplet me-2"></i>Lab Results
+                    </a>
+                    <a href="/patient/billing/invoices" class="btn btn-outline-warning px-4 rounded-3">
+                        <i class="bi bi-receipt-cutoff me-2"></i>View Bills
+                    </a>
+                    <a href="/patient/reports/lab" class="btn btn-outline-success px-4 rounded-3">
+                        <i class="bi bi-file-earmark-bar-graph me-2"></i>Download Lab Reports
+                    </a>
+                    <a href="/patient/records/info" class="btn btn-outline-secondary px-4 rounded-3">
+                        <i class="bi bi-person-vcard me-2"></i>Personal Info
+                    </a>
+                </div>
+            </div>
+        </div>
+    }
+</div>
+
+@code {
+    private string fullName = "Patient";
+    private bool loading = true;
+    private int prescriptionCount, labCount, pendingInvoices, upcomingAppts;
+    private Guid patientId = Guid.Empty;
+
+    protected override async Task OnInitializedAsync()
+    {
+        PageTitle.SetTitle("My Dashboard");
+        var auth = await AuthStateProvider.GetAuthenticationStateAsync();
+        fullName = CurrentUserHelper.GetFullName(auth.User) ?? "Patient";
+        var pidStr = auth.User.FindFirst(CareSphereClaimTypes.PatientId)?.Value;
+        if (Guid.TryParse(pidStr, out var pid))
+        {
+            patientId = pid;
+            var prescriptions = await PortalService.GetMyPrescriptionsAsync(patientId);
+            var labReports    = await PortalService.GetMyLabReportsAsync(patientId);
+            var invoices      = await PortalService.GetMyInvoicesAsync(patientId);
+            var appointments  = await PortalService.GetMyAppointmentsAsync(patientId);
+
+            prescriptionCount = prescriptions.Count(p => p.Status == "Active");
+            labCount          = labReports.Count;
+            pendingInvoices   = invoices.Count(i => i.Status == "Unpaid" || i.Status == "PartiallyPaid");
+            upcomingAppts     = appointments.Count(a => a.SlotStart > DateTime.UtcNow);
+        }
+        loading = false;
+    }
+}

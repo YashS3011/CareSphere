@@ -1,0 +1,125 @@
+@page "/patient/records/info"
+@attribute [Microsoft.AspNetCore.Authorization.Authorize(Policy = PolicyNames.Permission_OwnRecords_View)]
+@inject IPatientPortalService PortalService
+@inject AuthenticationStateProvider AuthStateProvider
+@inject PageTitleService PageTitle
+@rendermode InteractiveServer
+
+<PageTitle>Personal Info — Patient Portal</PageTitle>
+
+<div class="page-header">
+    <div class="page-header-content">
+        <div class="page-title-group">
+            <div class="page-icon"><i class="bi bi-person-vcard-fill"></i></div>
+            <div>
+                <h1 class="page-title">Personal Information</h1>
+                <p class="page-subtitle">Your registered profile details.</p>
+            </div>
+        </div>
+    </div>
+</div>
+
+@if (loading)
+{
+    <div class="d-flex justify-content-center py-5"><div class="spinner-border text-primary" role="status"></div></div>
+}
+else if (patient == null)
+{
+    <div class="alert alert-danger border-0 rounded-3"><i class="bi bi-exclamation-triangle me-2"></i>Profile not found. Please contact hospital support.</div>
+}
+else
+{
+    <div class="row g-4">
+        <div class="col-lg-8">
+            <div class="content-card p-4">
+                <h5 class="fw-bold mb-4 border-bottom pb-2 text-primary"><i class="bi bi-person-fill me-2"></i>Demographics</h5>
+                <div class="row g-3">
+                    <div class="col-sm-6">
+                        <label class="text-muted small">Medical Record Number (MRN)</label>
+                        <div class="fw-bold font-monospace bg-light rounded px-2 py-1 mt-1 text-dark" style="width: fit-content;">@patient.Mrn</div>
+                    </div>
+                    <div class="col-sm-6">
+                        <label class="text-muted small">ABHA ID</label>
+                        <div class="fw-bold mt-1 text-dark">@(string.IsNullOrEmpty(patient.AbhaId) ? "—" : patient.AbhaId)</div>
+                    </div>
+                    <div class="col-sm-6">
+                        <label class="text-muted small">First Name</label>
+                        <div class="fw-bold mt-1 text-dark">@patient.FirstName</div>
+                    </div>
+                    <div class="col-sm-6">
+                        <label class="text-muted small">Last Name</label>
+                        <div class="fw-bold mt-1 text-dark">@patient.LastName</div>
+                    </div>
+                    <div class="col-sm-6">
+                        <label class="text-muted small">Date of Birth</label>
+                        <div class="fw-bold mt-1 text-dark">@patient.DateOfBirth.ToString("dd MMM yyyy")</div>
+                    </div>
+                    <div class="col-sm-6">
+                        <label class="text-muted small">Gender</label>
+                        <div class="fw-bold mt-1 text-dark">@patient.Gender</div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="content-card p-4 mt-4">
+                <h5 class="fw-bold mb-4 border-bottom pb-2 text-primary"><i class="bi bi-geo-alt-fill me-2"></i>Contact Details</h5>
+                <div class="row g-3">
+                    <div class="col-sm-6">
+                        <label class="text-muted small">Phone Number</label>
+                        <div class="fw-bold mt-1 text-dark">@patient.Phone</div>
+                    </div>
+                    <div class="col-sm-6">
+                        <label class="text-muted small">Email Address</label>
+                        <div class="fw-bold mt-1 text-dark">@(patient.Email ?? "—")</div>
+                    </div>
+                    <div class="col-12">
+                        <label class="text-muted small">Residential Address</label>
+                        <div class="fw-bold mt-1 text-dark">@(patient.Address ?? "—")</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-lg-4">
+            <div class="content-card p-4 h-100 bg-light bg-opacity-50">
+                <h5 class="fw-bold mb-4 border-bottom pb-2 text-primary"><i class="bi bi-shield-plus me-2"></i>Medical Info</h5>
+                <div class="mb-4">
+                    <label class="text-muted small mb-1">Blood Group</label>
+                    <div>
+                        <span class="badge bg-danger fs-6 px-3 py-2">@(patient.BloodGroup ?? "Unknown")</span>
+                    </div>
+                </div>
+                <div>
+                    <label class="text-muted small mb-1">Known Allergies</label>
+                    <div class="p-3 bg-white rounded border border-warning-subtle text-dark">
+                        @if (!string.IsNullOrEmpty(patient.KnownAllergies))
+                        {
+                            <span class="text-danger fw-bold"><i class="bi bi-exclamation-triangle-fill me-2"></i>@patient.KnownAllergies</span>
+                        }
+                        else
+                        {
+                            <span class="text-muted"><i class="bi bi-check-circle-fill text-success me-2"></i>No known allergies.</span>
+                        }
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+}
+
+@code {
+    private bool loading = true;
+    private Models.Patient? patient;
+
+    protected override async Task OnInitializedAsync()
+    {
+        PageTitle.SetTitle("Personal Info");
+        var auth = await AuthStateProvider.GetAuthenticationStateAsync();
+        var pidStr = auth.User.FindFirst(CareSphereClaimTypes.PatientId)?.Value;
+        if (Guid.TryParse(pidStr, out var pid))
+        {
+            patient = await PortalService.GetPatientInfoAsync(pid);
+        }
+        loading = false;
+    }
+}

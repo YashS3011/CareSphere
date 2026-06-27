@@ -1,0 +1,80 @@
+@page "/patient/reports/lab"
+@attribute [Microsoft.AspNetCore.Authorization.Authorize(Policy = PolicyNames.Permission_Lab_ViewReports)]
+@inject IPatientPortalService PortalService
+@inject AuthenticationStateProvider AuthStateProvider
+@inject PageTitleService PageTitle
+@rendermode InteractiveServer
+
+<PageTitle>Lab Reports — Patient Portal</PageTitle>
+
+<div class="page-header">
+    <div class="page-header-content">
+        <div class="page-title-group">
+            <div class="page-icon"><i class="bi bi-file-earmark-bar-graph"></i></div>
+            <div>
+                <h1 class="page-title">Lab Reports</h1>
+                <p class="page-subtitle">Download your signed laboratory reports.</p>
+            </div>
+        </div>
+    </div>
+</div>
+
+@if (loading)
+{
+    <div class="d-flex justify-content-center py-5"><div class="spinner-border text-primary" role="status"></div></div>
+}
+else if (!reports.Any())
+{
+    <div class="alert alert-info border-0 rounded-3"><i class="bi bi-info-circle me-2"></i>No lab reports available yet.</div>
+}
+else
+{
+    <div class="row g-3">
+        @foreach (var r in reports)
+        {
+            <div class="col-md-6 col-xl-4">
+                <div class="content-card p-3">
+                    <div class="d-flex align-items-center gap-3 mb-3">
+                        <div class="bg-danger bg-opacity-10 text-danger rounded-3 p-2">
+                            <i class="bi bi-file-earmark-pdf-fill fs-4"></i>
+                        </div>
+                        <div class="flex-grow-1">
+                            <div class="fw-bold small">Report #@(r.Requisition?.RequisitionNumber ?? "—")</div>
+                            <div class="text-muted small">@r.GeneratedAt.ToLocalTime().ToString("dd MMM yyyy")</div>
+                        </div>
+                        <span class="badge @((r.Requisition?.Status == "Completed") ? "bg-success" : "bg-warning text-dark")">
+                            @((r.Requisition?.Status == "Completed") ? "Verified" : "Pending")
+                        </span>
+                    </div>
+                    @if (!string.IsNullOrEmpty(r.StoragePath))
+                    {
+                        <a href="@r.StoragePath" target="_blank" class="btn btn-sm btn-outline-danger w-100">
+                            <i class="bi bi-download me-1"></i>Download PDF
+                        </a>
+                    }
+                    else
+                    {
+                        <button class="btn btn-sm btn-outline-secondary w-100" disabled>
+                            <i class="bi bi-hourglass me-1"></i>PDF Generating...
+                        </button>
+                    }
+                </div>
+            </div>
+        }
+    </div>
+}
+
+@code {
+    private bool loading = true;
+    private List<LabReport> reports = new();
+
+    protected override async Task OnInitializedAsync()
+    {
+        PageTitle.SetTitle("My Lab Reports");
+        var auth = await AuthStateProvider.GetAuthenticationStateAsync();
+        var pidStr = auth.User.FindFirst(CareSphereClaimTypes.PatientId)?.Value;
+        if (Guid.TryParse(pidStr, out var pid))
+            reports = await PortalService.GetMyLabReportsAsync(pid);
+        loading = false;
+    }
+}

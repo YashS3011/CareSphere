@@ -179,7 +179,7 @@ else
         var authState = await AuthStateProvider.GetAuthenticationStateAsync();
         var user = authState.User;
         var role = CurrentUserHelper.GetUserRole(user);
-        isUserAdmin = role == CareSphereRoles.HospitalAdmin || role == CareSphereRoles.SuperAdmin;
+        isUserAdmin = role == CareSphereRoles.HospitalAdmin;
     }
 
     private void CancelDischarge() { showDischargeConfirm = false; allotmentIdToDischarge = Guid.Empty; dischargeError = null; }

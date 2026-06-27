@@ -1,0 +1,247 @@
+@page "/patient/billing/pay/{invoiceId:guid}"
+@attribute [Microsoft.AspNetCore.Authorization.Authorize(Policy = PolicyNames.Permission_OwnInvoices_Download)]
+@inject CareSphere.Modules.Billing.Services.IInvoiceService InvoiceService
+@inject CareSphere.Modules.Billing.Services.IPaymentService PaymentService
+@inject CareSphere.Data.ApplicationDbContext DbContext
+@inject AuthenticationStateProvider AuthStateProvider
+@inject PageTitleService PageTitle
+@inject NavigationManager Nav
+@inject IJSRuntime JS
+@inject Microsoft.Extensions.Configuration.IConfiguration Configuration
+@rendermode InteractiveServer
+
+<PageTitle>Payment Portal — CareSphere</PageTitle>
+
+<div class="page-header">
+    <div class="page-header-content">
+        <div class="page-title-group">
+            <div class="page-icon"><i class="bi bi-shield-check text-success"></i></div>
+            <div>
+                <h1 class="page-title">Secure Checkout</h1>
+                <p class="page-subtitle">Choose a payment method to settle your bill.</p>
+            </div>
+        </div>
+    </div>
+</div>
+
+@if (loading)
+{
+    <div class="d-flex justify-content-center py-5"><div class="spinner-border text-primary" role="status"></div></div>
+}
+else if (invoice == null)
+{
+    <div class="alert alert-danger border-0 rounded-3"><i class="bi bi-exclamation-triangle me-2"></i>Invoice not found.</div>
+}
+else if (invoice.BalanceAmount <= 0)
+{
+    <div class="card border-0 rounded-4 shadow-sm text-center p-5 mb-4">
+        <div class="text-success mb-3"><i class="bi bi-check-circle-fill display-3"></i></div>
+        <h3 class="fw-bold text-dark">Invoice Fully Paid</h3>
+        <p class="text-muted">This invoice has already been fully paid. Thank you.</p>
+        <div class="mt-4">
+            <a href="/patient/billing/invoices" class="btn btn-primary px-4 rounded-pill">Back to Bills</a>
+        </div>
+    </div>
+}
+else
+{
+    <div class="row g-4">
+        <!-- Invoice summary -->
+        <div class="col-lg-7">
+            <div class="content-card p-4 h-100">
+                <h5 class="fw-bold mb-4 border-bottom pb-2 text-primary"><i class="bi bi-receipt me-2"></i>Invoice Summary</h5>
+                <div class="row g-3 mb-4">
+                    <div class="col-sm-6">
+                        <span class="text-muted small">Invoice Number</span>
+                        <div class="fw-bold text-dark">#@invoice.InvoiceNumber</div>
+                    </div>
+                    <div class="col-sm-6">
+                        <span class="text-muted small">Date Issued</span>
+                        <div class="fw-bold text-dark">@invoice.InvoiceDate.ToLocalTime().ToString("dd MMM yyyy")</div>
+                    </div>
+                </div>
+
+                <div class="bg-light rounded-4 p-4 mb-4">
+                    <div class="d-flex justify-content-between mb-2">
+                        <span class="text-muted">Subtotal</span>
+                        <span class="text-dark">₹@invoice.SubtotalAmount.ToString("N2")</span>
+                    </div>
+                    @if (invoice.TaxAmount > 0)
+                    {
+                        <div class="d-flex justify-content-between mb-2">
+                            <span class="text-muted">Tax / GST</span>
+                            <span class="text-dark">₹@invoice.TaxAmount.ToString("N2")</span>
+                        </div>
+                    }
+                    @if (invoice.DiscountAmount > 0)
+                    {
+                        <div class="d-flex justify-content-between mb-2 text-success">
+                            <span>Discount Given</span>
+                            <span>-₹@invoice.DiscountAmount.ToString("N2")</span>
+                        </div>
+                    }
+                    <hr />
+                    <div class="d-flex justify-content-between mb-2 fw-bold text-dark fs-5">
+                        <span>Total Amount</span>
+                        <span>₹@invoice.TotalAmount.ToString("N2")</span>
+                    </div>
+                    <div class="d-flex justify-content-between mb-2 text-success">
+                        <span>Paid So Far</span>
+                        <span>₹@invoice.PaidAmount.ToString("N2")</span>
+                    </div>
+                    <div class="d-flex justify-content-between mt-2 pt-2 border-top border-secondary-subtle fw-bold text-danger fs-4">
+                        <span>Balance Due</span>
+                        <span>₹@invoice.BalanceAmount.ToString("N2")</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Checkout forms -->
+        <div class="col-lg-5">
+            <div class="content-card p-4 h-100">
+                <h5 class="fw-bold mb-4 border-bottom pb-2 text-primary"><i class="bi bi-wallet2 me-2"></i>Select Payment Method</h5>
+
+                @if (paymentSuccess)
+                {
+                    <div class="text-center py-4">
+                        <div class="text-success mb-3"><i class="bi bi-shield-fill-check display-3"></i></div>
+                        <h4 class="fw-bold text-success">Payment Successful!</h4>
+                        <p class="text-muted">A sum of ₹@amountPaid.ToString("N2") was received successfully. Your account has been updated.</p>
+                        <button class="btn btn-outline-primary px-4 rounded-pill mt-3" @onclick="GoBack">Return to Invoices</button>
+                    </div>
+                }
+                else
+                {
+                    <div class="mb-4">
+                        <div class="form-check p-3 rounded border mb-3 @(paymentMethod == "UPI" ? "border-primary bg-primary bg-opacity-5" : "")" style="cursor: pointer;" @onclick='() => SetMethod("UPI")'>
+                            <input class="form-check-input ms-0 me-3" type="radio" checked="@(paymentMethod == "UPI")" />
+                            <label class="form-check-label fw-bold text-dark"><i class="bi bi-phone-fill me-2 text-primary"></i>BHIM UPI / GPay / PhonePe</label>
+                        </div>
+                        <div class="form-check p-3 rounded border mb-3 @(paymentMethod == "Card" ? "border-primary bg-primary bg-opacity-5" : "")" style="cursor: pointer;" @onclick='() => SetMethod("Card")'>
+                            <input class="form-check-input ms-0 me-3" type="radio" checked="@(paymentMethod == "Card")" />
+                            <label class="form-check-label fw-bold text-dark"><i class="bi bi-credit-card-2-front-fill me-2 text-primary"></i>Credit / Debit Card</label>
+                        </div>
+                        <div class="form-check p-3 rounded border @(paymentMethod == "NetBanking" ? "border-primary bg-primary bg-opacity-5" : "")" style="cursor: pointer;" @onclick='() => SetMethod("NetBanking")'>
+                            <input class="form-check-input ms-0 me-3" type="radio" checked="@(paymentMethod == "NetBanking")" />
+                            <label class="form-check-label fw-bold text-dark"><i class="bi bi-bank2 me-2 text-primary"></i>Net Banking</label>
+                        </div>
+                    </div>
+
+                    @if (isProcessing)
+                    {
+                        <button class="btn btn-primary w-100 py-3 rounded-pill fw-bold" disabled>
+                            <span class="spinner-border spinner-border-sm me-2" role="status"></span>Processing Secure Transaction...
+                        </button>
+                    }
+                    else
+                    {
+                        <button class="btn btn-success w-100 py-3 rounded-pill fw-bold fs-5 shadow-sm" @onclick="ProceedPayment">
+                            <i class="bi bi-shield-lock-fill me-2"></i>Pay ₹@invoice.BalanceAmount.ToString("N2")
+                        </button>
+                    }
+                }
+            </div>
+        </div>
+    </div>
+}
+
+@code {
+    [Parameter]
+    public Guid InvoiceId { get; set; }
+
+    private bool loading = true;
+    private bool isProcessing = false;
+    private bool paymentSuccess = false;
+    private string paymentMethod = "UPI";
+    private decimal amountPaid = 0m;
+    private BillingInvoice? invoice;
+
+    protected override async Task OnInitializedAsync()
+    {
+        PageTitle.SetTitle("Payment Gateway");
+        invoice = await InvoiceService.GetInvoiceByIdAsync(InvoiceId);
+        loading = false;
+    }
+
+    private void SetMethod(string method) => paymentMethod = method;
+
+    private async Task ProceedPayment()
+    {
+        if (invoice == null || isProcessing) return;
+
+        isProcessing = true;
+
+        try
+        {
+            var auth = await AuthStateProvider.GetAuthenticationStateAsync();
+            var user = auth.User;
+            var patientName = user.Identity?.Name ?? "Patient";
+            var patientEmail = user.FindFirst(System.Security.Claims.ClaimTypes.Email)?.Value ?? "";
+            
+            // 1. Initiate backend Razorpay Order
+            var orderResult = await PaymentService.InitiateRazorpayPaymentAsync(invoice.TenantId, invoice.Id, paymentMethod);
+            
+            // 2. Open Razorpay Modal via JS
+            var options = new
+            {
+                key = Configuration["Razorpay:KeyId"],
+                amount = invoice.BalanceAmount,
+                currency = "INR",
+                orderId = orderResult.OrderId,
+                patientName = patientName,
+                patientEmail = patientEmail,
+                patientPhone = ""
+            };
+
+            var objRef = DotNetObjectReference.Create(this);
+            await JS.InvokeVoidAsync("openRazorpayCheckout", options, objRef);
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Checkout initialization error: {ex.Message}");
+            isProcessing = false;
+        }
+    }
+
+    [JSInvokable]
+    public async Task OnPaymentSuccess(string paymentId, string orderId, string signature)
+    {
+        try
+        {
+            // Verify and complete payment
+            var payment = await PaymentService.VerifyRazorpayPaymentAsync(orderId, paymentId, signature);
+            
+            // Reload the invoice to get updated PaidAmount/Balance
+            invoice = await InvoiceService.GetInvoiceByIdAsync(InvoiceId);
+            amountPaid = payment.Amount;
+            paymentSuccess = true;
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Verification error: {ex.Message}");
+        }
+        finally
+        {
+            isProcessing = false;
+            StateHasChanged();
+        }
+    }
+
+    [JSInvokable]
+    public void OnPaymentFailed(string code, string reason, string paymentId, string orderId)
+    {
+        Console.WriteLine($"Payment Failed: {reason} (Code: {code})");
+        isProcessing = false;
+        StateHasChanged();
+    }
+
+    [JSInvokable]
+    public void OnPaymentCancelled()
+    {
+        isProcessing = false;
+        StateHasChanged();
+    }
+
+    private void GoBack() => Nav.NavigateTo("/patient/billing/invoices");
+}

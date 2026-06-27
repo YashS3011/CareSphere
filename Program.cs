@@ -17,6 +17,8 @@ using CareSphere.Modules.Appointments.Services;
 using CareSphere.Modules.Analytics.Services;
 using CareSphere.Modules.Nursing.Services;
 using CareSphere.Modules.Shared.ReadModels;
+using CareSphere.Modules.PlatformAdmin.Services;
+using CareSphere.Modules.PatientPortal.Services;
 using ApexCharts;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Components.Authorization;
@@ -154,6 +156,8 @@ builder.Services.AddAuthorization(options =>
     options.AddPolicy(PolicyNames.Permission_Admin_ManageTenant, p => p.Requirements.Add(new PermissionRequirement(CareSpherePermissions.Admin_ManageTenant)));
     options.AddPolicy(PolicyNames.Permission_DoctorSchedule_Manage, p => p.Requirements.Add(new PermissionRequirement(CareSpherePermissions.DoctorSchedule_Manage)));
     options.AddPolicy(PolicyNames.Permission_Analytics_View, p => p.Requirements.Add(new PermissionRequirement(CareSpherePermissions.Analytics_View)));
+    options.AddPolicy(PolicyNames.Permission_Wards_Manage, p => p.Requirements.Add(new PermissionRequirement(CareSpherePermissions.Wards_Manage)));
+    options.AddPolicy(PolicyNames.Permission_Platform_ManageHospitals, p => p.Requirements.Add(new PermissionRequirement(CareSpherePermissions.Platform_ManageHospitals)));
     options.AddPolicy("Queue_Access", p => p.Requirements.Add(new CareSphere.Authorization.QueueAccessRequirement()));
 });
 
@@ -198,6 +202,7 @@ builder.Services.AddTransient<IPaymentService, PaymentService>();
 builder.Services.AddTransient<IClaimService, ClaimService>();
 builder.Services.AddTransient<IDocumentService, DocumentService>();
 builder.Services.AddSingleton<CareSphere.Infrastructure.RazorpayClientWrapper>();
+builder.Services.AddSingleton<CareSphere.Infrastructure.RealTimeEventBus>();
 
 // Pharmacy Management Services
 builder.Services.AddTransient<ISupplierService, SupplierService>();
@@ -247,6 +252,8 @@ builder.Services.AddScoped<UserTimeZoneService>();
 builder.Services.AddScoped<CareSphere.Infrastructure.PageTitleService>();
 builder.Services.AddScoped<SupabaseAuthService>();
 builder.Services.AddScoped<DatabaseSeeder>();
+builder.Services.AddTransient<IPlatformAdminService, PlatformAdminService>();
+builder.Services.AddScoped<IPatientPortalService, PatientPortalService>();
 
 // ─── SSO Configuration ────────────────────────────────────────────────────────
 // Note: Dynamic SSO registration requires restarting the application after

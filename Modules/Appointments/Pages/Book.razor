@@ -385,7 +385,7 @@
             );
 
             successMessage = "Appointment booked successfully!";
-            ResetForm();
+            await ResetFormAsync();
         }
         catch (InvalidOperationException ex) when (ex.Message.Contains("no longer available"))
         {
@@ -398,7 +398,7 @@
         }
     }
 
-    private void ResetForm()
+    private async Task ResetFormAsync()
     {
         selectedSlot = null;
         selectedPatient = null;
@@ -407,6 +407,6 @@
         notes = string.Empty;
         appointmentType = "OPD";
         // Reload slots to show updated availability
-        _ = LoadSlotsAsync();
+        await LoadSlotsAsync();
     }
 }

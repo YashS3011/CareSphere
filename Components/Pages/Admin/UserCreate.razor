@@ -2,6 +2,7 @@
 @attribute [Microsoft.AspNetCore.Authorization.Authorize(Policy = PolicyNames.Permission_Admin_ManageUsers)]
 @inject IUserService UserService
 @inject IDoctorService DoctorService
+@inject IPatientService PatientService
 @inject IConfiguration Configuration
 @inject NavigationManager NavigationManager
 @rendermode InteractiveServer
@@ -85,6 +86,21 @@
                     </div>
                 }
 
+                @if (model.Role == CareSphereRoles.Patient)
+                {
+                    <div class="col-12">
+                        <label class="form-label fw-semibold">Link to Patient Record</label>
+                        <InputSelect class="form-select" @bind-Value="model.PatientId">
+                            <option value="">— No linked patient record —</option>
+                            @foreach (var pat in patients)
+                            {
+                                <option value="@pat.Id">@pat.FirstName @pat.LastName (MRN: @pat.Mrn)</option>
+                            }
+                        </InputSelect>
+                        <div class="form-text">Optional: link this account to an existing patient record.</div>
+                    </div>
+                }
+
                 <div class="col-12 d-flex gap-2 mt-2">
                     <button type="submit" class="btn btn-primary" disabled="@isLoading">
                         @if (isLoading)
@@ -105,16 +121,20 @@
     private string? errorMessage;
     private bool isLoading = false;
     private List<CareSphere.Models.Doctor> doctors = new();
+    private List<CareSphere.Models.Patient> patients = new();
 
     protected override async Task OnInitializedAsync()
     {
         doctors = await DoctorService.GetAllDoctorsAsync();
+        patients = await PatientService.GetPatientsAsync();
     }
 
     private void OnRoleChanged()
     {
         if (model.Role != CareSphereRoles.Doctor)
             model.DoctorId = null;
+        if (model.Role != CareSphereRoles.Patient)
+            model.PatientId = null;
     }
 
     private async Task HandleCreate()
@@ -134,10 +154,11 @@
             var tenantId = Guid.Parse(tenantIdStr);
 
             Guid? doctorId = string.IsNullOrEmpty(model.DoctorId) ? null : Guid.Parse(model.DoctorId);
+            Guid? patientId = string.IsNullOrEmpty(model.PatientId) ? null : Guid.Parse(model.PatientId);
 
             var result = await UserService.CreateUserAsync(
                 tenantId, model.FullName, model.Email, model.Password,
-                model.Role, model.Department, doctorId);
+                model.Role, model.Department, doctorId, patientId);
 
             if (result.Success)
                 NavigationManager.NavigateTo("/admin/users");
@@ -163,5 +184,6 @@
         [System.ComponentModel.DataAnnotations.Required] public string Role { get; set; } = "";
         public string? Department { get; set; }
         public string? DoctorId { get; set; }
+        public string? PatientId { get; set; }
     }
 }

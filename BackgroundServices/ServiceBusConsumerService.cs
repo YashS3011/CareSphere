@@ -170,6 +170,15 @@ namespace CareSphere.BackgroundServices
                         });
                     }
                 }
+                else if (envelope.MessageType.Equals("PatientAdmitted", StringComparison.OrdinalIgnoreCase))
+                {
+                    var admittedEvt = JsonSerializer.Deserialize<PatientAdmitted>(envelope.Payload);
+                    if (admittedEvt != null)
+                    {
+                        var service = scope.ServiceProvider.GetRequiredService<INotificationSenderService>();
+                        await service.SendPatientAdmittedAsync(admittedEvt);
+                    }
+                }
 
                 await args.CompleteMessageAsync(args.Message);
             }

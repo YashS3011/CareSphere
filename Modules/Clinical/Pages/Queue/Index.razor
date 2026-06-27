@@ -7,6 +7,7 @@
 @inject IPatientReadModel PatientReadModel
 @inject ITenantContext TenantContext
 @inject NavigationManager NavigationManager
+@inject CareSphere.Infrastructure.RealTimeEventBus EventBus
 @rendermode InteractiveServer
 @implements IDisposable
 
@@ -219,8 +220,8 @@ else
     private List<DoctorQueueEntry>? queueEntries;
     private IEnumerable<PatientSummary>? patients;
     private List<Doctor>? activeDoctors;
-    private System.Threading.Timer? refreshTimer;
     private bool _isDisposed = false;
+    private bool _isSubscribed = false;
     private bool showAddForm = false;
     private string selectedPatientId = string.Empty;
     private string selectedTriagePriority = "Routine";
@@ -238,18 +239,26 @@ else
             if (doctor != null)
             {
                 await RefreshQueue();
-                if (refreshTimer == null)
+                if (!_isSubscribed)
                 {
-                    refreshTimer = new System.Threading.Timer(async _ =>
+                    EventBus.Subscribe("QueueUpdated", async payload => 
                     {
                         if (_isDisposed) return;
-                        await InvokeAsync(async () => { if (_isDisposed) return; await RefreshQueue(); StateHasChanged(); });
-                    }, null, TimeSpan.FromSeconds(30), TimeSpan.FromSeconds(30));
+                        if (Guid.TryParse(payload, out var updatedDocId) && updatedDocId == DoctorId)
+                        {
+                            await InvokeAsync(async () => { 
+                                if (_isDisposed) return; 
+                                await RefreshQueue(); 
+                                StateHasChanged(); 
+                            });
+                        }
+                    });
+                    _isSubscribed = true;
                 }
             }
-            else { refreshTimer?.Dispose(); refreshTimer = null; queueEntries = null; }
+            else { queueEntries = null; }
         }
-        else { doctor = null; refreshTimer?.Dispose(); refreshTimer = null; queueEntries = null; }
+        else { doctor = null; queueEntries = null; }
     }
 
     private async Task RefreshQueue()
@@ -315,5 +324,5 @@ else
 
     private void SwitchDoctor() { NavigationManager.NavigateTo("/doctor/queue"); }
 
-    public void Dispose() { _isDisposed = true; refreshTimer?.Dispose(); }
+    public void Dispose() { _isDisposed = true; }
 }

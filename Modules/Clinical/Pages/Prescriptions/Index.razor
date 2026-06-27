@@ -5,7 +5,9 @@
 @inject IServiceScopeFactory ScopeFactory
 @inject ITenantContext TenantContext
 @inject NavigationManager NavigationManager
+@inject CareSphere.Infrastructure.RealTimeEventBus EventBus
 @rendermode InteractiveServer
+@implements IDisposable
 
 <PageTitle>Prescriptions - CareSphere</PageTitle>
 
@@ -145,8 +147,30 @@ else
     private bool showCancelModal = false;
     private string cancellationReason = string.Empty;
     private string errorMessage = string.Empty;
+    private bool _isDisposed = false;
+    private bool _isSubscribed = false;
 
-    protected override async Task OnInitializedAsync() { await LoadPrescriptions(); }
+    protected override async Task OnInitializedAsync() 
+    { 
+        await LoadPrescriptions(); 
+        
+        if (!_isSubscribed)
+        {
+            EventBus.Subscribe("PrescriptionsUpdated", async payload => 
+            {
+                if (_isDisposed) return;
+                if (Guid.TryParse(payload, out var updatedTenantId) && updatedTenantId == TenantContext.TenantId)
+                {
+                    await InvokeAsync(async () => {
+                        if (_isDisposed) return;
+                        await LoadPrescriptions();
+                        StateHasChanged();
+                    });
+                }
+            });
+            _isSubscribed = true;
+        }
+    }
     private async Task HandleSearch(KeyboardEventArgs e) { if (e.Key == "Enter") await LoadPrescriptions(); }
 
     private async Task LoadPrescriptions()
@@ -189,4 +213,6 @@ else
         }
         catch (Exception ex) { errorMessage = ex.Message; }
     }
+
+    public void Dispose() { _isDisposed = true; }
 }

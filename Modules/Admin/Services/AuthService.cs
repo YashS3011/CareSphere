@@ -88,6 +88,9 @@ namespace CareSphere.Modules.Admin.Services
                 if (user.DoctorId.HasValue)
                     claims.Add(new Claim(CareSphereClaimTypes.DoctorId, user.DoctorId.Value.ToString()));
 
+                if (user.PatientId.HasValue)
+                    claims.Add(new Claim(CareSphereClaimTypes.PatientId, user.PatientId.Value.ToString()));
+
                 foreach (var perm in permissions)
                     claims.Add(new Claim(CareSphereClaimTypes.Permission, perm));
 

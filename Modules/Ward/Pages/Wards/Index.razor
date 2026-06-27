@@ -12,7 +12,11 @@
         <p class="text-muted small mb-0">Configure and manage hospital wards</p>
     </div>
     <div class="page-actions">
-        <a href="/wards/create" class="btn btn-primary shadow-sm"><i class="bi bi-plus-circle me-1"></i> Add New Ward</a>
+        <AuthorizeView Policy="@PolicyNames.Permission_Beds_Manage">
+            <Authorized>
+                <a href="/wards/create" class="btn btn-primary shadow-sm"><i class="bi bi-plus-circle me-1"></i> Add New Ward</a>
+            </Authorized>
+        </AuthorizeView>
     </div>
 </div>
 
@@ -29,9 +33,13 @@ else if (!wards.Any())
         <i class="bi bi-building display-3 opacity-50 mb-3 d-block text-secondary"></i>
         <h5>No Wards Configured</h5>
         <p class="small text-muted">Create a hospital ward to start registering and assigning beds.</p>
-        <a href="/wards/create" class="btn btn-primary btn-sm mt-2">
-            <i class="bi bi-plus-circle me-1"></i> Add Ward
-        </a>
+        <AuthorizeView Policy="@PolicyNames.Permission_Beds_Manage">
+            <Authorized>
+                <a href="/wards/create" class="btn btn-primary btn-sm mt-2">
+                    <i class="bi bi-plus-circle me-1"></i> Add Ward
+                </a>
+            </Authorized>
+        </AuthorizeView>
     </div>
 }
 else
@@ -60,10 +68,14 @@ else
                                 <td>@ward.Building</td>
                                 <td><span class="badge bg-info-subtle text-info border font-monospace fw-bold">@ward.TotalBeds</span></td>
                                 <td class="text-end pe-4">
-                                    <div class="btn-group btn-group-sm">
-                                        <a href="/wards/edit/@ward.Id" class="btn btn-outline-warning" title="Edit"><i class="bi bi-pencil-fill me-1"></i>Edit</a>
-                                        <button class="btn btn-outline-danger" @onclick="() => ConfirmDelete(ward.Id, ward.TotalBeds)" title="Delete"><i class="bi bi-trash-fill me-1"></i>Delete</button>
-                                    </div>
+                                    <AuthorizeView Policy="@PolicyNames.Permission_Beds_Manage">
+                                        <Authorized>
+                                            <div class="btn-group btn-group-sm">
+                                                <a href="/wards/edit/@ward.Id" class="btn btn-outline-warning" title="Edit"><i class="bi bi-pencil-fill me-1"></i>Edit</a>
+                                                <button class="btn btn-outline-danger" @onclick="() => ConfirmDelete(ward.Id, ward.TotalBeds)" title="Delete"><i class="bi bi-trash-fill me-1"></i>Delete</button>
+                                            </div>
+                                        </Authorized>
+                                    </AuthorizeView>
                                 </td>
                             </tr>
                         }

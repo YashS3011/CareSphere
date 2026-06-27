@@ -11,6 +11,7 @@ using CareSphere.Modules.Shared.Events;
 using CareSphere.Data;
 using CareSphere.Models;
 using Microsoft.EntityFrameworkCore;
+using CareSphere.Infrastructure;
 
 namespace CareSphere.Modules.Clinical.Services
 {
@@ -18,11 +19,15 @@ namespace CareSphere.Modules.Clinical.Services
     {
         private readonly ApplicationDbContext _context;
         private readonly IAuditService _auditService;
+        private readonly RealTimeEventBus _eventBus;
+        private readonly INotificationSenderService _notificationService;
 
-        public PrescriptionService(ApplicationDbContext context, IAuditService auditService)
+        public PrescriptionService(ApplicationDbContext context, IAuditService auditService, RealTimeEventBus eventBus, INotificationSenderService notificationService)
         {
             _context = context;
             _auditService = auditService;
+            _eventBus = eventBus;
+            _notificationService = notificationService;
         }
 
         public async Task<Prescription> CreatePrescriptionAsync(Prescription prescription)
@@ -33,6 +38,10 @@ namespace CareSphere.Modules.Clinical.Services
 
             _context.Prescriptions.Add(prescription);
             await _context.SaveChangesAsync();
+            
+            await _eventBus.PublishAsync("PrescriptionsUpdated", prescription.TenantId.ToString());
+            await _notificationService.SendPrescriptionIssuedAsync(prescription);
+            
             return prescription;
         }
 
@@ -70,6 +79,8 @@ namespace CareSphere.Modules.Clinical.Services
                 ResourceId = prescriptionId.ToString(),
                 TenantId = prescription.TenantId
             });
+
+            await _eventBus.PublishAsync("PrescriptionsUpdated", prescription.TenantId.ToString());
         }
 
         public async Task<List<DrugFormulary>> SearchDrugFormularyAsync(string searchTerm)

@@ -1,8 +1,3 @@
-/* /Areas/PlatformAdmin/Layout/PlatformAdminLayout.razor.rz.scp.css */
-.layout-container[b-xgk6r7lapq] {
-    --module-accent: #ffc107; /* PlatformAdmin: amber */
-    --module-accent-text: #0f172a; /* PlatformAdmin active text: dark */
-}
 /* /Components/Layout/MainLayout.razor.rz.scp.css */
 #blazor-error-ui[b-mw4qjunh9v] {
     color-scheme: light only;

@@ -1,0 +1,125 @@
+@page "/wards/dashboard"
+@attribute [Authorize(Policy = PolicyNames.Permission_Beds_Manage)]
+@inject IBedService BedService
+@inject PageTitleService PageTitle
+@implements IDisposable
+
+<PageTitle>Ward Dashboard - CareSphere</PageTitle>
+
+<div class="page-header">
+    <div class="page-header-content">
+        <div class="page-title-group">
+            <div class="page-icon"><i class="bi bi-hospital"></i></div>
+            <div>
+                <h1 class="page-title">Ward Dashboard</h1>
+                <p class="page-subtitle">Real-time hospital ward occupancy breakdown &amp; statistics</p>
+            </div>
+        </div>
+        <div class="page-actions">
+            <AuthorizeView Policy="@PolicyNames.Permission_Beds_Manage">
+                <Authorized>
+                    <a href="/wards/create" class="btn btn-primary"><i class="bi bi-plus-circle me-1"></i> Add New Ward</a>
+                </Authorized>
+            </AuthorizeView>
+            <a href="/wards" class="btn btn-outline-secondary"><i class="bi bi-building me-1"></i> Manage Wards</a>
+        </div>
+    </div>
+</div>
+
+@if (stats == null)
+{
+    <div class="loading-state">
+        <div class="spinner-border text-primary" role="status"><span class="visually-hidden">Loading...</span></div>
+        <p class="mt-3 text-muted">Loading dashboard...</p>
+    </div>
+}
+else
+{
+    <div class="row g-4 mb-4">
+        <div class="col-sm-6 col-xl-4">
+            <div class="stat-card stat-card-primary">
+                <div class="stat-icon"><i class="bi bi-building-fill"></i></div>
+                <div class="stat-value">@stats.WardBreakdown.Count</div>
+                <div class="stat-label">Total Wards</div>
+            </div>
+        </div>
+        <div class="col-sm-6 col-xl-4">
+            <div class="stat-card stat-card-success">
+                <div class="stat-icon"><i class="bi bi-check-circle-fill"></i></div>
+                <div class="stat-value">@stats.Available</div>
+                <div class="stat-label">Available Beds</div>
+            </div>
+        </div>
+        <div class="col-sm-6 col-xl-4">
+            <div class="stat-card stat-card-danger">
+                <div class="stat-icon"><i class="bi bi-person-fill"></i></div>
+                <div class="stat-value">@stats.Occupied</div>
+                <div class="stat-label">Occupied Beds</div>
+            </div>
+        </div>
+    </div>
+
+    <div class="content-card">
+        <div class="content-card-header">
+            <h5 class="content-card-title"><i class="bi bi-bar-chart-steps me-2"></i>Ward Occupancy Breakdown</h5>
+        </div>
+        <div class="content-card-body">
+            @if (!stats.WardBreakdown.Any())
+            {
+                <div class="empty-state">
+                    <i class="bi bi-building"></i>
+                    <p>No wards configured yet.</p>
+                </div>
+            }
+            else
+            {
+                <div class="row g-3">
+                    @foreach (var ward in stats.WardBreakdown)
+                    {
+                        var occupancyPercent = ward.Total > 0 ? (int)Math.Round((double)ward.Occupied / ward.Total * 100) : 0;
+                        var barClass = occupancyPercent > 90 ? "bg-danger" : (occupancyPercent > 75 ? "bg-warning" : "bg-success");
+                        var badgeClass = occupancyPercent > 90 ? "badge-danger" : (occupancyPercent > 75 ? "badge-warning" : "badge-success");
+
+                        <div class="col-md-6 col-xl-4">
+                            <div class="ward-occupancy-card">
+                                <div class="ward-header">
+                                    <div>
+                                        <div class="ward-name">@ward.WardName</div>
+                                        <div class="ward-type">@ward.WardType</div>
+                                    </div>
+                                    <span class="occupancy-badge @badgeClass">@occupancyPercent%</span>
+                                </div>
+                                <div class="progress mt-3 mb-2" style="height:8px;border-radius:4px;">
+                                    <div class="progress-bar @barClass" role="progressbar"
+                                         style="width:@occupancyPercent%;"
+                                         aria-valuenow="@occupancyPercent" aria-valuemin="0" aria-valuemax="100"></div>
+                                </div>
+                                <div class="ward-stats">
+                                    <span><i class="bi bi-person-fill text-danger me-1"></i>Occupied: <strong>@ward.Occupied</strong></span>
+                                    <span><i class="bi bi-check2 text-success me-1"></i>Available: <strong>@ward.Available</strong></span>
+                                    <span><i class="bi bi-grid text-muted me-1"></i>Total: <strong>@ward.Total</strong></span>
+                                </div>
+                            </div>
+                        </div>
+                    }
+                </div>
+            }
+        </div>
+    </div>
+}
+
+@code {
+    private BedDashboardStats? stats;
+
+    protected override async Task OnInitializedAsync()
+    {
+        PageTitle.SetTitle("Ward Dashboard");
+        PageTitle.OnTitleChanged += StateHasChanged;
+        stats = await BedService.GetDashboardStatsAsync();
+    }
+
+    public void Dispose()
+    {
+        PageTitle.OnTitleChanged -= StateHasChanged;
+    }
+}

@@ -5,6 +5,7 @@
 @inject IPatientService PatientService
 @inject ApplicationDbContext DbContext
 @inject NavigationManager NavigationManager
+@inject Microsoft.AspNetCore.Identity.UserManager<ApplicationUser> UserManager
 
 <PageTitle>Register Patient - CareSphere</PageTitle>
 
@@ -195,6 +196,38 @@
             };
             DbContext.PatientPreferences.Add(pref);
             await DbContext.SaveChangesAsync();
+
+            // Create ApplicationUser if Email is provided
+            if (!string.IsNullOrWhiteSpace(patient.Email))
+            {
+                var existingUser = await UserManager.FindByEmailAsync(patient.Email);
+                if (existingUser == null)
+                {
+                    var user = new ApplicationUser
+                    {
+                        UserName = patient.Email,
+                        Email = patient.Email,
+                        FullName = $"{patient.FirstName} {patient.LastName}",
+                        TenantId = patient.TenantId,
+                        Role = CareSphereRoles.Patient,
+                        IsActive = true,
+                        CreatedAt = DateTime.UtcNow,
+                        PreferredLanguage = preferredLanguage,
+                        EmailConfirmed = true,
+                        PatientId = patient.Id
+                    };
+
+                    var userResult = await UserManager.CreateAsync(user, "Patient@123");
+                    if (userResult.Succeeded)
+                    {
+                        await UserManager.AddToRoleAsync(user, CareSphereRoles.Patient);
+                    }
+                    else
+                    {
+                        Console.WriteLine($"[Patient Credentials Setup Failed]: {string.Join(", ", userResult.Errors.Select(e => e.Description))}");
+                    }
+                }
+            }
 
             NavigationManager.NavigateTo("/patients");
         }

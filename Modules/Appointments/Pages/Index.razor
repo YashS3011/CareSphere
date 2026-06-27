@@ -18,9 +18,13 @@
             </div>
         </div>
         <div class="page-actions">
-            <a href="/appointments/book" class="btn btn-primary">
-                <i class="bi bi-calendar-plus me-1"></i> Book Appointment
-            </a>
+            <AuthorizeView Policy="@PolicyNames.Permission_Appointments_Book">
+                <Authorized>
+                    <a href="/appointments/book" class="btn btn-primary">
+                        <i class="bi bi-calendar-plus me-1"></i> Book Appointment
+                    </a>
+                </Authorized>
+            </AuthorizeView>
         </div>
     </div>
 </div>
@@ -139,10 +143,14 @@ else
                                                 <span class="badge bg-info-subtle text-info border border-info-subtle">Arrived</span>
                                                 break;
                                             case "Completed":
-                                                <span class="badge bg-primary-subtle text-primary border border-primary-subtle">Completed</span>
+                                                <span class="badge bg-success-subtle text-success border border-success-subtle">Completed</span>
+                                                break;
+                                            case "In Consultation":
+                                                <span class="badge bg-primary-subtle text-primary border border-primary-subtle">In Consultation</span>
                                                 break;
                                             case "Cancelled":
-                                                <span class="badge bg-danger-subtle text-danger border border-danger-subtle">Cancelled</span>
+                                            case "No Show":
+                                                <span class="badge bg-danger-subtle text-danger border border-danger-subtle">@appt.Status</span>
                                                 break;
                                             default:
                                                 <span class="badge bg-secondary-subtle text-secondary border border-secondary-subtle">@appt.Status</span>

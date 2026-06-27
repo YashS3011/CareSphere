@@ -8,6 +8,13 @@
 @inject PageTitleService PageTitle
 @implements IDisposable
 
+<AuthorizeView Roles="@CareSphere.CareSphereRoles.HospitalAdmin" Context="outerContext">
+    <Authorized>
+        <CareSphere.Modules.Admin.Layout.AdminLayout>
+            @Body
+        </CareSphere.Modules.Admin.Layout.AdminLayout>
+    </Authorized>
+    <NotAuthorized>
 <div class="layout-container">
     <NavMenu />
 
@@ -34,6 +41,8 @@
         </main>
     </div>
 </div>
+    </NotAuthorized>
+</AuthorizeView>
 
 @code {
     protected override void OnInitialized() => PageTitle.OnTitleChanged += StateHasChanged;

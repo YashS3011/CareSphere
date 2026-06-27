@@ -276,7 +276,7 @@
 
             // Load users/nurses list
             var allUsers = await UserService.GetUsersByTenantAsync(currentTenantId);
-            nursesList = allUsers.Where(u => u.Role == CareSphereRoles.Nurse || u.Role == CareSphereRoles.SuperAdmin || u.Role == CareSphereRoles.HospitalAdmin).ToList();
+            nursesList = allUsers.Where(u => u.Role == CareSphereRoles.Nurse || u.Role == CareSphereRoles.HospitalAdmin).ToList();
             userNamesDict = allUsers.ToDictionary(u => u.Id, u => u.FullName);
         }
     }

@@ -89,6 +89,10 @@ namespace CareSphere.Migrations
                     b.Property<string>("PasswordHash")
                         .HasColumnType("text");
 
+                    b.Property<Guid?>("PatientId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("patient_id");
+
                     b.Property<string>("PhoneNumber")
                         .HasColumnType("text");
 

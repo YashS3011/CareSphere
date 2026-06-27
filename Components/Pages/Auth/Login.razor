@@ -204,6 +204,9 @@
                     if (result.User.DoctorId.HasValue)
                         claims.Add(new Claim(CareSphereClaimTypes.DoctorId, result.User.DoctorId.Value.ToString()));
 
+                    if (result.User.PatientId.HasValue)
+                        claims.Add(new Claim(CareSphereClaimTypes.PatientId, result.User.PatientId.Value.ToString()));
+
                     foreach (var perm in permissions)
                     {
                         claims.Add(new Claim(CareSphereClaimTypes.Permission, perm));
@@ -213,7 +216,14 @@
                     tabProvider.NotifyUserLogin(new ClaimsPrincipal(identity));
                 }
 
-                var returnUrl = ReturnUrl ?? "/";
+                var returnUrl = ReturnUrl;
+                if (string.IsNullOrEmpty(returnUrl) || returnUrl == "/")
+                {
+                    if (result.User?.Role == CareSphereRoles.HospitalAdmin)
+                        returnUrl = "/dashboard";
+                    else
+                        returnUrl = "/";
+                }
                 NavigationManager.NavigateTo(returnUrl, forceLoad: false);
             }
             else

@@ -12,13 +12,13 @@ namespace CareSphere.Components.Pages.Admin
         /// </summary>
         public static IReadOnlyList<string> GetAllRoles() => new[]
         {
-            CareSphereRoles.SuperAdmin,
+            CareSphereRoles.PlatformAdmin,
             CareSphereRoles.HospitalAdmin,
             CareSphereRoles.Doctor,
             CareSphereRoles.Nurse,
             CareSphereRoles.Pharmacist,
             CareSphereRoles.LabTechnician,
-            CareSphereRoles.FrontDesk,
+            CareSphereRoles.WardManager,
             CareSphereRoles.Finance,
             CareSphereRoles.NabhAuditor,
             CareSphereRoles.Patient,
@@ -49,13 +49,13 @@ namespace CareSphere.Components.Pages.Admin
         /// </summary>
         public static string GetRoleBadgeClass(string role) => role switch
         {
-            CareSphereRoles.SuperAdmin => "bg-danger",
+            CareSphereRoles.PlatformAdmin => "bg-dark text-white",
             CareSphereRoles.HospitalAdmin => "bg-warning text-dark",
             CareSphereRoles.Doctor => "bg-primary",
             CareSphereRoles.Nurse => "bg-info text-dark",
             CareSphereRoles.Pharmacist => "bg-success",
             CareSphereRoles.LabTechnician => "bg-secondary",
-            CareSphereRoles.FrontDesk => "bg-dark",
+            CareSphereRoles.WardManager => "bg-dark text-white",
             CareSphereRoles.Finance => "bg-dark",
             CareSphereRoles.NabhAuditor => "bg-secondary",
             CareSphereRoles.Patient => "bg-light text-dark",
@@ -69,13 +69,13 @@ namespace CareSphere.Components.Pages.Admin
         /// </summary>
         public static string GetRoleIcon(string role) => role switch
         {
-            CareSphereRoles.SuperAdmin => "bi-stars",
+            CareSphereRoles.PlatformAdmin => "bi-cloud",
             CareSphereRoles.HospitalAdmin => "bi-building",
             CareSphereRoles.Doctor => "bi-person-badge",
             CareSphereRoles.Nurse => "bi-heart-fill",
             CareSphereRoles.Pharmacist => "bi-capsule",
-            CareSphereRoles.LabTechnician => "bi-flask",
-            CareSphereRoles.FrontDesk => "bi-reception-4",
+            CareSphereRoles.LabTechnician => "bi-droplet",
+            CareSphereRoles.WardManager => "bi-hospital",
             CareSphereRoles.Finance => "bi-wallet2",
             CareSphereRoles.NabhAuditor => "bi-clipboard-check",
             CareSphereRoles.Patient => "bi-person",
@@ -89,7 +89,7 @@ namespace CareSphere.Components.Pages.Admin
         /// </summary>
         public static string GetRoleBgClass(string role) => role switch
         {
-            CareSphereRoles.SuperAdmin => "bg-danger",
+            CareSphereRoles.PlatformAdmin => "bg-dark",
             CareSphereRoles.HospitalAdmin => "bg-warning",
             CareSphereRoles.Doctor => "bg-primary",
             CareSphereRoles.Nurse => "bg-info",
@@ -104,13 +104,13 @@ namespace CareSphere.Components.Pages.Admin
         /// </summary>
         public static string GetRoleDescription(string role) => role switch
         {
-            CareSphereRoles.SuperAdmin => "Full system access",
-            CareSphereRoles.HospitalAdmin => "Admin minus clinical writes",
+            CareSphereRoles.PlatformAdmin => "Vendor administration",
+            CareSphereRoles.HospitalAdmin => "Hospital administration",
             CareSphereRoles.Doctor => "Clinical workflows",
             CareSphereRoles.Nurse => "Care and bedside",
             CareSphereRoles.Pharmacist => "Pharmacy operations",
             CareSphereRoles.LabTechnician => "Lab samples and results",
-            CareSphereRoles.FrontDesk => "Reception and billing",
+            CareSphereRoles.WardManager => "Ward and bed management",
             CareSphereRoles.Finance => "Billing and payments",
             CareSphereRoles.NabhAuditor => "Read-only compliance",
             CareSphereRoles.Patient => "Own record only",

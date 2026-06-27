@@ -166,7 +166,7 @@ namespace CareSphere.Modules.Pharmacy.Services
             {
                 pharmacists = await _context.Users
                     .IgnoreQueryFilters()
-                    .Where(u => u.TenantId == tenantId && (u.Role == "HospitalAdmin" || u.Role == "SuperAdmin") && u.IsActive && u.DeletedAt == null)
+                    .Where(u => u.TenantId == tenantId && u.Role == "HospitalAdmin" && u.IsActive && u.DeletedAt == null)
                     .ToListAsync();
             }
 

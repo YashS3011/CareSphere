@@ -657,7 +657,7 @@ namespace CareSphere.Data
                             {
                                 shouldSet = false;
                             }
-                            else if (entry.Entity is AuditEvent auditEvent && auditEvent.Action.StartsWith("SuperAdmin_"))
+                            else if (entry.Entity is AuditEvent auditEvent && (auditEvent.Action.StartsWith("SuperAdmin_") || auditEvent.Action.StartsWith("HospitalAdmin_")))
                             {
                                 shouldSet = false;
                             }

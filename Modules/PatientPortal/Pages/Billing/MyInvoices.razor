@@ -1,0 +1,137 @@
+@page "/patient/billing/invoices"
+@attribute [Microsoft.AspNetCore.Authorization.Authorize(Policy = PolicyNames.Permission_OwnInvoices_Download)]
+@inject IPatientPortalService PortalService
+@inject AuthenticationStateProvider AuthStateProvider
+@inject PageTitleService PageTitle
+@rendermode InteractiveServer
+
+<PageTitle>My Bills — Patient Portal</PageTitle>
+
+<div class="page-header">
+    <div class="page-header-content">
+        <div class="page-title-group">
+            <div class="page-icon"><i class="bi bi-receipt-cutoff"></i></div>
+            <div>
+                <h1 class="page-title">My Bills &amp; Invoices</h1>
+                <p class="page-subtitle">View all invoices and payment history.</p>
+            </div>
+        </div>
+    </div>
+</div>
+
+@if (loading)
+{
+    <div class="d-flex justify-content-center py-5"><div class="spinner-border text-primary" role="status"></div></div>
+}
+else
+{
+    <!-- Summary -->
+    <div class="row g-3 mb-4">
+        <div class="col-sm-6 col-lg-3">
+            <div class="stat-card stat-card-danger">
+                <div class="stat-icon"><i class="bi bi-exclamation-triangle-fill"></i></div>
+                <div>
+                    <div class="stat-value">₹@pendingTotal.ToString("N0")</div>
+                    <div class="stat-label">Pending Amount</div>
+                </div>
+            </div>
+        </div>
+        <div class="col-sm-6 col-lg-3">
+            <div class="stat-card stat-card-success">
+                <div class="stat-icon"><i class="bi bi-check-circle-fill"></i></div>
+                <div>
+                    <div class="stat-value">@paidCount</div>
+                    <div class="stat-label">Paid Invoices</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    @if (!invoices.Any())
+    {
+        <div class="alert alert-info border-0 rounded-3"><i class="bi bi-info-circle me-2"></i>No invoices found.</div>
+    }
+    else
+    {
+        <div class="content-card">
+            <div class="table-responsive">
+                <table class="table table-hover data-table mb-0">
+                    <thead class="table-light">
+                        <tr>
+                            <th>Invoice #</th>
+                            <th>Date</th>
+                            <th>Total</th>
+                            <th>Paid</th>
+                            <th>Balance</th>
+                            <th>Status</th>
+                            <th>Action</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var inv in invoices)
+                        {
+                            <tr>
+                                <td class="fw-semibold font-monospace small">@inv.InvoiceNumber</td>
+                                <td class="small text-muted">@inv.InvoiceDate.ToLocalTime().ToString("dd MMM yyyy")</td>
+                                <td>₹@inv.TotalAmount.ToString("N2")</td>
+                                <td class="text-success">₹@inv.PaidAmount.ToString("N2")</td>
+                                <td class="@(inv.BalanceAmount > 0 ? "text-danger fw-semibold" : "text-success")">
+                                    ₹@inv.BalanceAmount.ToString("N2")
+                                </td>
+                                <td>
+                                    <span class="badge @StatusBadge(inv.Status)">@inv.Status</span>
+                                </td>
+                                <td>
+                                    @if (inv.BalanceAmount > 0 && inv.Status != "Cancelled")
+                                    {
+                                        <a href="/patient/billing/pay/@inv.Id" class="btn btn-sm btn-primary rounded-pill px-3">
+                                            <i class="bi bi-credit-card me-1"></i> Pay
+                                        </a>
+                                    }
+                                    else if (inv.Status == "Cancelled")
+                                    {
+                                        <span class="text-muted small">Cancelled</span>
+                                    }
+                                    else
+                                    {
+                                        <span class="text-success small"><i class="bi bi-check-circle-fill me-1"></i>Paid</span>
+                                    }
+                                </td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    }
+}
+
+@code {
+    private bool loading = true;
+    private List<BillingInvoice> invoices = new();
+    private decimal pendingTotal;
+    private int paidCount;
+
+    protected override async Task OnInitializedAsync()
+    {
+        PageTitle.SetTitle("My Bills");
+        var auth = await AuthStateProvider.GetAuthenticationStateAsync();
+        var pidStr = auth.User.FindFirst(CareSphereClaimTypes.PatientId)?.Value;
+        if (Guid.TryParse(pidStr, out var pid))
+        {
+            invoices     = await PortalService.GetMyInvoicesAsync(pid);
+            pendingTotal = invoices.Where(i => i.Status != "Paid").Sum(i => i.BalanceAmount);
+            paidCount    = invoices.Count(i => i.Status == "Paid");
+        }
+        loading = false;
+    }
+
+    private static string StatusBadge(string s) => s switch
+    {
+        "Paid"           => "bg-success",
+        "Unpaid"         => "bg-danger",
+        "PartiallyPaid"  => "bg-warning text-dark",
+        "Cancelled"      => "bg-secondary",
+        _                => "bg-secondary",
+    };
+}

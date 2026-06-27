@@ -239,7 +239,6 @@ D:\CareSphere\obj\Debug\net10.0\compressed\op49qy57it-{0}-ig5xotzpx5-ig5xotzpx5.
 D:\CareSphere\obj\Debug\net10.0\scopedcss\Modules\Clinical\Layout\ClinicalLayout.razor.rz.scp.css
 D:\CareSphere\obj\Debug\net10.0\scopedcss\Modules\Patients\Layout\PatientsLayout.razor.rz.scp.css
 D:\CareSphere\obj\Debug\net10.0\scopedcss\Modules\Ward\Layout\WardLayout.razor.rz.scp.css
-D:\CareSphere\obj\Debug\net10.0\scopedcss\Areas\PlatformAdmin\Layout\PlatformAdminLayout.razor.rz.scp.css
 D:\CareSphere\obj\Debug\net10.0\scopedcss\Modules\Admin\Layout\AdminLayout.razor.rz.scp.css
 D:\CareSphere\obj\Debug\net10.0\scopedcss\Modules\Analytics\Layout\AnalyticsLayout.razor.rz.scp.css
 D:\CareSphere\obj\Debug\net10.0\scopedcss\Modules\Appointments\Layout\AppointmentsLayout.razor.rz.scp.css
@@ -298,6 +297,7 @@ D:\CareSphere\obj\Debug\net10.0\compressed\dko6y7plta-{0}-j4a4u2uj29-j4a4u2uj29.
 D:\CareSphere\obj\Debug\net10.0\compressed\1j8oabzfj7-{0}-qz6clc5837-qz6clc5837.gz
 D:\CareSphere\obj\Debug\net10.0\compressed\0g0tdqq8mx-{0}-ody88ncx6z-ody88ncx6z.gz
 D:\CareSphere\obj\Debug\net10.0\compressed\by4i8uveuz-{0}-tmy6fzcykp-tmy6fzcykp.gz
-D:\CareSphere\obj\Debug\net10.0\compressed\yzdcvmnpv3-{0}-10525tj7e2-10525tj7e2.gz
-D:\CareSphere\obj\Debug\net10.0\compressed\mfuuwe67di-{0}-r3g5bdjmy2-r3g5bdjmy2.gz
-D:\CareSphere\obj\Debug\net10.0\compressed\ajdfzskxy7-{0}-r3g5bdjmy2-r3g5bdjmy2.gz
+D:\CareSphere\obj\Debug\net10.0\compressed\mfuuwe67di-{0}-0jmwivbde3-0jmwivbde3.gz
+D:\CareSphere\obj\Debug\net10.0\compressed\ajdfzskxy7-{0}-0jmwivbde3-0jmwivbde3.gz
+D:\CareSphere\obj\Debug\net10.0\compressed\7yjd86u7zd-{0}-1xkzj97een-1xkzj97een.gz
+D:\CareSphere\obj\Debug\net10.0\compressed\yzdcvmnpv3-{0}-x616cx8d6d-x616cx8d6d.gz

@@ -1,6 +1,8 @@
 @page "/beds/dashboard"
-@attribute [Authorize(Policy = PolicyNames.Permission_Beds_View)]
+@attribute [Authorize(Policy = PolicyNames.Permission_Beds_Manage)]
 @inject IBedService BedService
+@inject PageTitleService PageTitle
+@implements IDisposable
 
 <PageTitle>Bed Dashboard - CareSphere</PageTitle>
 
@@ -10,18 +12,26 @@
             <div class="page-icon"><i class="bi bi-grid-3x3-gap-fill"></i></div>
             <div>
                 <h1 class="page-title">Bed Dashboard</h1>
-                <p class="page-subtitle">Real-time bed occupancy &amp; ward allocation overview</p>
+                <p class="page-subtitle">Real-time bed occupancy overview and interactive layout map</p>
             </div>
         </div>
         <div class="page-actions">
-            <a href="/allotments/create" class="btn btn-success"><i class="bi bi-box-arrow-in-right me-1"></i> Admit Patient</a>
-            <a href="/wards" class="btn btn-outline-secondary"><i class="bi bi-hospital me-1"></i> Wards</a>
-            <a href="/beds" class="btn btn-outline-secondary"><i class="bi bi-layout-three-columns me-1"></i> Beds</a>
+            <AuthorizeView Policy="@PolicyNames.Permission_Beds_Allocate">
+                <Authorized>
+                    <a href="/allotments/create" class="btn btn-success"><i class="bi bi-box-arrow-in-right me-1"></i> Admit Patient</a>
+                </Authorized>
+            </AuthorizeView>
+            <AuthorizeView Policy="@PolicyNames.Permission_Beds_Manage">
+                <Authorized>
+                    <a href="/beds/create" class="btn btn-primary"><i class="bi bi-plus-circle me-1"></i> Add New Bed</a>
+                </Authorized>
+            </AuthorizeView>
+            <a href="/beds" class="btn btn-outline-secondary"><i class="bi bi-layout-three-columns me-1"></i> Manage Beds</a>
         </div>
     </div>
 </div>
 
-@if (stats == null)
+@if (stats == null || allBeds == null)
 {
     <div class="loading-state">
         <div class="spinner-border text-primary" role="status"><span class="visually-hidden">Loading...</span></div>
@@ -61,50 +71,57 @@ else
         </div>
     </div>
 
+    <!-- Interactive Bed Grid Map -->
     <div class="content-card">
-        <div class="content-card-header">
-            <h5 class="content-card-title"><i class="bi bi-bar-chart-steps me-2"></i>Ward Occupancy Breakdown</h5>
+        <div class="content-card-header bg-light">
+            <div class="d-flex justify-content-between align-items-center w-100 flex-wrap gap-2">
+                <h5 class="content-card-title m-0"><i class="bi bi-grid-3x3-gap me-2"></i>Bed Occupancy Map by Ward</h5>
+                <!-- Status Legend -->
+                <div class="d-flex gap-3 flex-wrap" style="font-size: 0.8rem;">
+                    <span class="d-flex align-items-center gap-1"><span class="badge bg-success" style="width: 12px; height: 12px; border-radius: 3px; display: inline-block;"></span> Available</span>
+                    <span class="d-flex align-items-center gap-1"><span class="badge bg-danger" style="width: 12px; height: 12px; border-radius: 3px; display: inline-block;"></span> Occupied</span>
+                    <span class="d-flex align-items-center gap-1"><span class="badge bg-warning text-dark" style="width: 12px; height: 12px; border-radius: 3px; display: inline-block;"></span> Maintenance</span>
+                    <span class="d-flex align-items-center gap-1"><span class="badge bg-info" style="width: 12px; height: 12px; border-radius: 3px; display: inline-block;"></span> Reserved</span>
+                </div>
+            </div>
         </div>
         <div class="content-card-body">
-            @if (!stats.WardBreakdown.Any())
+            @if (!allBeds.Any())
             {
                 <div class="empty-state">
-                    <i class="bi bi-building"></i>
-                    <p>No wards configured yet.</p>
+                    <i class="bi bi-layout-three-columns"></i>
+                    <p>No beds registered in the system yet.</p>
                 </div>
             }
             else
             {
-                <div class="row g-3">
-                    @foreach (var ward in stats.WardBreakdown)
-                    {
-                        var occupancyPercent = ward.Total > 0 ? (int)Math.Round((double)ward.Occupied / ward.Total * 100) : 0;
-                        var barClass = occupancyPercent > 90 ? "bg-danger" : (occupancyPercent > 75 ? "bg-warning" : "bg-success");
-                        var badgeClass = occupancyPercent > 90 ? "badge-danger" : (occupancyPercent > 75 ? "badge-warning" : "badge-success");
-
-                        <div class="col-md-6 col-xl-4">
-                            <div class="ward-occupancy-card">
-                                <div class="ward-header">
-                                    <div>
-                                        <div class="ward-name">@ward.WardName</div>
-                                        <div class="ward-type">@ward.WardType</div>
-                                    </div>
-                                    <span class="occupancy-badge @badgeClass">@occupancyPercent%</span>
+                var bedsByWard = allBeds.GroupBy(b => b.Ward?.Name ?? "Unassigned Ward").OrderBy(g => g.Key);
+                foreach (var group in bedsByWard)
+                {
+                    <div class="mb-4 pb-3 border-bottom last-border-0">
+                        <h6 class="fw-bold text-dark mb-3"><i class="bi bi-door-open-fill text-primary me-2"></i>@group.Key</h6>
+                        <div class="d-flex flex-wrap gap-3">
+                            @foreach (var bed in group.OrderBy(b => b.BedNumber))
+                            {
+                                var badgeColor = bed.Status switch
+                                {
+                                    "Available" => "bg-success",
+                                    "Occupied" => "bg-danger",
+                                    "Maintenance" => "bg-warning text-dark",
+                                    "Reserved" => "bg-info",
+                                    _ => "bg-secondary"
+                                };
+                                <div class="d-flex flex-column align-items-center p-2 rounded border hover-shadow" 
+                                     style="min-width: 80px; background-color: var(--surface-bg); cursor: pointer;"
+                                     @onclick='() => NavigateToBedEdit(bed.Id)'>
+                                    <i class="bi bi-hospital fs-4 @(bed.Status == "Available" ? "text-success" : (bed.Status == "Occupied" ? "text-danger" : (bed.Status == "Maintenance" ? "text-warning" : "text-info")))"></i>
+                                    <span class="fw-bold mt-1 text-xs text-dark">@bed.BedNumber</span>
+                                    <span class="badge @badgeColor mt-1" style="font-size: 0.65rem; padding: 0.2rem 0.4rem;">@bed.Status</span>
                                 </div>
-                                <div class="progress mt-3 mb-2" style="height:8px;border-radius:4px;">
-                                    <div class="progress-bar @barClass" role="progressbar"
-                                         style="width:@occupancyPercent%;"
-                                         aria-valuenow="@occupancyPercent" aria-valuemin="0" aria-valuemax="100"></div>
-                                </div>
-                                <div class="ward-stats">
-                                    <span><i class="bi bi-person-fill text-danger me-1"></i>Occupied: <strong>@ward.Occupied</strong></span>
-                                    <span><i class="bi bi-check2 text-success me-1"></i>Available: <strong>@ward.Available</strong></span>
-                                    <span><i class="bi bi-grid text-muted me-1"></i>Total: <strong>@ward.Total</strong></span>
-                                </div>
-                            </div>
+                            }
                         </div>
-                    }
-                </div>
+                    </div>
+                }
             }
         </div>
     </div>
@@ -112,9 +129,25 @@ else
 
 @code {
     private BedDashboardStats? stats;
+    private List<Bed>? allBeds;
 
     protected override async Task OnInitializedAsync()
     {
+        PageTitle.SetTitle("Bed Dashboard");
+        PageTitle.OnTitleChanged += StateHasChanged;
         stats = await BedService.GetDashboardStatsAsync();
+        allBeds = await BedService.GetAllBedsAsync(null, null);
+    }
+
+    private void NavigateToBedEdit(Guid id)
+    {
+        NavigationManager.NavigateTo($"/beds/edit/{id}");
+    }
+
+    @inject NavigationManager NavigationManager
+
+    public void Dispose()
+    {
+        PageTitle.OnTitleChanged -= StateHasChanged;
     }
 }

@@ -1,0 +1,114 @@
+@page "/patient/appointments"
+@attribute [Microsoft.AspNetCore.Authorization.Authorize(Policy = PolicyNames.Permission_Appointments_Book)]
+@inject IPatientPortalService PortalService
+@inject AuthenticationStateProvider AuthStateProvider
+@inject PageTitleService PageTitle
+@rendermode InteractiveServer
+
+<PageTitle>My Appointments — Patient Portal</PageTitle>
+
+<div class="page-header">
+    <div class="page-header-content">
+        <div class="page-title-group">
+            <div class="page-icon"><i class="bi bi-calendar-event-fill"></i></div>
+            <div>
+                <h1 class="page-title">My Appointments</h1>
+                <p class="page-subtitle">Upcoming and past appointments.</p>
+            </div>
+        </div>
+    </div>
+</div>
+
+@if (loading)
+{
+    <div class="d-flex justify-content-center py-5"><div class="spinner-border text-primary" role="status"></div></div>
+}
+else
+{
+    <!-- Upcoming -->
+    <h5 class="fw-bold mb-3 mt-2"><i class="bi bi-calendar-check text-primary me-2"></i>Upcoming</h5>
+    @if (!upcoming.Any())
+    {
+        <div class="alert alert-info border-0 rounded-3 mb-4"><i class="bi bi-info-circle me-2"></i>No upcoming appointments.</div>
+    }
+    else
+    {
+        <div class="row g-3 mb-4">
+            @foreach (var a in upcoming)
+            {
+                <div class="col-md-6 col-xl-4">
+                    <div class="content-card p-3 h-100">
+                        <div class="d-flex align-items-center gap-3">
+                            <div class="stat-icon bg-primary bg-opacity-10 text-primary rounded-3 p-2">
+                                <i class="bi bi-calendar-event fs-4"></i>
+                            </div>
+                            <div>
+                                <div class="fw-bold">@a.SlotStart.ToLocalTime().ToString("dd MMM yyyy, hh:mm tt")</div>
+                                <div class="text-muted small">Dr. @(a.Doctor?.FullName ?? "—")</div>
+                                <span class="badge @StatusBadge(a.Status) mt-1">@a.Status</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            }
+        </div>
+    }
+
+    <!-- Past -->
+    <h5 class="fw-bold mb-3"><i class="bi bi-clock-history text-secondary me-2"></i>Past Appointments</h5>
+    @if (!past.Any())
+    {
+        <div class="alert alert-light border-0 rounded-3"><i class="bi bi-info-circle me-2"></i>No past appointments.</div>
+    }
+    else
+    {
+        <div class="content-card">
+            <div class="table-responsive">
+                <table class="table table-hover data-table mb-0">
+                    <thead class="table-light">
+                        <tr><th>Date</th><th>Doctor</th><th>Status</th></tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var a in past)
+                        {
+                            <tr>
+                                <td class="small">@a.SlotStart.ToLocalTime().ToString("dd MMM yyyy, hh:mm tt")</td>
+                                <td>Dr. @(a.Doctor?.FullName ?? "—")</td>
+                                <td><span class="badge @StatusBadge(a.Status)">@a.Status</span></td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    }
+}
+
+@code {
+    private bool loading = true;
+    private List<Appointment> upcoming = new();
+    private List<Appointment> past = new();
+
+    protected override async Task OnInitializedAsync()
+    {
+        PageTitle.SetTitle("My Appointments");
+        var auth = await AuthStateProvider.GetAuthenticationStateAsync();
+        var pidStr = auth.User.FindFirst(CareSphereClaimTypes.PatientId)?.Value;
+        if (Guid.TryParse(pidStr, out var pid))
+        {
+            var all = await PortalService.GetMyAppointmentsAsync(pid);
+            upcoming = all.Where(a => a.SlotStart > DateTime.UtcNow).OrderBy(a => a.SlotStart).ToList();
+            past     = all.Where(a => a.SlotStart <= DateTime.UtcNow).OrderByDescending(a => a.SlotStart).ToList();
+        }
+        loading = false;
+    }
+
+    private static string StatusBadge(string s) => s switch
+    {
+        "Confirmed"  => "bg-success",
+        "Pending"    => "bg-warning text-dark",
+        "Cancelled"  => "bg-danger",
+        "Completed"  => "bg-secondary",
+        _            => "bg-secondary",
+    };
+}

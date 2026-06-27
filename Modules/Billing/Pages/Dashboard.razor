@@ -1,5 +1,5 @@
 @page "/billing/dashboard"
-@attribute [Microsoft.AspNetCore.Authorization.Authorize(Policy = PolicyNames.Permission_Billing_ViewInvoices)]
+@attribute [Microsoft.AspNetCore.Authorization.Authorize(Policy = PolicyNames.Permission_Billing_View)]
 @using Microsoft.EntityFrameworkCore
 @using CareSphere.Data
 @inject ApplicationDbContext DbContext

@@ -61,6 +61,9 @@ namespace CareSphere.Modules.Notifications.Services
         Task SendLabReportReadyAsync(LabReportReady evt);
         Task SendAppointmentConfirmationAsync(AppointmentBookedEvent evt);
         Task SendCriticalResultAlertAsync(CriticalResultFlagged evt);   // G11.3
-        Task SendPatientDischargedAsync(PatientDischarged evt);          // G11.2
+        Task SendQueuePositionUpdateAsync(DoctorQueueEntry queueEntry);
+        Task SendPrescriptionIssuedAsync(Prescription rx);
+        Task SendPatientAdmittedAsync(PatientAdmitted evt);
+        Task SendPatientDischargedAsync(PatientDischarged evt);
     }
 }

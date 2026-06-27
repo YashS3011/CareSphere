@@ -1,0 +1,144 @@
+@page "/platform-admin/hospitals"
+@attribute [Microsoft.AspNetCore.Authorization.Authorize(Policy = PolicyNames.Permission_Platform_ManageHospitals)]
+@inject IPlatformAdminService PlatformService
+@inject PageTitleService PageTitle
+@rendermode InteractiveServer
+
+<PageTitle>All Hospitals — CareSphere Platform</PageTitle>
+
+<div class="page-header">
+    <div class="page-header-content">
+        <div class="page-title-group">
+            <div class="page-icon"><i class="bi bi-hospital-fill"></i></div>
+            <div>
+                <h1 class="page-title">Hospital Clients</h1>
+                <p class="page-subtitle">Manage all hospital tenants registered on CareSphere Platform.</p>
+            </div>
+        </div>
+        <div class="page-actions">
+            <a href="/platform-admin/hospitals/create" class="btn btn-primary">
+                <i class="bi bi-plus-circle-fill me-1"></i>Onboard Hospital
+            </a>
+        </div>
+    </div>
+</div>
+
+<!-- Search -->
+<div class="content-card mb-4">
+    <div class="content-card-body">
+        <div class="row g-3">
+            <div class="col-md-5">
+                <div class="input-group">
+                    <span class="input-group-text"><i class="bi bi-search"></i></span>
+                    <input type="text" class="form-control" placeholder="Search hospital name or city..."
+                           @bind="search" @bind:event="oninput" />
+                </div>
+            </div>
+            <div class="col-md-3">
+                <select class="form-select" @bind="filterTier">
+                    <option value="">All Tiers</option>
+                    <option value="Free">Free</option>
+                    <option value="Basic">Basic</option>
+                    <option value="Pro">Pro</option>
+                    <option value="Enterprise">Enterprise</option>
+                </select>
+            </div>
+            <div class="col-md-3">
+                <select class="form-select" @bind="filterActive">
+                    <option value="">All Status</option>
+                    <option value="true">Active</option>
+                    <option value="false">Frozen</option>
+                </select>
+            </div>
+        </div>
+    </div>
+</div>
+
+@if (loading)
+{
+    <div class="d-flex justify-content-center py-5">
+        <div class="spinner-border text-primary" role="status"></div>
+    </div>
+}
+else
+{
+    <div class="content-card">
+        <div class="table-responsive">
+            <table class="table table-hover data-table mb-0">
+                <thead class="table-light">
+                    <tr>
+                        <th>Hospital Name</th>
+                        <th>City / State</th>
+                        <th>Email</th>
+                        <th>Tier</th>
+                        <th>Max Users</th>
+                        <th>Status</th>
+                        <th>Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var h in Filtered())
+                    {
+                        <tr>
+                            <td class="fw-semibold">@h.HospitalName</td>
+                            <td class="text-muted">@(h.City ?? "—")@(h.State != null ? ", " + h.State : "")</td>
+                            <td class="text-muted small">@(h.Email ?? "—")</td>
+                            <td>
+                                <span class="badge @TierBadge(h.SubscriptionTier)">@h.SubscriptionTier</span>
+                            </td>
+                            <td>@h.MaxUsersAllowed</td>
+                            <td>
+                                @if (h.IsActive)
+                                { <span class="badge bg-success">Active</span> }
+                                else
+                                { <span class="badge bg-danger">Frozen</span> }
+                            </td>
+                            <td>
+                                <a href="/platform-admin/hospitals/@h.TenantId" class="btn btn-sm btn-outline-primary" title="View Details">
+                                    <i class="bi bi-eye"></i>
+                                </a>
+                            </td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+        <div class="p-3 text-muted small">Showing @Filtered().Count() of @hospitals.Count hospitals</div>
+    </div>
+}
+
+@code {
+    private bool loading = true;
+    private List<CareSphere.Models.TenantSettings> hospitals = new();
+    private string search = "";
+    private string filterTier = "";
+    private string filterActive = "";
+
+    protected override async Task OnInitializedAsync()
+    {
+        PageTitle.SetTitle("Platform / Hospitals");
+        hospitals = await PlatformService.GetAllHospitalsAsync();
+        loading = false;
+    }
+
+    private IEnumerable<CareSphere.Models.TenantSettings> Filtered()
+    {
+        var q = hospitals.AsEnumerable();
+        if (!string.IsNullOrWhiteSpace(search))
+            q = q.Where(h => h.HospitalName.Contains(search, StringComparison.OrdinalIgnoreCase) ||
+                             (h.City ?? "").Contains(search, StringComparison.OrdinalIgnoreCase));
+        if (!string.IsNullOrWhiteSpace(filterTier))
+            q = q.Where(h => h.SubscriptionTier == filterTier);
+        if (!string.IsNullOrWhiteSpace(filterActive))
+            q = q.Where(h => h.IsActive == (filterActive == "true"));
+        return q;
+    }
+
+    private static string TierBadge(string tier) => tier switch
+    {
+        "Enterprise" => "bg-primary",
+        "Pro"        => "bg-info text-dark",
+        "Basic"      => "bg-secondary",
+        _            => "bg-light text-dark border",
+    };
+}

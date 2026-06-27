@@ -68,7 +68,7 @@
                             <div class="stat-value">@occupiedBeds / @totalBeds</div>
                             <div class="stat-label">Beds Occupied</div>
                         </div>
-                        <a href="/beds/dashboard" class="stretched-link"></a>
+                        <a href="@(hasBedsManage ? "/beds/dashboard" : "/wards")" class="stretched-link"></a>
                     </div>
                 </div>
             }
@@ -91,7 +91,7 @@
             {
                 <div class="col-sm-6 col-xl-3">
                     <div class="stat-card stat-card-info">
-                        <div class="stat-icon"><i class="bi bi-flask"></i></div>
+                        <div class="stat-icon"><i class="bi bi-droplet"></i></div>
                         <div>
                             <div class="stat-value">@pendingLabCollections</div>
                             <div class="stat-label">Pending Lab Samples</div>
@@ -110,7 +110,7 @@
                             <div class="stat-value">₹@totalCollectedToday.ToString("N0")</div>
                             <div class="stat-label">Today's Cash Collection</div>
                         </div>
-                        <a href="/billing/dashboard" class="stretched-link"></a>
+                        <a href="@(hasBillingDashboardView ? "/billing/dashboard" : "/billing/invoices")" class="stretched-link"></a>
                     </div>
                 </div>
             }
@@ -246,9 +246,11 @@
 
     private bool hasPatientsView;
     private bool hasBedsView;
+    private bool hasBedsManage;
     private bool hasPharmacyView;
     private bool hasLabView;
     private bool hasBillingView;
+    private bool hasBillingDashboardView;
 
     protected override async Task OnInitializedAsync()
     {
@@ -263,11 +265,39 @@
             hospitalName = user.FindFirst("target_hospital_name")?.Value ?? "CareSphere";
             doctorId = CurrentUserHelper.GetDoctorId(user) ?? Guid.Empty;
 
+            // ── Role-based landing page redirects ──────────────────────────────
+            switch (role)
+            {
+                case CareSphereRoles.PlatformAdmin:
+                case "platform_super_admin":
+                    NavigationManager.NavigateTo("/platform-admin", replace: true);
+                    return;
+                case CareSphereRoles.Patient:
+                    NavigationManager.NavigateTo("/patient/dashboard", replace: true);
+                    return;
+                case CareSphereRoles.HospitalAdmin:
+                    {
+                        var baseRelativePath = NavigationManager.ToBaseRelativePath(NavigationManager.Uri);
+                        if (string.IsNullOrEmpty(baseRelativePath) || baseRelativePath == "/")
+                        {
+                            NavigationManager.NavigateTo("/dashboard", replace: true);
+                            return;
+                        }
+                        break;
+                    }
+                case CareSphereRoles.WardManager:
+                    NavigationManager.NavigateTo("/beds/dashboard", replace: true);
+                    return;
+            }
+            // ──────────────────────────────────────────────────────────────────
+
             hasPatientsView = user.HasClaim(c => c.Type == CareSphereClaimTypes.Permission && c.Value == CareSpherePermissions.Patients_View);
             hasBedsView = user.HasClaim(c => c.Type == CareSphereClaimTypes.Permission && c.Value == CareSpherePermissions.Beds_View);
+            hasBedsManage = user.HasClaim(c => c.Type == CareSphereClaimTypes.Permission && c.Value == CareSpherePermissions.Beds_Manage);
             hasPharmacyView = user.HasClaim(c => c.Type == CareSphereClaimTypes.Permission && c.Value == CareSpherePermissions.Pharmacy_ViewStock);
             hasLabView = user.HasClaim(c => c.Type == CareSphereClaimTypes.Permission && c.Value == CareSpherePermissions.Lab_ViewReports);
             hasBillingView = user.HasClaim(c => c.Type == CareSphereClaimTypes.Permission && c.Value == CareSpherePermissions.Billing_ViewInvoices);
+            hasBillingDashboardView = user.HasClaim(c => c.Type == CareSphereClaimTypes.Permission && c.Value == CareSpherePermissions.Billing_View);
 
             // Fetch statistics safely
             try

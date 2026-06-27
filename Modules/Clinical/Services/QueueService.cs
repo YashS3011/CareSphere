@@ -11,16 +11,21 @@ using CareSphere.Modules.Shared.Events;
 using CareSphere.Data;
 using CareSphere.Models;
 using Microsoft.EntityFrameworkCore;
+using CareSphere.Infrastructure;
 
 namespace CareSphere.Modules.Clinical.Services
 {
     public class QueueService : IQueueService
     {
         private readonly ApplicationDbContext _context;
+        private readonly RealTimeEventBus _eventBus;
+        private readonly INotificationSenderService _notificationService;
 
-        public QueueService(ApplicationDbContext context)
+        public QueueService(ApplicationDbContext context, RealTimeEventBus eventBus, INotificationSenderService notificationService)
         {
             _context = context;
+            _eventBus = eventBus;
+            _notificationService = notificationService;
         }
 
         public async Task<DoctorQueueEntry> AddToQueueAsync(DoctorQueueEntry entry)
@@ -44,6 +49,9 @@ namespace CareSphere.Modules.Clinical.Services
 
             _context.DoctorQueueEntries.Add(entry);
             await _context.SaveChangesAsync();
+
+            // Trigger SMS Notification
+            await _notificationService.SendQueuePositionUpdateAsync(entry);
 
             return entry;
         }
@@ -71,6 +79,28 @@ namespace CareSphere.Modules.Clinical.Services
 
             _context.DoctorQueueEntries.Update(entry);
 
+            // Sync with corresponding Appointment
+            var today = DateTime.UtcNow.Date;
+            var appointment = await _context.Appointments
+                .Where(a => a.PatientId == entry.PatientId 
+                         && a.DoctorId == entry.DoctorId 
+                         && a.SlotStart.Date == today)
+                .OrderByDescending(a => a.SlotStart)
+                .FirstOrDefaultAsync();
+
+            if (appointment != null)
+            {
+                if (newStatus == "InConsultation")
+                    appointment.Status = "In Consultation";
+                else if (newStatus == "Completed")
+                    appointment.Status = "Completed";
+                else if (newStatus == "NoShow")
+                    appointment.Status = "No Show";
+                
+                appointment.UpdatedAt = DateTime.UtcNow;
+                _context.Appointments.Update(appointment);
+            }
+
             // Recalculate positions and ETAs for remaining waiting patients
             if (newStatus == "Completed" || newStatus == "NoShow")
             {
@@ -78,6 +108,7 @@ namespace CareSphere.Modules.Clinical.Services
             }
 
             await _context.SaveChangesAsync();
+            await _eventBus.PublishAsync("QueueUpdated", entry.DoctorId.ToString());
         }
 
         public async Task<List<DoctorQueueEntry>> GetQueueForDoctorAsync(Guid doctorId)

@@ -1,0 +1,78 @@
+@page "/patient/records/prescriptions"
+@attribute [Microsoft.AspNetCore.Authorization.Authorize(Policy = PolicyNames.Permission_OwnRecords_View)]
+@inject IPatientPortalService PortalService
+@inject AuthenticationStateProvider AuthStateProvider
+@inject PageTitleService PageTitle
+@rendermode InteractiveServer
+
+<PageTitle>My Prescriptions — Patient Portal</PageTitle>
+
+<div class="page-header">
+    <div class="page-header-content">
+        <div class="page-title-group">
+            <div class="page-icon"><i class="bi bi-prescription2"></i></div>
+            <div>
+                <h1 class="page-title">My Prescriptions</h1>
+                <p class="page-subtitle">Doctor-issued prescriptions for your treatments.</p>
+            </div>
+        </div>
+    </div>
+</div>
+
+@if (loading)
+{
+    <div class="d-flex justify-content-center py-5"><div class="spinner-border text-primary" role="status"></div></div>
+}
+else if (!prescriptions.Any())
+{
+    <div class="alert alert-info border-0 rounded-3"><i class="bi bi-info-circle me-2"></i>No prescriptions found.</div>
+}
+else
+{
+    <div class="content-card">
+        <div class="table-responsive">
+            <table class="table table-hover data-table mb-0">
+                <thead class="table-light">
+                    <tr>
+                        <th>Date Issued</th>
+                        <th>Doctor</th>
+                        <th>Medication</th>
+                        <th>Directions</th>
+                        <th>Qty</th>
+                        <th>Status</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var p in prescriptions)
+                    {
+                        <tr>
+                            <td class="small text-muted">@p.IssuedAt.ToLocalTime().ToString("dd MMM yyyy")</td>
+                            <td>Dr. @(p.Doctor?.FullName ?? "—")</td>
+                            <td class="fw-semibold">@p.DrugName (@p.Strength @p.Form)</td>
+                            <td class="small">@p.Frequency - @p.Route for @p.Duration</td>
+                            <td>@p.Quantity</td>
+                            <td>
+                                <span class="badge @(p.Status == "Active" ? "bg-success" : "bg-secondary")">@p.Status</span>
+                            </td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+    </div>
+}
+
+@code {
+    private bool loading = true;
+    private List<Prescription> prescriptions = new();
+
+    protected override async Task OnInitializedAsync()
+    {
+        PageTitle.SetTitle("My Prescriptions");
+        var auth = await AuthStateProvider.GetAuthenticationStateAsync();
+        var pidStr = auth.User.FindFirst(CareSphereClaimTypes.PatientId)?.Value;
+        if (Guid.TryParse(pidStr, out var pid))
+            prescriptions = await PortalService.GetMyPrescriptionsAsync(pid);
+        loading = false;
+    }
+}

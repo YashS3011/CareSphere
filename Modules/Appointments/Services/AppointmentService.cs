@@ -7,16 +7,22 @@ using Microsoft.EntityFrameworkCore;
 using CareSphere.Data;
 using CareSphere.Models;
 using CareSphere.Modules.Shared.Events;
+using CareSphere.Modules.Clinical.Services;
+using CareSphere.Infrastructure;
 
 namespace CareSphere.Modules.Appointments.Services
 {
     public class AppointmentService : IAppointmentService
     {
         private readonly ApplicationDbContext _dbContext;
+        private readonly IQueueService _queueService;
+        private readonly RealTimeEventBus _eventBus;
 
-        public AppointmentService(ApplicationDbContext dbContext)
+        public AppointmentService(ApplicationDbContext dbContext, IQueueService queueService, RealTimeEventBus eventBus)
         {
             _dbContext = dbContext;
+            _queueService = queueService;
+            _eventBus = eventBus;
         }
 
         public async Task<List<Appointment>> GetUpcomingAsync(Guid tenantId, int days = 7)
@@ -140,6 +146,31 @@ namespace CareSphere.Modules.Appointments.Services
 
                 await transaction.CommitAsync();
 
+                // If appointment is for today, auto-add to queue
+                if (slotStart.Date == DateTime.UtcNow.Date)
+                {
+                    try
+                    {
+                        var queueEntry = new DoctorQueueEntry
+                        {
+                            Id = Guid.NewGuid(),
+                            TenantId = tenantId,
+                            DoctorId = doctorId,
+                            PatientId = patientId,
+                            Status = "Waiting",
+                            CheckedInAt = DateTime.UtcNow,
+                            TriagePriority = appointmentType.Contains("Emergency", StringComparison.OrdinalIgnoreCase) ? "Emergency" : "Routine",
+                            Notes = $"From Appointment {appointment.Id}"
+                        };
+                        await _queueService.AddToQueueAsync(queueEntry);
+                        await _eventBus.PublishAsync("QueueUpdated", doctorId.ToString());
+                    }
+                    catch (Exception ex)
+                    {
+                        Console.WriteLine($"Failed to auto-add to queue: {ex.Message}");
+                    }
+                }
+
                 return appointment;
             }
             catch (Exception)
@@ -213,6 +244,32 @@ namespace CareSphere.Modules.Appointments.Services
                 _dbContext.ServiceBusOutboxes.Add(outboxMessage);
                 await _dbContext.SaveChangesAsync();
                 await transaction.CommitAsync();
+
+                // Auto-add to queue on arrival if not already there
+                try
+                {
+                    var existingQueue = await _queueService.GetQueueForDoctorAsync(appointment.DoctorId);
+                    if (!existingQueue.Any(q => q.PatientId == appointment.PatientId))
+                    {
+                        var queueEntry = new DoctorQueueEntry
+                        {
+                            Id = Guid.NewGuid(),
+                            TenantId = tenantId,
+                            DoctorId = appointment.DoctorId,
+                            PatientId = appointment.PatientId,
+                            Status = "Waiting",
+                            CheckedInAt = DateTime.UtcNow,
+                            TriagePriority = "Routine",
+                            Notes = $"From Appointment {appointment.Id}"
+                        };
+                        await _queueService.AddToQueueAsync(queueEntry);
+                        await _eventBus.PublishAsync("QueueUpdated", appointment.DoctorId.ToString());
+                    }
+                }
+                catch (Exception ex)
+                {
+                    Console.WriteLine($"Failed to auto-add to queue on arrival: {ex.Message}");
+                }
             }
             catch (Exception)
             {

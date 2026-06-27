@@ -15,9 +15,13 @@
                 <p class="page-subtitle">Configure beds and manage assignments by ward</p>
             </div>
         </div>
-        <div class="page-actions">
-            <a href="/beds/create" class="btn btn-primary"><i class="bi bi-plus-circle me-1"></i> Add New Bed</a>
-        </div>
+        <AuthorizeView Policy="@PolicyNames.Permission_Beds_Manage">
+            <Authorized>
+                <div class="page-actions">
+                    <a href="/beds/create" class="btn btn-primary"><i class="bi bi-plus-circle me-1"></i> Add New Bed</a>
+                </div>
+            </Authorized>
+        </AuthorizeView>
     </div>
 </div>
 
@@ -84,7 +88,11 @@ else
                             <th>Type</th>
                             <th>Status</th>
                             <th>Active</th>
-                            <th class="text-end">Actions</th>
+                            <AuthorizeView Policy="@PolicyNames.Permission_Beds_Manage">
+                                <Authorized>
+                                    <th class="text-end">Actions</th>
+                                </Authorized>
+                            </AuthorizeView>
                         </tr>
                     </thead>
                     <tbody>
@@ -108,12 +116,16 @@ else
                                     @if (bed.IsActive) { <span class="badge bg-success-subtle text-success"><i class="bi bi-check-circle-fill me-1"></i>Yes</span> }
                                     else { <span class="badge bg-secondary-subtle text-secondary"><i class="bi bi-dash-circle-fill me-1"></i>No</span> }
                                 </td>
-                                <td class="text-end">
-                                    <div class="btn-group btn-group-sm">
-                                        <a href="/beds/edit/@bed.Id" class="btn btn-outline-primary" title="Edit"><i class="bi bi-pencil"></i></a>
-                                        <button class="btn btn-outline-danger" @onclick="() => ConfirmDelete(bed.Id, bed.Status)" title="Delete"><i class="bi bi-trash"></i></button>
-                                    </div>
-                                </td>
+                                <AuthorizeView Policy="@PolicyNames.Permission_Beds_Manage">
+                                    <Authorized>
+                                        <td class="text-end">
+                                            <div class="btn-group btn-group-sm">
+                                                <a href="/beds/edit/@bed.Id" class="btn btn-outline-primary" title="Edit"><i class="bi bi-pencil"></i></a>
+                                                <button class="btn btn-outline-danger" @onclick="() => ConfirmDelete(bed.Id, bed.Status)" title="Delete"><i class="bi bi-trash"></i></button>
+                                            </div>
+                                        </td>
+                                    </Authorized>
+                                </AuthorizeView>
                             </tr>
                         }
                     </tbody>

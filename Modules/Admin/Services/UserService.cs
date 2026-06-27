@@ -43,7 +43,7 @@ namespace CareSphere.Modules.Admin.Services
         private string CurrentUserId =>
             _httpContextAccessor.HttpContext?.User?.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value ?? "system";
 
-        public async Task<UserCreateResult> CreateUserAsync(Guid tenantId, string fullName, string email, string password, string role, string? department = null, Guid? doctorId = null)
+        public async Task<UserCreateResult> CreateUserAsync(Guid tenantId, string fullName, string email, string password, string role, string? department = null, Guid? doctorId = null, Guid? patientId = null)
         {
             var user = new ApplicationUser
             {
@@ -54,6 +54,7 @@ namespace CareSphere.Modules.Admin.Services
                 Role = role,
                 Department = department,
                 DoctorId = doctorId,
+                PatientId = patientId,
                 IsActive = true,
                 CreatedAt = DateTime.UtcNow,
                 PreferredLanguage = "en",
@@ -82,7 +83,7 @@ namespace CareSphere.Modules.Admin.Services
             return UserCreateResult.Ok(user);
         }
 
-        public async Task<UserCreateResult> UpdateUserAsync(string userId, string fullName, string? department, bool isActive, string preferredLanguage, Guid? doctorId)
+        public async Task<UserCreateResult> UpdateUserAsync(string userId, string fullName, string? department, bool isActive, string preferredLanguage, Guid? doctorId, Guid? patientId = null)
         {
             var user = await _userManager.FindByIdAsync(userId);
             if (user == null)
@@ -93,6 +94,7 @@ namespace CareSphere.Modules.Admin.Services
             user.IsActive = isActive;
             user.PreferredLanguage = preferredLanguage;
             user.DoctorId = doctorId;
+            user.PatientId = patientId;
 
             var result = await _userManager.UpdateAsync(user);
             if (!result.Succeeded)
@@ -205,6 +207,7 @@ namespace CareSphere.Modules.Admin.Services
                     IsActive = u.IsActive,
                     LastLoginAt = u.LastLoginAt,
                     DoctorId = u.DoctorId,
+                    PatientId = u.PatientId,
                 })
                 .ToListAsync();
         }

@@ -1,0 +1,141 @@
+@page "/patient/records/nursing"
+@attribute [Microsoft.AspNetCore.Authorization.Authorize(Policy = PolicyNames.Permission_OwnRecords_View)]
+@inject IPatientPortalService PortalService
+@inject AuthenticationStateProvider AuthStateProvider
+@inject PageTitleService PageTitle
+@rendermode InteractiveServer
+
+<PageTitle>Nursing Care — Patient Portal</PageTitle>
+
+<div class="page-header">
+    <div class="page-header-content">
+        <div class="page-title-group">
+            <div class="page-icon"><i class="bi bi-capsule-fill text-primary"></i></div>
+            <div>
+                <h1 class="page-title">Nursing Care &amp; MAR</h1>
+                <p class="page-subtitle">Track administered medications and nursing progress notes.</p>
+            </div>
+        </div>
+    </div>
+</div>
+
+@if (loading)
+{
+    <div class="d-flex justify-content-center py-5"><div class="spinner-border text-primary" role="status"></div></div>
+}
+else
+{
+    <!-- Tab navigation -->
+    <ul class="nav nav-tabs mb-4" id="nursingTabs" role="tablist">
+        <li class="nav-item" role="presentation">
+            <button class="nav-link @(activeTab == "mar" ? "active" : "")" type="button" @onclick='() => activeTab = "mar"'>
+                <i class="bi bi-calendar-check me-2"></i>Medication Administration Records (MAR)
+            </button>
+        </li>
+        <li class="nav-item" role="presentation">
+            <button class="nav-link @(activeTab == "notes" ? "active" : "")" type="button" @onclick='() => activeTab = "notes"'>
+                <i class="bi bi-chat-left-text me-2"></i>Nursing Progress Notes
+            </button>
+        </li>
+    </ul>
+
+    <div class="tab-content">
+        @if (activeTab == "mar")
+        {
+            @if (!mars.Any())
+            {
+                <div class="alert alert-info border-0 rounded-3"><i class="bi bi-info-circle me-2"></i>No medication administrations recorded.</div>
+            }
+            else
+            {
+                <div class="content-card">
+                    <div class="table-responsive">
+                        <table class="table table-hover data-table mb-0">
+                            <thead class="table-light">
+                                <tr>
+                                    <th>Date &amp; Time</th>
+                                    <th>Medication</th>
+                                    <th>Dose</th>
+                                    <th>Route</th>
+                                    <th>Status</th>
+                                    <th>Notes</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                @foreach (var m in mars)
+                                {
+                                    <tr>
+                                        <td class="small text-muted">@m.AdministeredAt.ToLocalTime().ToString("dd MMM yyyy, hh:mm tt")</td>
+                                        <td class="fw-semibold">@(m.Prescription?.DrugName ?? "—")</td>
+                                        <td>@m.DoseGiven @m.DoseUnit</td>
+                                        <td>@m.Route</td>
+                                        <td>
+                                            <span class="badge @StatusBadge(m.Status)">@m.Status</span>
+                                            @if (!string.IsNullOrEmpty(m.SkipReason))
+                                            {
+                                                <div class="small text-danger mt-1">Reason: @m.SkipReason</div>
+                                            }
+                                        </td>
+                                        <td class="small text-muted">@(m.Notes ?? "—")</td>
+                                    </tr>
+                                }
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            }
+        }
+        else if (activeTab == "notes")
+        {
+            @if (!notes.Any())
+            {
+                <div class="alert alert-info border-0 rounded-3"><i class="bi bi-info-circle me-2"></i>No nursing notes recorded.</div>
+            }
+            else
+            {
+                <div class="row g-3">
+                    @foreach (var n in notes)
+                    {
+                        <div class="col-md-6">
+                            <div class="content-card p-3 h-100 border-start border-4 border-primary">
+                                <div class="d-flex justify-content-between align-items-center mb-2">
+                                    <span class="badge bg-secondary">@n.NoteType</span>
+                                    <span class="small text-muted">@n.NoteDateTime.ToLocalTime().ToString("dd MMM yyyy, hh:mm tt")</span>
+                                </div>
+                                <p class="mb-0 text-dark small" style="white-space: pre-line;">@n.Note</p>
+                            </div>
+                        </div>
+                    }
+                </div>
+            }
+        }
+    </div>
+}
+
+@code {
+    private bool loading = true;
+    private string activeTab = "mar";
+    private List<MedicationAdministrationRecord> mars = new();
+    private List<NursingNote> notes = new();
+
+    protected override async Task OnInitializedAsync()
+    {
+        PageTitle.SetTitle("Nursing Care & MAR");
+        var auth = await AuthStateProvider.GetAuthenticationStateAsync();
+        var pidStr = auth.User.FindFirst(CareSphereClaimTypes.PatientId)?.Value;
+        if (Guid.TryParse(pidStr, out var pid))
+        {
+            mars  = await PortalService.GetMyMARsAsync(pid);
+            notes = await PortalService.GetMyNursingNotesAsync(pid);
+        }
+        loading = false;
+    }
+
+    private static string StatusBadge(string s) => s switch
+    {
+        "Administered" => "bg-success",
+        "Skipped"      => "bg-warning text-dark",
+        "Refused"      => "bg-danger",
+        _              => "bg-secondary",
+    };
+}

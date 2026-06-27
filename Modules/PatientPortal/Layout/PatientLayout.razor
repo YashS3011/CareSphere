@@ -1,0 +1,142 @@
+@inherits LayoutComponentBase
+@using Microsoft.AspNetCore.Components.Routing
+@using Microsoft.AspNetCore.Components.Authorization
+@using CareSphere
+@using CareSphere.Infrastructure
+@inject AuthenticationStateProvider AuthStateProvider
+@inject NavigationManager Nav
+@inject PageTitleService PageTitle
+@implements IDisposable
+
+
+
+
+<AuthorizeView Roles="@CareSphere.CareSphereRoles.HospitalAdmin" Context="outerContext">
+    <Authorized>
+        <CareSphere.Modules.Admin.Layout.AdminLayout>
+            @Body
+        </CareSphere.Modules.Admin.Layout.AdminLayout>
+    </Authorized>
+    <NotAuthorized>
+<div class="cs-layout">
+    <!-- Patient Sidebar -->
+    <aside class="cs-sidebar cs-sidebar-patient offcanvas-md offcanvas-start" id="cs-sidebar" tabindex="-1">
+        <div class="cs-sidebar-brand">
+            <a href="/patient/dashboard" class="cs-brand-link">
+                <div class="cs-brand-icon"><i class="bi bi-hospital-fill text-white"></i></div>
+                <div class="cs-brand-text">
+                    <span class="cs-brand-name">@hospitalName</span>
+                    <span class="cs-brand-sub">Patient Portal</span>
+                </div>
+            </a>
+        </div>
+
+        <nav class="cs-sidebar-nav">
+            <NavLink class="cs-nav-link cs-nav-primary" href="/patient/dashboard" Match="NavLinkMatch.All">
+                <i class="bi bi-house-heart-fill"></i><span>My Dashboard</span>
+            </NavLink>
+
+            <!-- My Records -->
+            <button class="cs-nav-group-toggle @(records ? "expanded" : "")" @onclick='() => records = !records'>
+                <span class="cs-nav-group-icon"><i class="bi bi-file-person-fill"></i></span>
+                <span>My Records</span><i class="bi bi-chevron-down cs-chevron"></i>
+            </button>
+            @if (records)
+            {
+                <div class="cs-nav-sub">
+                    <NavLink class="cs-nav-link cs-nav-sub-link" href="/patient/records/info"><i class="bi bi-person-vcard"></i><span>Personal Info</span></NavLink>
+                    <NavLink class="cs-nav-link cs-nav-sub-link" href="/patient/records/prescriptions"><i class="bi bi-prescription2"></i><span>My Prescriptions</span></NavLink>
+                    <NavLink class="cs-nav-link cs-nav-sub-link" href="/patient/records/lab-results"><i class="bi bi-droplet"></i><span>Lab Test Results</span></NavLink>
+                    <NavLink class="cs-nav-link cs-nav-sub-link" href="/patient/records/nursing"><i class="bi bi-capsule"></i><span>Nursing Care / MAR</span></NavLink>
+                </div>
+            }
+
+            <!-- My Bills -->
+            <button class="cs-nav-group-toggle @(bills ? "expanded" : "")" @onclick='() => bills = !bills'>
+                <span class="cs-nav-group-icon"><i class="bi bi-receipt-cutoff"></i></span>
+                <span>My Bills</span><i class="bi bi-chevron-down cs-chevron"></i>
+            </button>
+            @if (bills)
+            {
+                <div class="cs-nav-sub">
+                    <NavLink class="cs-nav-link cs-nav-sub-link" href="/patient/billing/invoices"><i class="bi bi-file-earmark-text"></i><span>Invoices &amp; History</span></NavLink>
+                </div>
+            }
+
+            <!-- My Appointments -->
+            <NavLink class="cs-nav-link" href="/patient/appointments" Match="NavLinkMatch.All">
+                <i class="bi bi-calendar-event-fill"></i><span>My Appointments</span>
+            </NavLink>
+
+            <!-- My Reports -->
+            <button class="cs-nav-group-toggle @(rpts ? "expanded" : "")" @onclick='() => rpts = !rpts'>
+                <span class="cs-nav-group-icon"><i class="bi bi-file-earmark-medical-fill"></i></span>
+                <span>My Reports</span><i class="bi bi-chevron-down cs-chevron"></i>
+            </button>
+            @if (rpts)
+            {
+                <div class="cs-nav-sub">
+                    <NavLink class="cs-nav-link cs-nav-sub-link" href="/patient/reports/lab"><i class="bi bi-file-earmark-bar-graph"></i><span>Lab Reports (PDF)</span></NavLink>
+                </div>
+            }
+        </nav>
+
+        <AuthorizeView>
+            <Authorized >
+                <div class="cs-sidebar-footer">
+                    <div class="cs-footer-user">
+                        <div class="cs-avatar cs-avatar-patient"><i class="bi bi-person-heart"></i></div>
+                        <div class="cs-footer-info">
+                            <div class="cs-footer-name">@(CurrentUserHelper.GetFullName(context.User) ?? "Patient")</div>
+                            <span class="cs-role-badge patient">Patient</span>
+                        </div>
+                    </div>
+                    <a href="/auth/logout" class="cs-signout-btn" title="Sign Out"><i class="bi bi-box-arrow-right"></i></a>
+                </div>
+            </Authorized>
+        </AuthorizeView>
+    </aside>
+
+    <!-- Main Content -->
+    <div class="cs-main">
+        <header class="cs-topbar">
+            <div class="cs-topbar-left">
+                <button class="cs-menu-toggle d-md-none" type="button" data-bs-toggle="offcanvas" data-bs-target="#cs-sidebar">
+                    <i class="bi bi-list fs-4"></i>
+                </button>
+                <h4 class="cs-page-title">@PageTitle.Title</h4>
+            </div>
+            <div class="cs-topbar-right">
+                <AuthorizeView>
+                    <Authorized >
+                        <span class="cs-topbar-role cs-role-patient">
+                            <i class="bi bi-person-heart me-1"></i>Patient Portal
+                        </span>
+                        <a href="/auth/logout" class="btn btn-sm btn-outline-danger rounded-pill px-3">
+                            <i class="bi bi-box-arrow-right me-1"></i> Sign Out
+                        </a>
+                    </Authorized>
+                </AuthorizeView>
+            </div>
+        </header>
+        <main class="cs-body">@Body</main>
+    </div>
+</div>
+    </NotAuthorized>
+</AuthorizeView>
+
+@code {
+    private string hospitalName = "Hospital";
+    private bool records = true;
+    private bool bills = false;
+    private bool rpts = false;
+
+    protected override async Task OnInitializedAsync()
+    {
+        PageTitle.OnTitleChanged += StateHasChanged;
+        var auth = await AuthStateProvider.GetAuthenticationStateAsync();
+        hospitalName = auth.User.FindFirst("target_hospital_name")?.Value ?? "Hospital";
+    }
+
+    public void Dispose() => PageTitle.OnTitleChanged -= StateHasChanged;
+}

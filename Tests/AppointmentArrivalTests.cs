@@ -11,6 +11,14 @@ using Xunit;
 
 namespace CareSphere.Tests
 {
+    public class DummyQueueService : CareSphere.Modules.Clinical.Services.IQueueService
+    {
+        public Task<DoctorQueueEntry> AddToQueueAsync(DoctorQueueEntry entry) => Task.FromResult(entry);
+        public Task<List<DoctorQueueEntry>> GetQueueForDoctorAsync(Guid doctorId) => Task.FromResult(new List<DoctorQueueEntry>());
+        public Task UpdateStatusAsync(Guid entryId, string newStatus) => Task.CompletedTask;
+        public Task<int> CalculateEtaAsync(Guid doctorId) => Task.FromResult(0);
+    }
+
     public class AppointmentArrivalTests
     {
         [Fact]
@@ -77,7 +85,9 @@ namespace CareSphere.Tests
 
             using (var context = new ApplicationDbContext(options, new BypassTenantContext(tenantId)))
             {
-                var appointmentService = new AppointmentService(context);
+                var dummyQueue = new DummyQueueService();
+                var eventBus = new RealTimeEventBus();
+                var appointmentService = new AppointmentService(context, dummyQueue, eventBus);
 
                 // Act
                 await appointmentService.MarkArrivedAsync(appointmentId, tenantId);
